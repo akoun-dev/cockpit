@@ -89,7 +89,8 @@ function formatFrenchDate(date: string): string {
   });
 }
 
-function getInitials(name: string): string {
+function getInitials(name?: string | null): string {
+  if (!name) return '?';
   return name
     .split(' ')
     .map((n) => n[0])
@@ -132,9 +133,20 @@ export function AdminLogs() {
       const res = await fetch(`/api/admin/audit-logs?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        setLogs(data.data || data.logs || (Array.isArray(data) ? data : []));
+        const rawLogs = data.data || data.logs || (Array.isArray(data) ? data : []);
+        setLogs(rawLogs.map((log: Record<string, unknown>) => ({
+          id: log.id,
+          timestamp: (log as Record<string, unknown>).createdAt ?? log.timestamp,
+          userId: log.userId,
+          userName: (log as Record<string, unknown>).user?.name ?? log.userName ?? 'Inconnu',
+          userAvatar: (log as Record<string, unknown>).user?.avatar ?? log.userAvatar,
+          action: log.action,
+          category: log.category,
+          details: log.details,
+          ipAddress: log.ipAddress,
+        })));
         setPagination({
-          total: data.pagination?.total ?? data.total ?? (data.data || data.logs || []).length,
+          total: data.pagination?.total ?? data.total ?? rawLogs.length,
           limit: PAGE_SIZE,
           offset,
           hasMore: (data.pagination?.total ?? 0) > offset + PAGE_SIZE,
