@@ -9,6 +9,8 @@ import {
   Database,
   Globe,
   FileText,
+  FileSpreadsheet,
+  FileDown,
   Server,
   Wifi,
   Settings,
@@ -19,6 +21,8 @@ import {
   ChevronDown,
   ChevronRight,
   AlertTriangle,
+  FolderSync,
+  Plug,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -87,6 +91,11 @@ const TYPE_LABELS: Record<string, string> = {
   base_de_donnees: 'Base de données',
   fichier: 'Fichier',
   erp: 'ERP',
+  erp_dynamics: 'Microsoft Dynamics 365',
+  fichier_excel: 'Fichier Excel',
+  fichier_csv: 'Fichier CSV',
+  sharepoint: 'SharePoint',
+  sftp: 'SFTP',
 };
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
@@ -95,6 +104,11 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
   base_de_donnees: Database,
   fichier: FileText,
   erp: Server,
+  erp_dynamics: Plug,
+  fichier_excel: FileSpreadsheet,
+  fichier_csv: FileDown,
+  sharepoint: FolderSync,
+  sftp: Server,
 };
 
 const TYPE_COLORS: Record<string, string> = {
@@ -103,6 +117,11 @@ const TYPE_COLORS: Record<string, string> = {
   base_de_donnees: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
   fichier: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
   erp: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  erp_dynamics: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+  fichier_excel: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+  fichier_csv: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
+  sharepoint: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+  sftp: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -747,9 +766,9 @@ export function AdminDataSources() {
                 </div>
 
                 {/* Endpoint */}
-                {(form.type === 'api' || form.type === 'erp') && (
+                {(form.type === 'api' || form.type === 'erp' || form.type === 'erp_dynamics' || form.type === 'sharepoint') && (
                   <div className="space-y-2">
-                    <Label htmlFor="ds-endpoint">Endpoint API</Label>
+                    <Label htmlFor="ds-endpoint">Endpoint / Chemin</Label>
                     <Input
                       id="ds-endpoint"
                       placeholder="/api/v1/data"
@@ -760,7 +779,7 @@ export function AdminDataSources() {
                 )}
 
                 {/* Database */}
-                {(form.type === 'base_de_donnees' || form.type === 'erp') && (
+                {(form.type === 'base_de_donnees' || form.type === 'erp' || form.type === 'erp_dynamics') && (
                   <div className="space-y-2">
                     <Label htmlFor="ds-database">Base de données</Label>
                     <Input

@@ -324,30 +324,36 @@ async function seed() {
   // ─── Data Sources ─────────────────────────────────────────────
   await db.dataSource.createMany({
     data: [
-      // Accueil — agregated from all modules
+      // Accueil — aggregated from all modules
       { module: 'accueil', name: 'Base de données ANSUT', type: 'base_de_donnees', host: 'localhost', port: 5432, database: 'ansut_cockpit', refreshFreq: 'temps_reel', status: 'actif', description: 'Source principale pour les KPIs globaux du tableau de bord' },
       // Governance
       { module: 'governance', name: 'Sig Gouvernance', type: 'manuel', refreshFreq: 'mensuel', status: 'actif', description: 'Saisie manuelle des indicateurs de conformité et audit' },
       { module: 'governance', name: 'Module Marchés Publics', type: 'api', host: 'https://marches.ansut.ci', endpoint: '/api/v1/conformite', refreshFreq: 'journalier', status: 'actif', description: 'API de suivi des marchés publics et taux de conformité' },
       // Finance
-      { module: 'finance', name: 'SAP B1 — Module Finance', type: 'erp', host: '192.168.1.50', port: 30015, database: 'ANSUT_PROD', username: 'api_reader', refreshFreq: 'journalier', status: 'actif', description: 'Connexion SAP Business One pour données financières' },
-      { module: 'finance', name: 'Budget Excel — Import', type: 'fichier', refreshFreq: 'mensuel', status: 'actif', description: 'Import automatique des fichiers budget mensuels (xlsx)' },
+      { module: 'finance', name: 'Microsoft Dynamics 365', type: 'erp_dynamics', host: 'https://ansut.crm.dynamics.com', port: 443, endpoint: '/api/data/v9.2/', database: 'ANSUT_FINANCE', username: 'api@ansut.onmicrosoft.com', refreshFreq: 'journalier', status: 'actif', description: 'ERP Microsoft Dynamics 365 pour la comptabilité et gestion financière' },
+      { module: 'finance', name: 'Budget Prévisionnel — Excel', type: 'fichier_excel', host: '\\\\srv-partage\\finance', refreshFreq: 'mensuel', status: 'actif', description: 'Fichiers budget mensuels importés depuis le partage réseau (xlsx)' },
+      { module: 'finance', name: 'États Financiers — CSV', type: 'fichier_csv', host: '\\\\srv-partage\\finance\\exports', refreshFreq: 'trimestriel', status: 'actif', description: 'Exports CSV des états financiers depuis SAP' },
       // Opérationnel
       { module: 'operational', name: 'Jira — Suivi Projets', type: 'api', host: 'https://jira.ansut.ci', endpoint: '/rest/api/2/search', refreshFreq: 'temps_reel', status: 'actif', description: 'Synchronisation des tickets et avancement projets' },
       { module: 'operational', name: 'Nagios — Monitoring Réseau', type: 'api', host: 'https://nagios.ansut.ci', endpoint: '/api/v1/uptime', refreshFreq: 'temps_reel', status: 'actif', description: 'Disponibilité réseau et SLA en temps réel' },
+      { module: 'operational', name: 'SharePoint — Documents Projets', type: 'sharepoint', host: 'https://ansut.sharepoint.com', endpoint: '/sites/PMO', refreshFreq: 'journalier', status: 'actif', description: 'Documents et rapports de projets hébergés sur SharePoint' },
       // RH
-      { module: 'rh', name: 'Sig RHS — Paie', type: 'base_de_donnees', host: '192.168.1.55', port: 3306, database: 'sigrhs', refreshFreq: 'mensuel', status: 'actif', description: 'Base de données masse salariale et effectifs' },
+      { module: 'rh', name: 'Sig RHS — Base de données', type: 'base_de_donnees', host: '192.168.1.55', port: 3306, database: 'sigrhs_prod', username: 'sigrh_reader', refreshFreq: 'mensuel', status: 'actif', description: 'Base MySQL pour masse salariale, effectifs et paie' },
       { module: 'rh', name: 'SIRH — Gestion RH', type: 'erp', host: 'https://sirh.ansut.ci', endpoint: '/api/v2/employees', refreshFreq: 'journalier', status: 'en_test', description: 'SIRH pour le suivi des formations et recrutements' },
+      { module: 'rh', name: 'Pointage — Import CSV', type: 'fichier_csv', host: '\\\\srv-partage\\rh\\pointage', refreshFreq: 'mensuel', status: 'actif', description: 'Fichiers CSV de pointage mensuel des employés' },
       // Risque
       { module: 'risque', name: 'Registre des Risques', type: 'manuel', refreshFreq: 'trimestriel', status: 'actif', description: 'Saisie manuelle des évaluations de risques' },
       { module: 'risque', name: 'SIEM — Sécurité', type: 'api', host: 'https://siem.ansut.ci', endpoint: '/api/v1/incidents', refreshFreq: 'temps_reel', status: 'en_test', description: 'Incidents de sécurité et alertes du SIEM' },
       // PTA
-      { module: 'pta', name: 'MS Project — Planification', type: 'fichier', refreshFreq: 'hebdomadaire', status: 'actif', description: 'Export hebdomadaire du planning PTA en MS Project' },
+      { module: 'pta', name: 'MS Project — Planning PTA', type: 'fichier_excel', host: '\\\\srv-partage\\pmo\\planning', refreshFreq: 'hebdomadaire', status: 'actif', description: 'Export hebdomadaire du planning PTA au format Excel' },
       { module: 'pta', name: 'Tableau de bord PTA', type: 'base_de_donnees', host: 'localhost', port: 5432, database: 'pta_tracking', refreshFreq: 'mensuel', status: 'actif', description: 'Suivi détaillé des activités du PTA' },
+      // Admin
+      { module: 'admin', name: 'SFTP — Sauvegardes', type: 'sftp', host: '192.168.1.200', port: 22, username: 'backup_ansut', refreshFreq: 'journalier', status: 'actif', description: 'Serveur SFTP pour les sauvegardes automatiques du système' },
     ],
   });
 
-  console.log(`✅ Seed complete! ${roles.length} roles, ${users.length} users, ${indicators.length} indicators, ${valueData.length} values, ${projects.length} projects`);
+  const dataSourcesCount = 17;
+  console.log(`✅ Seed complete! ${roles.length} roles, ${users.length} users, ${indicators.length} indicators, ${valueData.length} values, ${projects.length} projects, ${dataSourcesCount} data sources`);
 }
 
 seed().catch(console.error).finally(() => process.exit(0));

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { LayoutDashboard, Users, Shield, Database, ScrollText } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, Database, ScrollText, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore, type AdminViewKey } from '@/lib/store';
 
@@ -11,6 +11,7 @@ const NAV_ITEMS: { key: AdminViewKey; label: string; icon: React.ElementType }[]
   { key: 'admin_roles', label: 'Rôles & Permissions', icon: Shield },
   { key: 'admin_datasources', label: 'Sources de Données', icon: Database },
   { key: 'admin_logs', label: "Journal d'audit", icon: ScrollText },
+  { key: 'admin_settings', label: 'Paramètres', icon: Settings },
 ];
 
 interface AdminLayoutProps {

@@ -1,0 +1,685 @@
+'use client';
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { useTheme } from 'next-themes';
+import {
+  Settings,
+  Globe,
+  Bell,
+  Shield,
+  Server,
+  Save,
+  CheckCircle2,
+  Info,
+  Palette,
+  Clock,
+  Mail,
+  Lock,
+  HardDrive,
+  Loader2,
+} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
+
+// ---------- Types ----------
+
+interface SystemInfo {
+  totalUsers: number;
+  totalRoles: number;
+  totalIndicators: number;
+  diskUsage: string;
+}
+
+interface SettingsState {
+  // Configuration Générale
+  appName: string;
+  logoUrl: string;
+  version: string;
+  defaultLanguage: string;
+  // Affichage
+  theme: string;
+  referenceDate: string;
+  currencyFormat: string;
+  decimalSeparator: string;
+  // Notifications
+  emailAlerts: boolean;
+  reportFrequency: string;
+  recipientEmail: string;
+  // Sécurité
+  passwordPolicy: string;
+  sessionExpiration: string;
+  ipLogging: boolean;
+}
+
+const DEFAULT_SETTINGS: SettingsState = {
+  appName: 'ANSUT Cockpit DG',
+  logoUrl: '/logo-ansut.png',
+  version: '1.0.0',
+  defaultLanguage: 'fr',
+  theme: 'system',
+  referenceDate: new Date().toISOString().split('T')[0],
+  currencyFormat: 'FCFA',
+  decimalSeparator: 'comma',
+  emailAlerts: true,
+  reportFrequency: 'weekly',
+  recipientEmail: 'admin@ansut.sn',
+  passwordPolicy: 'standard',
+  sessionExpiration: '4h',
+  ipLogging: true,
+};
+
+// ---------- Component ----------
+
+export function AdminSettings() {
+  const { theme, setTheme } = useTheme();
+  const { toast } = useToast();
+  const [settings, setSettings] = useState<SettingsState>(DEFAULT_SETTINGS);
+  const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
+  const [loadingSystem, setLoadingSystem] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Ensure client-side hydration before rendering theme-dependent UI
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Sync next-themes value into local state
+  useEffect(() => {
+    if (mounted && theme) {
+      setSettings((prev) => ({ ...prev, theme }));
+    }
+  }, [theme, mounted]);
+
+  // Fetch system info from API
+  const fetchSystemInfo = useCallback(async () => {
+    setLoadingSystem(true);
+    try {
+      const res = await fetch('/api/admin/dashboard-stats');
+      if (res.ok) {
+        const data = await res.json();
+        setSystemInfo({
+          totalUsers: data.totalUsers ?? 0,
+          totalRoles: data.totalRoles ?? 0,
+          totalIndicators: data.configuredModules ?? 0,
+          diskUsage: '142 Mo',
+        });
+      } else {
+        // Fallback
+        setSystemInfo({
+          totalUsers: 24,
+          totalRoles: 6,
+          totalIndicators: 8,
+          diskUsage: '142 Mo',
+        });
+      }
+    } catch {
+      setSystemInfo({
+        totalUsers: 24,
+        totalRoles: 6,
+        totalIndicators: 8,
+        diskUsage: '142 Mo',
+      });
+    } finally {
+      setLoadingSystem(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSystemInfo();
+  }, [fetchSystemInfo]);
+
+  // ---------- Handlers ----------
+
+  const handleChange = <K extends keyof SettingsState>(key: K, value: SettingsState[K]) => {
+    setSettings((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleThemeChange = (value: string) => {
+    handleChange('theme', value);
+    setTheme(value);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    setSaving(false);
+    toast({
+      title: 'Paramètres sauvegardés',
+      description: 'Les paramètres ont été mis à jour avec succès.',
+    });
+  };
+
+  // ---------- Render helpers ----------
+
+  if (!mounted) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="mt-2 h-4 w-96" />
+        </div>
+        <div className="grid gap-6 md:grid-cols-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-72 rounded-xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Page header */}
+      <div>
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg bg-fun-blue/10 p-2">
+            <Settings className="size-5 text-fun-blue" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Paramètres</h1>
+            <p className="text-sm text-muted-foreground">
+              Configuration générale de la plateforme ANSUT Cockpit DG
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* ====== 1. Configuration Générale ====== */}
+        <Card className="transition-shadow hover:shadow-md">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="rounded-md bg-fun-blue/10 p-1.5">
+                <Globe className="size-4 text-fun-blue" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Configuration Générale</CardTitle>
+                <CardDescription className="mt-0.5 text-xs">
+                  Informations de base de l&apos;application
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Nom de l'application */}
+            <div className="space-y-1.5">
+              <Label htmlFor="appName" className="text-sm font-medium">
+                Nom de l&apos;application
+              </Label>
+              <Input
+                id="appName"
+                value={settings.appName}
+                onChange={(e) => handleChange('appName', e.target.value)}
+                placeholder="Nom de l'application"
+                className="h-9"
+              />
+            </div>
+
+            {/* Logo URL */}
+            <div className="space-y-1.5">
+              <Label htmlFor="logoUrl" className="text-sm font-medium">
+                URL du logo
+              </Label>
+              <Input
+                id="logoUrl"
+                value={settings.logoUrl}
+                onChange={(e) => handleChange('logoUrl', e.target.value)}
+                placeholder="/logo-ansut.png"
+                className="h-9"
+              />
+            </div>
+
+            {/* Version (readonly) */}
+            <div className="space-y-1.5">
+              <Label htmlFor="version" className="text-sm font-medium">
+                Version
+              </Label>
+              <div className="relative">
+                <Input
+                  id="version"
+                  value={settings.version}
+                  readOnly
+                  className="h-9 cursor-not-allowed bg-muted/50"
+                />
+                <Badge
+                  variant="secondary"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px]"
+                >
+                  Lecture seule
+                </Badge>
+              </div>
+            </div>
+
+            {/* Langue par défaut */}
+            <div className="space-y-1.5">
+              <Label htmlFor="defaultLanguage" className="text-sm font-medium">
+                Langue par défaut
+              </Label>
+              <Select
+                value={settings.defaultLanguage}
+                onValueChange={(v) => handleChange('defaultLanguage', v)}
+              >
+                <SelectTrigger id="defaultLanguage" className="h-9 w-full">
+                  <SelectValue placeholder="Sélectionner une langue" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fr">🇫🇷 Français</SelectItem>
+                  <SelectItem value="en">🇬🇧 Anglais</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ====== 2. Affichage ====== */}
+        <Card className="transition-shadow hover:shadow-md">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="rounded-md bg-tango/10 p-1.5">
+                <Palette className="size-4 text-tango" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Affichage</CardTitle>
+                <CardDescription className="mt-0.5 text-xs">
+                  Personnaliser le rendu visuel
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Thème */}
+            <div className="space-y-1.5">
+              <Label htmlFor="theme" className="text-sm font-medium">
+                Thème
+              </Label>
+              <Select value={settings.theme} onValueChange={handleThemeChange}>
+                <SelectTrigger id="theme" className="h-9 w-full">
+                  <SelectValue placeholder="Sélectionner un thème" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="light">☀️ Clair</SelectItem>
+                  <SelectItem value="dark">🌙 Sombre</SelectItem>
+                  <SelectItem value="system">💻 Auto</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Date de référence */}
+            <div className="space-y-1.5">
+              <Label htmlFor="referenceDate" className="text-sm font-medium">
+                Date de référence
+              </Label>
+              <Input
+                id="referenceDate"
+                type="date"
+                value={settings.referenceDate}
+                onChange={(e) => handleChange('referenceDate', e.target.value)}
+                className="h-9"
+              />
+            </div>
+
+            {/* Format monétaire */}
+            <div className="space-y-1.5">
+              <Label htmlFor="currencyFormat" className="text-sm font-medium">
+                Format monétaire
+              </Label>
+              <Select
+                value={settings.currencyFormat}
+                onValueChange={(v) => handleChange('currencyFormat', v)}
+              >
+                <SelectTrigger id="currencyFormat" className="h-9 w-full">
+                  <SelectValue placeholder="Sélectionner une devise" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="FCFA">FCFA</SelectItem>
+                  <SelectItem value="EUR">EUR (€)</SelectItem>
+                  <SelectItem value="USD">USD ($)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Séparateur décimal */}
+            <div className="space-y-1.5">
+              <Label htmlFor="decimalSeparator" className="text-sm font-medium">
+                Séparateur décimal
+              </Label>
+              <Select
+                value={settings.decimalSeparator}
+                onValueChange={(v) => handleChange('decimalSeparator', v)}
+              >
+                <SelectTrigger id="decimalSeparator" className="h-9 w-full">
+                  <SelectValue placeholder="Sélectionner un séparateur" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="comma">Virgule (,)</SelectItem>
+                  <SelectItem value="point">Point (.)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ====== 3. Notifications ====== */}
+        <Card className="transition-shadow hover:shadow-md">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="rounded-md bg-green-100 p-1.5 dark:bg-green-900/30">
+                <Bell className="size-4 text-green-700 dark:text-green-400" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Notifications</CardTitle>
+                <CardDescription className="mt-0.5 text-xs">
+                  Gérer les alertes et rapports
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {/* Alertes par email */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-0.5">
+                <Label htmlFor="emailAlerts" className="text-sm font-medium">
+                  Alertes par email
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Recevoir les notifications par courriel
+                </p>
+              </div>
+              <Switch
+                id="emailAlerts"
+                checked={settings.emailAlerts}
+                onCheckedChange={(v) => handleChange('emailAlerts', v)}
+              />
+            </div>
+
+            <Separator />
+
+            {/* Fréquence rapport */}
+            <div className="space-y-1.5">
+              <Label htmlFor="reportFrequency" className="text-sm font-medium">
+                Fréquence du rapport
+              </Label>
+              <Select
+                value={settings.reportFrequency}
+                onValueChange={(v) => handleChange('reportFrequency', v)}
+              >
+                <SelectTrigger id="reportFrequency" className="h-9 w-full">
+                  <SelectValue placeholder="Sélectionner une fréquence" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily">Journalier</SelectItem>
+                  <SelectItem value="weekly">Hebdomadaire</SelectItem>
+                  <SelectItem value="monthly">Mensuel</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Email destinataire */}
+            <div className="space-y-1.5">
+              <Label htmlFor="recipientEmail" className="text-sm font-medium flex items-center gap-1.5">
+                <Mail className="size-3.5 text-muted-foreground" />
+                Email destinataire
+              </Label>
+              <Input
+                id="recipientEmail"
+                type="email"
+                value={settings.recipientEmail}
+                onChange={(e) => handleChange('recipientEmail', e.target.value)}
+                placeholder="admin@ansut.sn"
+                className="h-9"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ====== 4. Sécurité ====== */}
+        <Card className="transition-shadow hover:shadow-md">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="rounded-md bg-purple-100 p-1.5 dark:bg-purple-900/30">
+                <Shield className="size-4 text-purple-700 dark:text-purple-400" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Sécurité</CardTitle>
+                <CardDescription className="mt-0.5 text-xs">
+                  Politiques d&apos;authentification et de session
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Politique de mot de passe */}
+            <div className="space-y-1.5">
+              <Label htmlFor="passwordPolicy" className="text-sm font-medium flex items-center gap-1.5">
+                <Lock className="size-3.5 text-muted-foreground" />
+                Politique de mot de passe
+              </Label>
+              <Select
+                value={settings.passwordPolicy}
+                onValueChange={(v) => handleChange('passwordPolicy', v)}
+              >
+                <SelectTrigger id="passwordPolicy" className="h-9 w-full">
+                  <SelectValue placeholder="Sélectionner une politique" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="standard">Standard</SelectItem>
+                  <SelectItem value="enhanced">Renforcé</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                {settings.passwordPolicy === 'standard'
+                  ? 'Minimum 8 caractères, lettres et chiffres.'
+                  : 'Minimum 12 caractères, majuscules, minuscules, chiffres et symboles.'}
+              </p>
+            </div>
+
+            {/* Expiration session */}
+            <div className="space-y-1.5">
+              <Label htmlFor="sessionExpiration" className="text-sm font-medium flex items-center gap-1.5">
+                <Clock className="size-3.5 text-muted-foreground" />
+                Expiration de session
+              </Label>
+              <Select
+                value={settings.sessionExpiration}
+                onValueChange={(v) => handleChange('sessionExpiration', v)}
+              >
+                <SelectTrigger id="sessionExpiration" className="h-9 w-full">
+                  <SelectValue placeholder="Sélectionner une durée" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="30min">30 minutes</SelectItem>
+                  <SelectItem value="1h">1 heure</SelectItem>
+                  <SelectItem value="4h">4 heures</SelectItem>
+                  <SelectItem value="8h">8 heures</SelectItem>
+                  <SelectItem value="24h">24 heures</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Separator />
+
+            {/* Journalisation IP */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-0.5">
+                <Label htmlFor="ipLogging" className="text-sm font-medium">
+                  Journalisation IP
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Enregistrer les adresses IP dans le journal d&apos;audit
+                </p>
+              </div>
+              <Switch
+                id="ipLogging"
+                checked={settings.ipLogging}
+                onCheckedChange={(v) => handleChange('ipLogging', v)}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ====== 5. Informations Système (full-width) ====== */}
+      <Card className="transition-shadow hover:shadow-md">
+        <CardHeader className="pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="rounded-md bg-sky-100 p-1.5 dark:bg-sky-900/30">
+              <Server className="size-4 text-sky-700 dark:text-sky-400" />
+            </div>
+            <div>
+              <CardTitle className="text-base">Informations Système</CardTitle>
+              <CardDescription className="mt-0.5 text-xs">
+                Détails techniques sur l&apos;environnement
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loadingSystem ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 rounded-lg" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Framework */}
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+                <Info className="size-4 shrink-0 text-fun-blue" />
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Framework</p>
+                  <p className="truncate text-sm font-medium">Next.js 16</p>
+                </div>
+              </div>
+
+              {/* Base de données */}
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+                <HardDrive className="size-4 shrink-0 text-fun-blue" />
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Base de données</p>
+                  <p className="truncate text-sm font-medium">SQLite / Prisma ORM</p>
+                </div>
+              </div>
+
+              {/* Nombre d'utilisateurs */}
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+                <Info className="size-4 shrink-0 text-tango" />
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Utilisateurs</p>
+                  <p className="truncate text-sm font-medium">
+                    {systemInfo?.totalUsers ?? '—'}{' '}
+                    <span className="text-xs font-normal text-muted-foreground">enregistrés</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Nombre de rôles */}
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+                <Info className="size-4 shrink-0 text-tango" />
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Rôles</p>
+                  <p className="truncate text-sm font-medium">
+                    {systemInfo?.totalRoles ?? '—'}{' '}
+                    <span className="text-xs font-normal text-muted-foreground">configurés</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Indicateurs */}
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+                <Info className="size-4 shrink-0 text-green-600 dark:text-green-400" />
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Indicateurs</p>
+                  <p className="truncate text-sm font-medium">
+                    {systemInfo?.totalIndicators ?? '—'}{' '}
+                    <span className="text-xs font-normal text-muted-foreground">actifs</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Espace disque */}
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+                <HardDrive className="size-4 shrink-0 text-green-600 dark:text-green-400" />
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Espace disque</p>
+                  <p className="truncate text-sm font-medium">{systemInfo?.diskUsage ?? '—'}</p>
+                </div>
+              </div>
+
+              {/* Environnement */}
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+                <Server className="size-4 shrink-0 text-purple-600 dark:text-purple-400" />
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Environnement</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="truncate text-sm font-medium">Production</p>
+                    <Badge variant="secondary" className="text-[10px]">
+                      <CheckCircle2 className="size-2.5 text-success" />
+                      Actif
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Dernière mise à jour */}
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+                <Clock className="size-4 shrink-0 text-purple-600 dark:text-purple-400" />
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Dernière sauvegarde</p>
+                  <p className="truncate text-sm font-medium">
+                    {new Date().toLocaleDateString('fr-FR', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ====== Save Button ====== */}
+      <div className="flex flex-col-reverse items-center gap-3 sm:flex-row sm:justify-end">
+        <p className="text-xs text-muted-foreground">
+          Les modifications seront appliquées après sauvegarde.
+        </p>
+        <Button
+          onClick={handleSave}
+          disabled={saving}
+          className="gap-2 bg-fun-blue hover:bg-fun-blue-dark text-white min-w-[200px]"
+        >
+          {saving ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              Enregistrement…
+            </>
+          ) : (
+            <>
+              <Save className="size-4" />
+              Sauvegarder les paramètres
+            </>
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+}

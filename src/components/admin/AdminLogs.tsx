@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Search, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -119,7 +119,7 @@ export function AdminLogs() {
   const totalPages = Math.ceil(pagination.total / PAGE_SIZE);
   const currentPage = Math.floor(pagination.offset / PAGE_SIZE) + 1;
 
-  const fetchLogs = useCallback(async (offset = 0) => {
+  async function fetchLogs(cat: string, searchTerm: string, offset = 0) {
     setLoading(true);
     setError(null);
     try {
@@ -127,8 +127,8 @@ export function AdminLogs() {
         limit: String(PAGE_SIZE),
         offset: String(offset),
       });
-      if (category !== 'all') params.set('category', category);
-      if (search.trim()) params.set('search', search.trim());
+      if (cat !== 'all') params.set('category', cat);
+      if (searchTerm.trim()) params.set('search', searchTerm.trim());
 
       const res = await fetch(`/api/admin/audit-logs?${params.toString()}`);
       if (res.ok) {
@@ -163,11 +163,11 @@ export function AdminLogs() {
     } finally {
       setLoading(false);
     }
-  }, [category, search]);
+  }
 
   function handlePageChange(newPage: number) {
     const newOffset = (newPage - 1) * PAGE_SIZE;
-    fetchLogs(newOffset);
+    fetchLogs(category, search, newOffset);
   }
 
   function handleCategoryChange(val: string) {
@@ -178,9 +178,35 @@ export function AdminLogs() {
     setSearch(val);
   }
 
+  function exportLogsCSV() {
+    const header = 'Date,Utilisateur,Action,Catégorie,Détails,Adresse IP\n';
+    const rows = logs.map((log) => {
+      const escaped = (val: string) =>
+        val.includes(',') || val.includes('"') || val.includes('\n')
+          ? `"${val.replace(/"/g, '""')}"`
+          : val;
+      return [
+        escaped(formatFrenchDate(log.timestamp)),
+        escaped(log.userName),
+        escaped(log.action),
+        escaped(CATEGORY_LABELS[log.category] || log.category),
+        escaped(log.details),
+        escaped(log.ipAddress ?? ''),
+      ].join(',');
+    }).join('\n');
+    const csv = header + rows;
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `audit-logs-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   // Initial fetch + refetch on filter changes
   useEffect(() => {
-    fetchLogs(0);
+    fetchLogs(category, search, 0);
   }, [category, search]);
 
   return (
@@ -195,6 +221,16 @@ export function AdminLogs() {
             Historique de toutes les activités sur la plateforme
           </p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={exportLogsCSV}
+          disabled={loading || logs.length === 0}
+          className="gap-1.5"
+        >
+          <Download className="size-4" />
+          Exporter CSV
+        </Button>
       </div>
 
       {/* Filters bar */}

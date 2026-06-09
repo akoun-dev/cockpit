@@ -418,21 +418,21 @@ export function AdminUsers() {
             Gérer les comptes utilisateurs et leurs accès
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Rechercher..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-64 pl-9"
-            />
-          </div>
-          <Button onClick={handleCreate} className="gap-2 bg-fun-blue hover:bg-fun-blue-dark">
-            <Plus className="size-4" />
-            Ajouter
-          </Button>
-        </div>
+        <Button onClick={handleCreate} className="gap-2 w-full sm:w-auto bg-fun-blue hover:bg-fun-blue-dark">
+          <Plus className="size-4" />
+          Ajouter
+        </Button>
+      </div>
+
+      {/* Search bar - full width on mobile */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Rechercher par nom, email, rôle, département..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full pl-9 sm:max-w-sm"
+        />
       </div>
 
       {/* Error */}

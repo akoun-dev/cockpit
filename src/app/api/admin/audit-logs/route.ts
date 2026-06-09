@@ -1,15 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-// GET /api/admin/audit-logs — list with user info; ?limit, ?offset, ?category
+// GET /api/admin/audit-logs — list with user info; ?limit, ?offset, ?category, ?search
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const limit = Math.min(Math.max(parseInt(searchParams.get('limit') ?? '50', 10) || 50, 1), 200)
     const offset = Math.max(parseInt(searchParams.get('offset') ?? '0', 10) || 0, 0)
     const category = searchParams.get('category') ?? undefined
+    const search = searchParams.get('search') ?? undefined
 
-    const where = category ? { category } : undefined
+    const where: Record<string, unknown> = {}
+
+    if (category) {
+      where.category = category
+    }
+
+    if (search) {
+      where.OR = [
+        { action: { contains: search } },
+        { details: { contains: search } },
+        { user: { name: { contains: search } } },
+      ]
+    }
 
     const [logs, total] = await Promise.all([
       db.auditLog.findMany({

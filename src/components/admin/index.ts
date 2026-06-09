@@ -1,7 +1,8 @@
 export { AdminLayout } from './AdminLayout';
-export type { AdminView } from './AdminLayout';
+export type { AdminViewKey } from './AdminLayout';
 export { AdminDashboard } from './AdminDashboard';
 export { AdminUsers } from './AdminUsers';
 export { AdminRoles } from './AdminRoles';
 export { AdminDataSources } from './AdminDataSources';
 export { AdminLogs } from './AdminLogs';
+export { AdminSettings } from './AdminSettings';

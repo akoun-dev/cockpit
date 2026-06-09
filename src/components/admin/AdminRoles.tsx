@@ -414,7 +414,7 @@ export function AdminRoles() {
             Gérer les rôles et configurer les permissions par module
           </p>
         </div>
-        <Button onClick={handleCreateRole} className="gap-2 bg-fun-blue hover:bg-fun-blue-dark">
+        <Button onClick={handleCreateRole} className="gap-2 w-full sm:w-auto bg-fun-blue hover:bg-fun-blue-dark">
           <Plus className="size-4" />
           Créer un Rôle
         </Button>

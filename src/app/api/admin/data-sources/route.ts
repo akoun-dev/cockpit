@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const validTypes = ['manuel', 'api', 'base_de_donnees', 'fichier', 'erp']
+    const validTypes = ['manuel', 'api', 'base_de_donnees', 'fichier', 'erp', 'erp_dynamics', 'fichier_excel', 'fichier_csv', 'sharepoint', 'sftp']
     const validModules = ['accueil', 'governance', 'finance', 'operational', 'rh', 'risque', 'pta', 'admin']
 
     if (!validModules.includes(mod)) {

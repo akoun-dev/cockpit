@@ -14,6 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { useAppStore } from '@/lib/store';
 
 interface DashboardStats {
   totalUsers: number;
@@ -30,10 +31,6 @@ interface AuditLogEntry {
   action: string;
   category: string;
   details: string;
-}
-
-interface AdminDashboardProps {
-  onViewChange?: (view: string) => void;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -59,7 +56,8 @@ function formatFrenchNumber(n: number): string {
   return new Intl.NumberFormat('fr-FR').format(n);
 }
 
-export function AdminDashboard({ onViewChange }: AdminDashboardProps) {
+export function AdminDashboard() {
+  const { setAdminSubView } = useAppStore();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentLogs, setRecentLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,7 +73,6 @@ export function AdminDashboard({ onViewChange }: AdminDashboardProps) {
           const data = await statsRes.json();
           setStats(data);
         } else {
-          // Fallback stats
           setStats({
             totalUsers: 24,
             activeUsers: 18,
@@ -103,7 +100,6 @@ export function AdminDashboard({ onViewChange }: AdminDashboardProps) {
         }
       } catch {
         setError('Erreur lors du chargement des données');
-        // Fallback data
         setStats({
           totalUsers: 24,
           activeUsers: 18,
@@ -112,46 +108,11 @@ export function AdminDashboard({ onViewChange }: AdminDashboardProps) {
           auditLogCount: 156,
         });
         setRecentLogs([
-          {
-            id: '1',
-            timestamp: new Date().toISOString(),
-            userName: 'Admin Principal',
-            action: 'Connexion réussie',
-            category: 'auth',
-            details: 'Connexion depuis 192.168.1.10',
-          },
-          {
-            id: '2',
-            timestamp: new Date(Date.now() - 3600000).toISOString(),
-            userName: 'Marie Dupont',
-            action: 'Utilisateur modifié',
-            category: 'user',
-            details: 'Modification du rôle de Jean Martin',
-          },
-          {
-            id: '3',
-            timestamp: new Date(Date.now() - 7200000).toISOString(),
-            userName: 'Admin Principal',
-            action: 'Rôle créé',
-            category: 'role',
-            details: 'Création du rôle "Chef de projet"',
-          },
-          {
-            id: '4',
-            timestamp: new Date(Date.now() - 10800000).toISOString(),
-            userName: 'Pierre Leroy',
-            action: 'Permissions modifiées',
-            category: 'permission',
-            details: 'Mise à jour des permissions du rôle Analyste',
-          },
-          {
-            id: '5',
-            timestamp: new Date(Date.now() - 14400000).toISOString(),
-            userName: 'Sophie Bernard',
-            action: 'Export effectué',
-            category: 'export',
-            details: 'Export PDF du module Finance',
-          },
+          { id: '1', timestamp: new Date().toISOString(), userName: 'Admin Principal', action: 'Connexion réussie', category: 'auth', details: 'Connexion depuis 192.168.1.10' },
+          { id: '2', timestamp: new Date(Date.now() - 3600000).toISOString(), userName: 'Marie Dupont', action: 'Utilisateur modifié', category: 'user', details: 'Modification du rôle de Jean Martin' },
+          { id: '3', timestamp: new Date(Date.now() - 7200000).toISOString(), userName: 'Admin Principal', action: 'Rôle créé', category: 'role', details: 'Création du rôle "Chef de projet"' },
+          { id: '4', timestamp: new Date(Date.now() - 10800000).toISOString(), userName: 'Pierre Leroy', action: 'Permissions modifiées', category: 'permission', details: 'Mise à jour des permissions du rôle Analyste' },
+          { id: '5', timestamp: new Date(Date.now() - 14400000).toISOString(), userName: 'Sophie Bernard', action: 'Export effectué', category: 'export', details: 'Export PDF du module Finance' },
         ]);
       } finally {
         setLoading(false);
@@ -161,46 +122,20 @@ export function AdminDashboard({ onViewChange }: AdminDashboardProps) {
   }, []);
 
   const statCards = [
-    {
-      label: 'Total Utilisateurs',
-      value: stats?.totalUsers ?? '—',
-      description: `${stats?.activeUsers ?? '—'} actifs`,
-      icon: Users,
-      iconBg: 'bg-fun-blue/10 text-fun-blue',
-    },
-    {
-      label: 'Total Rôles',
-      value: stats?.totalRoles ?? '—',
-      description: 'Rôles configurés',
-      icon: Shield,
-      iconBg: 'bg-tango/10 text-tango',
-    },
-    {
-      label: 'Modules configurés',
-      value: stats?.configuredModules ?? '—',
-      description: 'Modules actifs',
-      icon: Layers,
-      iconBg: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-    },
-    {
-      label: 'Activités récentes',
-      value: stats ? formatFrenchNumber(stats.auditLogCount) : '—',
-      description: 'Entrées dans le journal',
-      icon: Activity,
-      iconBg: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-    },
+    { label: 'Total Utilisateurs', value: stats?.totalUsers ?? '—', description: `${stats?.activeUsers ?? '—'} actifs`, icon: Users, iconBg: 'bg-fun-blue/10 text-fun-blue' },
+    { label: 'Total Rôles', value: stats?.totalRoles ?? '—', description: 'Rôles configurés', icon: Shield, iconBg: 'bg-tango/10 text-tango' },
+    { label: 'Modules configurés', value: stats?.configuredModules ?? '—', description: 'Modules actifs', icon: Layers, iconBg: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+    { label: 'Activités récentes', value: stats ? formatFrenchNumber(stats.auditLogCount) : '—', description: 'Entrées dans le journal', icon: Activity, iconBg: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
   ];
 
   return (
     <div className="space-y-6">
-      {/* Error state */}
       {error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      {/* Page title */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Tableau de bord admin</h1>
         <p className="text-sm text-muted-foreground">
@@ -208,7 +143,7 @@ export function AdminDashboard({ onViewChange }: AdminDashboardProps) {
         </p>
       </div>
 
-      {/* Stats cards - 2x2 on mobile, 4 cols on desktop */}
+      {/* Stats cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {loading
           ? Array.from({ length: 4 }).map((_, i) => (
@@ -227,17 +162,13 @@ export function AdminDashboard({ onViewChange }: AdminDashboardProps) {
               <Card key={card.label} className="transition-shadow hover:shadow-md">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-muted-foreground">
-                      {card.label}
-                    </p>
+                    <p className="text-sm font-medium text-muted-foreground">{card.label}</p>
                     <div className={`rounded-lg p-2 ${card.iconBg}`}>
                       <card.icon className="size-5" />
                     </div>
                   </div>
                   <p className="mt-3 text-2xl font-bold">{card.value}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {card.description}
-                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">{card.description}</p>
                 </CardContent>
               </Card>
             ))}
@@ -247,17 +178,15 @@ export function AdminDashboard({ onViewChange }: AdminDashboardProps) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-lg font-semibold">Activités Récentes</CardTitle>
-          {onViewChange && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-1.5 text-xs text-fun-blue hover:text-fun-blue-dark"
-              onClick={() => onViewChange('logs')}
-            >
-              Voir tout
-              <ArrowRight className="size-3.5" />
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-xs text-fun-blue hover:text-fun-blue-dark"
+            onClick={() => setAdminSubView('admin_logs')}
+          >
+            Voir tout
+            <ArrowRight className="size-3.5" />
+          </Button>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -274,9 +203,7 @@ export function AdminDashboard({ onViewChange }: AdminDashboardProps) {
               ))}
             </div>
           ) : recentLogs.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              Aucune activité récente
-            </p>
+            <p className="py-8 text-center text-sm text-muted-foreground">Aucune activité récente</p>
           ) : (
             <Table>
               <TableHeader>
@@ -291,18 +218,11 @@ export function AdminDashboard({ onViewChange }: AdminDashboardProps) {
               <TableBody>
                 {recentLogs.map((log) => (
                   <TableRow key={log.id}>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {formatFrenchDate(log.timestamp)}
-                    </TableCell>
-                    <TableCell className="font-medium text-sm">
-                      {log.userName}
-                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{formatFrenchDate(log.timestamp)}</TableCell>
+                    <TableCell className="font-medium text-sm">{log.userName}</TableCell>
                     <TableCell className="text-sm">{log.action}</TableCell>
                     <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className={CATEGORY_COLORS[log.category] || ''}
-                      >
+                      <Badge variant="secondary" className={CATEGORY_COLORS[log.category] || ''}>
                         {log.category}
                       </Badge>
                     </TableCell>
