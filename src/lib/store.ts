@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 
 export type ModuleKey = 'accueil' | 'governance' | 'finance' | 'operational' | 'rh' | 'risque' | 'pta';
+export type AdminViewKey = 'admin_dashboard' | 'admin_users' | 'admin_roles' | 'admin_logs';
+
+export type AppViewKey = ModuleKey | 'admin';
 
 export interface FilterState {
   year: number;
@@ -17,6 +20,12 @@ interface AppState {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
   lastUpdated: string;
+  setLastUpdated: (value: string) => void;
+  // Admin
+  activeView: AppViewKey;
+  setActiveView: (view: AppViewKey) => void;
+  adminSubView: AdminViewKey;
+  setAdminSubView: (view: AdminViewKey) => void;
 }
 
 const initialState: FilterState = {
@@ -28,7 +37,7 @@ const initialState: FilterState = {
 
 export const useAppStore = create<AppState>((set) => ({
   activeModule: 'accueil',
-  setActiveModule: (module) => set({ activeModule: module }),
+  setActiveModule: (module) => set({ activeView: module, activeModule: module }),
   filters: initialState,
   setFilters: (filters) =>
     set((state) => ({
@@ -36,11 +45,20 @@ export const useAppStore = create<AppState>((set) => ({
     })),
   sidebarOpen: true,
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
-  lastUpdated: new Date().toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+  lastUpdated: '',
+  setLastUpdated: (value) => set({ lastUpdated: value }),
+  // Admin
+  activeView: 'accueil',
+  setActiveView: (view) => set((state) => {
+    const updates: Record<string, any> = { activeView: view };
+    if (view !== 'admin') {
+      updates.activeModule = view as ModuleKey;
+    }
+    if (view === 'admin') {
+      updates.adminSubView = 'admin_dashboard';
+    }
+    return updates;
   }),
+  adminSubView: 'admin_dashboard',
+  setAdminSubView: (view) => set({ adminSubView: view }),
 }));

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
   Landmark,
@@ -10,7 +11,9 @@ import {
   ShieldAlert,
   Target,
   RefreshCw,
+  Shield,
   ChevronLeft,
+  SeparatorHorizontal,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -27,7 +30,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { useAppStore, type ModuleKey } from '@/lib/store';
+import { useAppStore, type ModuleKey, type AppViewKey } from '@/lib/store';
 import { useSidebar } from '@/components/ui/sidebar';
 
 const NAV_ITEMS: { key: ModuleKey; label: string; icon: React.ElementType }[] = [
@@ -41,11 +44,32 @@ const NAV_ITEMS: { key: ModuleKey; label: string; icon: React.ElementType }[] = 
 ];
 
 export function AppSidebar() {
-  const { activeModule, setActiveModule, lastUpdated } = useAppStore();
-  const { state, toggleSidebar } = useSidebar();
+  const { activeView, setActiveView, lastUpdated } = useAppStore();
+  const { state } = useSidebar();
+
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+
+  const displayLastUpdated = mounted
+    ? new Date().toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '';
 
   const handleRefresh = () => {
     window.location.reload();
+  };
+
+  const handleNavClick = (key: ModuleKey) => {
+    setActiveView(key);
+  };
+
+  const handleAdminClick = () => {
+    setActiveView('admin');
   };
 
   return (
@@ -82,11 +106,11 @@ export function AppSidebar() {
               {NAV_ITEMS.map((item) => (
                 <SidebarMenuItem key={item.key}>
                   <SidebarMenuButton
-                    isActive={activeModule === item.key}
+                    isActive={activeView === item.key}
                     tooltip={item.label}
-                    onClick={() => setActiveModule(item.key)}
+                    onClick={() => handleNavClick(item.key)}
                     className={
-                      activeModule === item.key
+                      activeView === item.key
                         ? 'sidebar-active-indicator bg-tango/10 text-tango hover:bg-tango/15 hover:text-tango font-medium'
                         : ''
                     }
@@ -96,6 +120,31 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Admin Section */}
+        <SidebarSeparator />
+        <SidebarGroup>
+          <SidebarGroupLabel>Administration</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={activeView === 'admin'}
+                  tooltip="Administration"
+                  onPointerDown={() => handleAdminClick()}
+                  className={
+                    activeView === 'admin'
+                      ? 'sidebar-active-indicator bg-fun-blue/10 text-fun-blue hover:bg-fun-blue/15 hover:text-fun-blue font-medium'
+                      : ''
+                  }
+                >
+                  <Shield className="size-5" />
+                  <span>Administration</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -130,7 +179,7 @@ export function AppSidebar() {
                 Dernière màj
               </span>
               <span className="text-[10px] text-muted-foreground whitespace-nowrap truncate">
-                {lastUpdated}
+                {displayLastUpdated}
               </span>
             </div>
           </div>

@@ -17,16 +17,17 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { FileSpreadsheet, FileText, Download } from 'lucide-react';
-import { useAppStore, type ModuleKey } from '@/lib/store';
+import { useAppStore, type ModuleKey, type AppViewKey } from '@/lib/store';
 
-const MODULE_LABELS: Record<ModuleKey, string> = {
+const MODULE_LABELS: Record<AppViewKey, string> = {
   accueil: 'Tableau de Bord',
   governance: 'Gouvernance',
   finance: 'Finance',
   operational: 'Opérationnel',
   rh: 'Ressources Humaines',
   risque: 'Cadre de Risque',
-  pta: 'Plan Triennal d\'Actions',
+  pta: "Plan Triennal d'Actions",
+  admin: 'Administration',
 };
 
 const YEARS = [2024, 2025];
@@ -43,7 +44,8 @@ interface Department {
 }
 
 export function Header() {
-  const { activeModule, filters, setFilters } = useAppStore();
+  const { activeView, filters, setFilters } = useAppStore();
+  const isAdmin = activeView === 'admin';
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -76,13 +78,13 @@ export function Header() {
 
   const handleExportExcel = () => {
     // Placeholder: will be connected to export functionality
-    const data = { module: activeModule, filters };
+    const data = { module: activeView, filters };
     console.log('Export Excel:', data);
   };
 
   const handleExportPdf = () => {
     // Placeholder: will be connected to export functionality
-    const data = { module: activeModule, filters };
+    const data = { module: activeView, filters };
     console.log('Export PDF:', data);
   };
 
@@ -93,17 +95,17 @@ export function Header() {
         <SidebarTrigger className="text-white hover:bg-white/10 hover:text-white" />
         <div className="flex flex-col">
           <h1 className="text-lg font-bold leading-tight lg:text-xl">
-            {MODULE_LABELS[activeModule]}
+            {MODULE_LABELS[activeView]}
           </h1>
           <p className="hidden text-xs text-white/70 sm:block">
-            Cockpit de Direction Générale
+            {isAdmin ? 'Panneau d\'administration système' : 'Cockpit de Direction Générale'}
           </p>
         </div>
       </div>
 
       {/* Right: filters + export */}
       <div className="flex items-center gap-2 lg:gap-3">
-        {/* Year selector */}
+        {!isAdmin && (<>
         <Select
           value={String(filters.year)}
           onValueChange={(val) => setFilters({ year: Number(val) })}
@@ -194,6 +196,7 @@ export function Header() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </>)}
       </div>
     </header>
   );

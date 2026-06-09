@@ -1,0 +1,136 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+
+type RouteParams = { params: Promise<{ id: string }> }
+
+// GET /api/admin/users/[id] — single user with role, department, permissions
+export async function GET(_request: NextRequest, { params }: RouteParams) {
+  try {
+    const { id } = await params
+    const user = await db.user.findUnique({
+      where: { id },
+      include: {
+        role: {
+          include: { permissions: true },
+        },
+        department: true,
+      },
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({ data: user })
+  } catch (error) {
+    console.error('[GET /api/admin/users/[id]]', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch user' },
+      { status: 500 },
+    )
+  }
+}
+
+// PUT /api/admin/users/[id] — update user fields
+export async function PUT(request: NextRequest, { params }: RouteParams) {
+  try {
+    const { id } = await params
+    const body = await request.json()
+    const { name, email, isActive, roleId, departmentId } = body
+
+    const existing = await db.user.findUnique({ where: { id } })
+    if (!existing) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    const updated = await db.user.update({
+      where: { id },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(email !== undefined && { email }),
+        ...(isActive !== undefined && { isActive }),
+        ...(roleId !== undefined && { roleId: roleId ?? null }),
+        ...(departmentId !== undefined && { departmentId: departmentId ?? null }),
+      },
+      include: { role: true, department: true },
+    })
+
+    // Audit log
+    const changes: string[] = []
+    if (name !== undefined && name !== existing.name) changes.push(`name: "${existing.name}" → "${name}"`)
+    if (email !== undefined && email !== existing.email) changes.push(`email: "${existing.email}" → "${email}"`)
+    if (isActive !== undefined && isActive !== existing.isActive) changes.push(`isActive: ${existing.isActive} → ${isActive}`)
+
+    await db.auditLog.create({
+      data: {
+        action: 'UPDATE_USER',
+        category: 'user',
+        userId: id,
+        details: `Updated user "${existing.name}" — ${changes.join(', ') || 'no field changes'}`,
+        ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
+      },
+    })
+
+    return NextResponse.json({ data: updated })
+  } catch (error: unknown) {
+    console.error('[PUT /api/admin/users/[id]]', error)
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      (error as { code: string }).code === 'P2002'
+    ) {
+      return NextResponse.json(
+        { error: 'A user with this email already exists' },
+        { status: 409 },
+      )
+    }
+    return NextResponse.json(
+      { error: 'Failed to update user' },
+      { status: 500 },
+    )
+  }
+}
+
+// DELETE /api/admin/users/[id] — delete user (unless isSystem role)
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  try {
+    const { id } = await params
+
+    const user = await db.user.findUnique({
+      where: { id },
+      include: { role: true },
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    if (user.role?.isSystem) {
+      return NextResponse.json(
+        { error: 'Cannot delete a user with a system role' },
+        { status: 403 },
+      )
+    }
+
+    await db.user.delete({ where: { id } })
+
+    // Audit log
+    await db.auditLog.create({
+      data: {
+        action: 'DELETE_USER',
+        category: 'user',
+        details: `Deleted user "${user.name}" (${user.email})`,
+        ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
+      },
+    })
+
+    return NextResponse.json({ data: { id } })
+  } catch (error) {
+    console.error('[DELETE /api/admin/users/[id]]', error)
+    return NextResponse.json(
+      { error: 'Failed to delete user' },
+      { status: 500 },
+    )
+  }
+}

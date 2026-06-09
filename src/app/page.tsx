@@ -2,10 +2,11 @@
 
 import { SidebarProvider, SidebarInset, SidebarRail } from '@/components/ui/sidebar';
 import { AppSidebar, Header, DashboardAccueil, FinanceModule, GovernanceModule, OperationalModule, RHModule, RisqueModule, PTAModule } from '@/components/cockpit';
-import { useAppStore } from '@/lib/store';
+import { AdminLayout, AdminDashboard, AdminUsers, AdminRoles, AdminLogs } from '@/components/admin';
+import { useAppStore, type AdminViewKey } from '@/lib/store';
 import { AnimatePresence, motion } from 'framer-motion';
 
-const MODULE_COMPONENTS = {
+const MODULE_COMPONENTS: Record<string, React.ComponentType> = {
   accueil: DashboardAccueil,
   governance: GovernanceModule,
   finance: FinanceModule,
@@ -15,26 +16,56 @@ const MODULE_COMPONENTS = {
   pta: PTAModule,
 };
 
+const ADMIN_SUB_VIEWS: Record<string, React.ComponentType> = {
+  admin_dashboard: AdminDashboard,
+  admin_users: AdminUsers,
+  admin_roles: AdminRoles,
+  admin_logs: AdminLogs,
+};
+
 export default function CockpitPage() {
-  const activeModule = useAppStore((s) => s.activeModule);
-  const ActiveComponent = MODULE_COMPONENTS[activeModule];
+  const { activeView, activeModule, adminSubView, setActiveView } = useAppStore();
+
+  const isAdmin = activeView === 'admin';
 
   return (
     <SidebarProvider defaultOpen>
       <AppSidebar />
       <SidebarInset>
         <Header />
-        <main className="flex-1 p-4 lg:p-6 overflow-auto">
+        <main className="flex-1 overflow-hidden">
           <AnimatePresence mode="wait">
-            <motion.div
-              key={activeModule}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-            >
-              <ActiveComponent />
-            </motion.div>
+            {isAdmin ? (
+              <motion.div
+                key="admin"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="flex h-full"
+              >
+                <AdminLayout activeView={adminSubView} onViewChange={() => {}}>
+                  {(() => {
+                    const SubComponent = ADMIN_SUB_VIEWS[adminSubView] || AdminDashboard;
+                    return <SubComponent />;
+                  })()}
+                </AdminLayout>
+              </motion.div>
+            ) : (
+              <motion.div
+                key={activeModule}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className="h-full overflow-auto p-4 lg:p-6"
+              >
+                {(() => {
+                  const Component = MODULE_COMPONENTS[activeModule];
+                  return Component ? <Component /> : null;
+                })()}
+              </motion.div>
+            )}
           </AnimatePresence>
         </main>
         <footer className="mt-auto border-t border-border bg-card px-6 py-3">

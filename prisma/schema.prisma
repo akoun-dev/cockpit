@@ -8,13 +8,47 @@ datasource db {
 }
 
 model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  password      String   @default("ansut2025") // hashed in prod, plain for demo
+  avatar        String?
+  isActive      Boolean  @default(true)
+  lastLogin     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  roleId        String?
+  role          Role?    @relation(fields: [roleId], references: [id])
+  departmentId  String?
+  department    Department? @relation(fields: [departmentId], references: [id])
+  auditLogs     AuditLog[]
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  label       String   // Display name: "Directeur Général", "Chef de Département"
+  description String?
+  level       Int      @default(0) // hierarchy level: 100=DG, 80=CT, 60=DFC, 40=PMO, 20=Chef, 10=Agent
+  color       String   @default("#1c55a3")
+  isSystem    Boolean  @default(false) // system roles can't be deleted
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users        User[]
+  permissions  Permission[]
+}
+
+model Permission {
   id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  role      String   @default("DG") // DG, PMO, CT, DFC, DJMG
-  avatar    String?
+  roleId    String
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  module    String   // accueil, governance, finance, operational, rh, risque, pta, admin
+  access    String   @default("read") // none, read, write, admin
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+
+  @@unique([roleId, module])
 }
 
 model Department {
@@ -28,6 +62,7 @@ model Department {
   indicators      Indicator[]
   indicatorValues IndicatorValue[]
   projects        Project[]
+  users           User[]
 }
 
 model Indicator {
@@ -35,13 +70,13 @@ model Indicator {
   name         String
   code         String   @unique
   description  String?
-  domain       String   // finance, rh, governance, operational, risque, pta
-  subDomain    String?  // budget, rentabilite, dette, effectifs, etc.
-  unit         String   @default("%") // %, FCFA, nombre, jours, etc.
+  domain       String
+  subDomain    String?
+  unit         String   @default("%")
   targetValue  Float?
   formula      String?
-  frequency    String   @default("mensuel") // journalier, hebdomadaire, mensuel, trimestriel, annuel
-  sourceSystem String   @default("manuel") // ERP, FILE, API, manuel
+  frequency    String   @default("mensuel")
+  sourceSystem String   @default("manuel")
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id])
   order        Int      @default(0)
@@ -57,7 +92,7 @@ model IndicatorValue {
   indicatorId  String
   indicator    Indicator @relation(fields: [indicatorId], references: [id], onDelete: Cascade)
   value        Float
-  period       String   // "2025-01", "2025-Q1", "2025"
+  period       String
   year         Int
   month        Int?
   quarter      Int?
@@ -74,8 +109,8 @@ model Project {
   name        String
   code        String   @unique
   description String?
-  status      String   @default("en_cours") // planifie, en_cours, termine, suspendu
-  priority    String   @default("moyenne") // critique, haute, moyenne, basse
+  status      String   @default("en_cours")
+  priority    String   @default("moyenne")
   startDate   DateTime?
   endDate     DateTime?
   budgetPlan  Float?
@@ -90,8 +125,11 @@ model Project {
 
 model AuditLog {
   id        String   @id @default(cuid())
-  action    String
+  action    String   // LOGIN, LOGOUT, CREATE_USER, UPDATE_USER, DELETE_USER, CREATE_ROLE, UPDATE_ROLE, DELETE_ROLE, UPDATE_PERMISSION, EXPORT_DATA
+  category  String   @default("general") // auth, user, role, permission, data, export
   userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
   details   String?
+  ipAddress String?
   createdAt DateTime @default(now())
 }

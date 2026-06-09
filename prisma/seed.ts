@@ -3,7 +3,7 @@ import { db } from '../src/lib/db';
 async function seed() {
   console.log('🌱 Seeding database...');
 
-  // Departments
+  // ─── Departments ───────────────────────────────────────────────
   const departments = await Promise.all([
     db.department.create({ data: { name: 'Direction Générale', code: 'DG', headName: 'Directeur Général' } }),
     db.department.create({ data: { name: 'Direction Financière et Comptable', code: 'DFC', headName: 'M. Koné Ibrahim' } }),
@@ -14,18 +14,196 @@ async function seed() {
     db.department.create({ data: { name: 'Service Informatique', code: 'SI', headName: 'M. Coulibaly Adama' } }),
     db.department.create({ data: { name: 'Service Communication', code: 'SC', headName: 'Mme Bamba Fatou' } }),
   ]);
-
   const deptMap = new Map(departments.map(d => [d.code, d.id]));
 
-  // Users
-  await Promise.all([
-    db.user.create({ data: { email: 'dg@ansut.ci', name: 'Directeur Général', role: 'DG' } }),
-    db.user.create({ data: { email: 'pmo@ansut.ci', name: 'PMO', role: 'PMO' } }),
-    db.user.create({ data: { email: 'dfc@ansut.ci', name: 'Directeur Financier', role: 'DFC' } }),
-    db.user.create({ data: { email: 'drh@ansut.ci', name: 'Directeur RH', role: 'DJMG' } }),
+  // ─── Roles ─────────────────────────────────────────────────────
+  const roles = await Promise.all([
+    db.role.create({
+      data: {
+        name: 'ADMIN',
+        label: 'Administrateur Système',
+        description: 'Accès complet à toutes les fonctionnalités',
+        level: 100,
+        color: '#ef4444',
+        isSystem: true,
+      },
+    }),
+    db.role.create({
+      data: {
+        name: 'DG',
+        label: 'Directeur Général',
+        description: 'Vue globale et décisionnelle du cockpit',
+        level: 90,
+        color: '#1c55a3',
+        isSystem: true,
+      },
+    }),
+    db.role.create({
+      data: {
+        name: 'CT',
+        label: 'Chef de Département',
+        description: 'Accès aux modules de son département',
+        level: 60,
+        color: '#205eb3',
+        isSystem: true,
+      },
+    }),
+    db.role.create({
+      data: {
+        name: 'PMO',
+        label: 'Bureau PMO',
+        description: 'Gestion de projets et planification',
+        level: 50,
+        color: '#f18120',
+        isSystem: true,
+      },
+    }),
+    db.role.create({
+      data: {
+        name: 'DFC',
+        label: 'Directeur Financier',
+        description: 'Accès aux modules financiers',
+        level: 50,
+        color: '#22c55e',
+        isSystem: true,
+      },
+    }),
+    db.role.create({
+      data: {
+        name: 'DRH',
+        label: 'Directeur RH',
+        description: 'Accès aux modules RH',
+        level: 50,
+        color: '#f59e0b',
+        isSystem: true,
+      },
+    }),
+    db.role.create({
+      data: {
+        name: 'AGENT',
+        label: 'Agent',
+        description: 'Consultation en lecture seule',
+        level: 10,
+        color: '#6b7280',
+        isSystem: true,
+      },
+    }),
   ]);
+  const roleMap = new Map(roles.map(r => [r.name, r.id]));
 
-  // Indicators
+  // ─── Permissions ────────────────────────────────────────────────
+  const MODULES = ['accueil', 'governance', 'finance', 'operational', 'rh', 'risque', 'pta', 'admin'];
+  const ACCESS_LEVELS: Record<string, Record<string, string>> = {
+    ADMIN:  Object.fromEntries(MODULES.map(m => [m, 'admin'])),
+    DG:    Object.fromEntries(MODULES.map(m => [m, m === 'admin' ? 'none' : 'write'])),
+    CT:    Object.fromEntries(MODULES.map(m => [m, m === 'admin' ? 'none' : 'read'])),
+    PMO:   { accueil: 'read', governance: 'read', finance: 'read', operational: 'write', rh: 'read', risque: 'read', pta: 'write', admin: 'none' },
+    DFC:   { accueil: 'read', governance: 'read', finance: 'write', operational: 'read', rh: 'none', risque: 'read', pta: 'read', admin: 'none' },
+    DRH:   { accueil: 'read', governance: 'read', finance: 'read', operational: 'read', rh: 'write', risque: 'read', pta: 'read', admin: 'none' },
+    AGENT: Object.fromEntries(MODULES.map(m => [m, m === 'accueil' ? 'read' : 'none'])),
+  };
+
+  const permData: Array<{ roleId: string; module: string; access: string }> = [];
+  for (const [roleName, accessMap] of Object.entries(ACCESS_LEVELS)) {
+    const roleId = roleMap.get(roleName)!;
+    for (const [module, access] of Object.entries(accessMap)) {
+      permData.push({ roleId, module, access });
+    }
+  }
+  await db.permission.createMany({ data: permData });
+
+  // ─── Users ─────────────────────────────────────────────────────
+  const users = await Promise.all([
+    db.user.create({
+      data: {
+        email: 'admin@ansut.ci',
+        name: 'Administrateur Système',
+        password: 'admin123',
+        roleId: roleMap.get('ADMIN')!,
+        departmentId: deptMap.get('SI')!,
+        isActive: true,
+      },
+    }),
+    db.user.create({
+      data: {
+        email: 'dg@ansut.ci',
+        name: 'Directeur Général',
+        password: 'dg2025',
+        roleId: roleMap.get('DG')!,
+        departmentId: deptMap.get('DG')!,
+        isActive: true,
+      },
+    }),
+    db.user.create({
+      data: {
+        email: 'pmo@ansut.ci',
+        name: 'Mme Sanogo Mariam',
+        password: 'pmo2025',
+        roleId: roleMap.get('PMO')!,
+        departmentId: deptMap.get('PMO')!,
+        isActive: true,
+      },
+    }),
+    db.user.create({
+      data: {
+        email: 'dfc@ansut.ci',
+        name: 'M. Koné Ibrahim',
+        password: 'dfc2025',
+        roleId: roleMap.get('DFC')!,
+        departmentId: deptMap.get('DFC')!,
+        isActive: true,
+      },
+    }),
+    db.user.create({
+      data: {
+        email: 'drh@ansut.ci',
+        name: 'Mme Traoré Awa',
+        password: 'drh2025',
+        roleId: roleMap.get('DRH')!,
+        departmentId: deptMap.get('DRH')!,
+        isActive: true,
+      },
+    }),
+    db.user.create({
+      data: {
+        email: 'dt@ansut.ci',
+        name: 'M. Diallo Mamadou',
+        password: 'dt2025',
+        roleId: roleMap.get('CT')!,
+        departmentId: deptMap.get('DT')!,
+        isActive: true,
+      },
+    }),
+    db.user.create({
+      data: {
+        email: 'agent@ansut.ci',
+        name: 'Agent de Saisie',
+        password: 'agent2025',
+        roleId: roleMap.get('AGENT')!,
+        departmentId: deptMap.get('SI')!,
+        isActive: true,
+      },
+    }),
+  ]);
+  const userMap = new Map(users.map(u => [u.email, u.id]));
+
+  // ─── Audit Logs (sample) ───────────────────────────────────────
+  await db.auditLog.createMany({
+    data: [
+      { action: 'LOGIN', category: 'auth', userId: userMap.get('admin@ansut.ci'), details: 'Connexion réussie' },
+      { action: 'LOGIN', category: 'auth', userId: userMap.get('dg@ansut.ci'), details: 'Connexion réussie' },
+      { action: 'CREATE_ROLE', category: 'role', userId: userMap.get('admin@ansut.ci'), details: 'Création du rôle AGENT' },
+      { action: 'CREATE_USER', category: 'user', userId: userMap.get('admin@ansut.ci'), details: 'Création du utilisateur agent@ansut.ci' },
+      { action: 'UPDATE_PERMISSION', category: 'permission', userId: userMap.get('admin@ansut.ci'), details: 'Modification des permissions du rôle DRH' },
+      { action: 'EXPORT_DATA', category: 'export', userId: userMap.get('dg@ansut.ci'), details: 'Export PDF - Module Finance - T2 2025' },
+      { action: 'LOGIN', category: 'auth', userId: userMap.get('pmo@ansut.ci'), details: 'Connexion réussie' },
+      { action: 'UPDATE_USER', category: 'user', userId: userMap.get('admin@ansut.ci'), details: 'Désactivation du compte test@ansut.ci' },
+      { action: 'UPDATE_ROLE', category: 'role', userId: userMap.get('admin@ansut.ci'), details: 'Modification du rôle PMO - ajout accès pta' },
+      { action: 'EXPORT_DATA', category: 'export', userId: userMap.get('dfc@ansut.ci'), details: 'Export Excel - Module Finance - T2 2025' },
+    ],
+  });
+
+  // ─── Indicators ───────────────────────────────────────────────
   const indicators = [
     // FINANCE
     { name: "Taux d'exécution budgétaire", code: 'FIN-001', domain: 'finance', subDomain: 'budget', unit: '%', targetValue: 85, formula: '(Dépenses réelles / Budget prévu) × 100', frequency: 'mensuel', sourceSystem: 'ERP', departmentId: deptMap.get('DFC'), order: 1 },
@@ -84,99 +262,49 @@ async function seed() {
     createdIndicators[ind.code] = created.id;
   }
 
-  // Generate indicator values for 2024 and 2025
-  const valueData: Array<{ indicatorId: string; value: number; period: string; year: number; month: number; quarter: number; departmentId?: string; comment?: string }> = [];
+  // ─── Indicator Values ──────────────────────────────────────────
+  const valueData: Array<{ indicatorId: string; value: number; period: string; year: number; month: number; quarter: number }> = [];
 
   const financeValues = {
-    'FIN-001': [78, 82, 85, 80, 83, 87, 79, 84, 88, 81, 86, 83], // % budget execution
-    'FIN-002': [380, 420, 450, 390, 460, 510, 430, 470, 520, 440, 490, 500], // M FCFA CA
-    'FIN-003': [95, 110, 125, 100, 115, 135, 105, 120, 140, 108, 130, 145], // M FCFA EBE
-    'FIN-004': [25, 26.2, 27.8, 25.6, 25, 26.5, 24.4, 25.5, 26.9, 24.5, 26.5, 29], // % marge
-    'FIN-005': [45, 55, 68, 48, 58, 72, 50, 62, 78, 52, 70, 82], // M FCFA resultat
-    'FIN-006': [42, 40, 38, 39, 37, 35, 38, 36, 34, 37, 35, 32], // % endettement
-    'FIN-007': [36, 34, 32, 33, 31, 28, 32, 30, 27, 31, 28, 25], // mois
-    'FIN-008': [120, 135, 150, 128, 142, 165, 135, 148, 170, 140, 158, 175], // M FCFA backbone
-    'FIN-009': [280, 310, 325, 290, 345, 375, 325, 350, 380, 332, 360, 355], // M FCFA charges
-    'FIN-010': [10, 11, 12, 11.5, 12.5, 13, 12, 12.8, 14, 12.5, 13.5, 15], // % ROE
+    'FIN-001': [78, 82, 85, 80, 83, 87, 79, 84, 88, 81, 86, 83],
+    'FIN-002': [380, 420, 450, 390, 460, 510, 430, 470, 520, 440, 490, 500],
+    'FIN-003': [95, 110, 125, 100, 115, 135, 105, 120, 140, 108, 130, 145],
+    'FIN-004': [25, 26.2, 27.8, 25.6, 25, 26.5, 24.4, 25.5, 26.9, 24.5, 26.5, 29],
+    'FIN-005': [45, 55, 68, 48, 58, 72, 50, 62, 78, 52, 70, 82],
+    'FIN-006': [42, 40, 38, 39, 37, 35, 38, 36, 34, 37, 35, 32],
+    'FIN-007': [36, 34, 32, 33, 31, 28, 32, 30, 27, 31, 28, 25],
+    'FIN-008': [120, 135, 150, 128, 142, 165, 135, 148, 170, 140, 158, 175],
+    'FIN-009': [280, 310, 325, 290, 345, 375, 325, 350, 380, 332, 360, 355],
+    'FIN-010': [10, 11, 12, 11.5, 12.5, 13, 12, 12.8, 14, 12.5, 13.5, 15],
   };
-
-  const govValues = {
-    'GOV-001': [88, 90, 92, 91, 93, 95, 92, 94, 96, 93, 95, 97],
-    'GOV-002': [8, 7, 6, 7, 6, 5, 6, 5, 4, 5, 4, 3],
-    'GOV-003': [3, 4, 3, 4, 4, 4, 3, 4, 4, 4, 4, 4],
-    'GOV-004': [82, 84, 86, 85, 87, 89, 86, 88, 90, 88, 90, 92],
-    'GOV-005': [1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5],
-    'GOV-006': [60, 62, 65, 68, 70, 72, 74, 76, 78, 80, 82, 85],
-  };
-
-  const opsValues = {
-    'OPS-001': [55, 58, 62, 65, 68, 72, 70, 73, 76, 74, 77, 80],
-    'OPS-002': [8, 9, 9, 10, 10, 11, 10, 11, 11, 12, 12, 12],
-    'OPS-003': [45, 48, 52, 55, 58, 62, 60, 63, 67, 65, 68, 72],
-    'OPS-004': [32, 34, 35, 37, 38, 40, 41, 42, 44, 45, 47, 48],
-    'OPS-005': [98.2, 98.5, 98.8, 99.0, 99.1, 99.2, 98.9, 99.3, 99.4, 99.2, 99.5, 99.6],
-    'OPS-006': [88, 89, 90, 91, 92, 93, 91, 93, 94, 92, 95, 96],
-  };
-
-  const rhValues = {
-    'RH-001': [230, 232, 234, 235, 238, 240, 241, 243, 245, 246, 248, 250],
-    'RH-002': [245, 248, 250, 252, 255, 258, 260, 262, 265, 268, 270, 275],
-    'RH-003': [12, 11, 10, 10, 9, 9, 8, 8, 8, 7, 8, 7],
-    'RH-004': [40, 39, 38, 37, 36.5, 36, 35.5, 35, 34.5, 35, 34, 33],
-    'RH-005': [35, 38, 40, 42, 45, 48, 50, 52, 55, 57, 59, 62],
-    'RH-006': [16.5, 17, 17.8, 18, 18.5, 19, 19.2, 19.5, 20, 19.8, 20.5, 21],
-    'RH-007': [2, 3, 4, 3, 5, 4, 3, 4, 5, 3, 4, 4],
-  };
-
-  const riskValues = {
-    'RSK-001': [3.5, 3.2, 3, 2.8, 2.5, 2.3, 2.5, 2.2, 2, 2.1, 1.8, 1.5],
-    'RSK-002': [2, 1, 3, 1, 0, 2, 1, 0, 1, 0, 1, 0],
-    'RSK-003': [72, 74, 76, 78, 80, 82, 79, 83, 85, 82, 86, 88],
-    'RSK-004': [5, 4, 4, 3, 3, 2, 2, 2, 1, 1, 1, 0],
-    'RSK-005': [70, 73, 76, 79, 82, 84, 81, 85, 88, 85, 90, 93],
-  };
-
-  const ptaValues = {
-    'PTA-001': [50, 55, 60, 63, 67, 72, 70, 74, 78, 76, 80, 83],
-    'PTA-002': [2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 5],
-    'PTA-003': [2.5, 2.8, 3.0, 3.2, 3.3, 3.5, 3.4, 3.6, 3.8, 3.7, 3.9, 4.0],
-    'PTA-004': [55, 58, 62, 65, 68, 72, 70, 73, 76, 74, 77, 80],
-  };
+  const govValues = { 'GOV-001': [88,90,92,91,93,95,92,94,96,93,95,97], 'GOV-002': [8,7,6,7,6,5,6,5,4,5,4,3], 'GOV-003': [3,4,3,4,4,4,3,4,4,4,4,4], 'GOV-004': [82,84,86,85,87,89,86,88,90,88,90,92], 'GOV-005': [1,2,2,2,3,3,3,4,4,4,5,5], 'GOV-006': [60,62,65,68,70,72,74,76,78,80,82,85] };
+  const opsValues = { 'OPS-001': [55,58,62,65,68,72,70,73,76,74,77,80], 'OPS-002': [8,9,9,10,10,11,10,11,11,12,12,12], 'OPS-003': [45,48,52,55,58,62,60,63,67,65,68,72], 'OPS-004': [32,34,35,37,38,40,41,42,44,45,47,48], 'OPS-005': [98.2,98.5,98.8,99.0,99.1,99.2,98.9,99.3,99.4,99.2,99.5,99.6], 'OPS-006': [88,89,90,91,92,93,91,93,94,92,95,96] };
+  const rhValues = { 'RH-001': [230,232,234,235,238,240,241,243,245,246,248,250], 'RH-002': [245,248,250,252,255,258,260,262,265,268,270,275], 'RH-003': [12,11,10,10,9,9,8,8,8,7,8,7], 'RH-004': [40,39,38,37,36.5,36,35.5,35,34.5,35,34,33], 'RH-005': [35,38,40,42,45,48,50,52,55,57,59,62], 'RH-006': [16.5,17,17.8,18,18.5,19,19.2,19.5,20,19.8,20.5,21], 'RH-007': [2,3,4,3,5,4,3,4,5,3,4,4] };
+  const riskValues = { 'RSK-001': [3.5,3.2,3,2.8,2.5,2.3,2.5,2.2,2,2.1,1.8,1.5], 'RSK-002': [2,1,3,1,0,2,1,0,1,0,1,0], 'RSK-003': [72,74,76,78,80,82,79,83,85,82,86,88], 'RSK-004': [5,4,4,3,3,2,2,2,1,1,1,0], 'RSK-005': [70,73,76,79,82,84,81,85,88,85,90,93] };
+  const ptaValues = { 'PTA-001': [50,55,60,63,67,72,70,74,78,76,80,83], 'PTA-002': [2,2,3,3,3,4,4,4,5,5,5,5], 'PTA-003': [2.5,2.8,3.0,3.2,3.3,3.5,3.4,3.6,3.8,3.7,3.9,4.0], 'PTA-004': [55,58,62,65,68,72,70,73,76,74,77,80] };
 
   const allValueSets = [financeValues, govValues, opsValues, rhValues, riskValues, ptaValues];
-
   for (let year = 2024; year <= 2025; year++) {
     for (const valueSet of allValueSets) {
       for (const [code, values] of Object.entries(valueSet)) {
         const indicatorId = createdIndicators[code];
         if (!indicatorId) continue;
-
         for (let month = 0; month < 12; month++) {
-          if (year === 2025 && month > 5) continue; // Only through June 2025
-
+          if (year === 2025 && month > 5) continue;
           const value = values[month];
           const period = `${year}-${String(month + 1).padStart(2, '0')}`;
-          valueData.push({
-            indicatorId,
-            value: typeof value === 'number' ? value : 0,
-            period,
-            year,
-            month: month + 1,
-            quarter: Math.ceil((month + 1) / 3),
-          });
+          valueData.push({ indicatorId, value: typeof value === 'number' ? value : 0, period, year, month: month + 1, quarter: Math.ceil((month + 1) / 3) });
         }
       }
     }
   }
 
-  // Insert in batches
   const batchSize = 500;
   for (let i = 0; i < valueData.length; i += batchSize) {
-    const batch = valueData.slice(i, i + batchSize);
-    await db.indicatorValue.createMany({ data: batch as any });
+    await db.indicatorValue.createMany({ data: valueData.slice(i, i + batchSize) as any });
   }
 
-  // Projects
+  // ─── Projects ─────────────────────────────────────────────────
   const projects = [
     { name: "Déploiement Backbone Fibre Optique", code: 'PRJ-001', description: "Extension du réseau backbone fibre sur 500km", status: 'en_cours', priority: 'critique', budgetPlan: 3000000000, budgetReal: 1850000000, progress: 62, departmentId: deptMap.get('DT'), manager: 'M. Diallo Mamadou' },
     { name: "Migration Plateforme Cloud", code: 'PRJ-002', description: "Migration des systèmes vers le cloud hybride", status: 'en_cours', priority: 'haute', budgetPlan: 500000000, budgetReal: 280000000, progress: 56, departmentId: deptMap.get('SI'), manager: 'M. Coulibaly Adama' },
@@ -191,12 +319,9 @@ async function seed() {
     { name: "Mise en conformité RGPD", code: 'PRJ-011', description: "Adaptation aux normes de protection des données", status: 'en_cours', priority: 'haute', budgetPlan: 25000000, budgetReal: 18000000, progress: 72, departmentId: deptMap.get('DG'), manager: 'Mme Sanogo Mariam' },
     { name: "Interconnexion Régionale", code: 'PRJ-012', description: "Connexion aux réseaux sous-régionaux", status: 'planifie', priority: 'haute', budgetPlan: 800000000, budgetReal: 0, progress: 5, departmentId: deptMap.get('DT'), manager: 'M. Diallo Mamadou' },
   ];
-
   await db.project.createMany({ data: projects as any });
 
-  console.log(`✅ Seed complete! ${indicators.length} indicators, ${valueData.length} values, ${projects.length} projects, ${departments.length} departments`);
+  console.log(`✅ Seed complete! ${roles.length} roles, ${users.length} users, ${indicators.length} indicators, ${valueData.length} values, ${projects.length} projects`);
 }
 
-seed()
-  .catch(console.error)
-  .finally(() => process.exit(0));
+seed().catch(console.error).finally(() => process.exit(0));
