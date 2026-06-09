@@ -2,7 +2,7 @@
 
 import { SidebarProvider, SidebarInset, SidebarRail } from '@/components/ui/sidebar';
 import { AppSidebar, Header, DashboardAccueil, FinanceModule, GovernanceModule, OperationalModule, RHModule, RisqueModule, PTAModule } from '@/components/cockpit';
-import { AdminLayout, AdminDashboard, AdminUsers, AdminRoles, AdminLogs } from '@/components/admin';
+import { AdminLayout, AdminDashboard, AdminUsers, AdminRoles, AdminDataSources, AdminLogs } from '@/components/admin';
 import { useAppStore, type AdminViewKey } from '@/lib/store';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -20,6 +20,7 @@ const ADMIN_SUB_VIEWS: Record<string, React.ComponentType> = {
   admin_dashboard: AdminDashboard,
   admin_users: AdminUsers,
   admin_roles: AdminRoles,
+  admin_datasources: AdminDataSources,
   admin_logs: AdminLogs,
 };
 

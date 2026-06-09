@@ -133,3 +133,22 @@ model AuditLog {
   ipAddress String?
   createdAt DateTime @default(now())
 }
+
+model DataSource {
+  id          String   @id @default(cuid())
+  module      String   // Which dashboard module this feeds: accueil, governance, finance, operational, rh, risque, pta, admin
+  name        String   // Display name: "SAP B1", "Sig RHS", etc.
+  type        String   @default("manuel") // manuel, api, base_de_donnees, fichier, erp
+  host        String?  // Server / host URL
+  port        Int?     // Port number
+  endpoint    String?  // API endpoint path
+  database    String?  // Database name (for db sources)
+  username    String?  // Credential username
+  password    String?  // Credential password (encrypted in prod)
+  description String?
+  status      String   @default("actif") // actif, inactif, en_test
+  lastSync    DateTime?
+  refreshFreq String   @default("manuel") // temps_reel, journalier, hebdomadaire, mensuel, manuel
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

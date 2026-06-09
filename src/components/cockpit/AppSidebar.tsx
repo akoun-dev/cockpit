@@ -134,7 +134,7 @@ export function AppSidebar() {
                 <SidebarMenuButton
                   isActive={activeView === 'admin'}
                   tooltip="Administration"
-                  onPointerDown={() => handleAdminClick()}
+                  onClick={() => handleAdminClick()}
                   className={
                     activeView === 'admin'
                       ? 'sidebar-active-indicator bg-fun-blue/10 text-fun-blue hover:bg-fun-blue/15 hover:text-fun-blue font-medium'

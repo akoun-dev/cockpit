@@ -159,7 +159,8 @@ export function AdminRoles() {
       const res = await fetch('/api/admin/roles');
       if (res.ok) {
         const data = await res.json();
-        setRoles(Array.isArray(data) ? data : data.roles || []);
+        const rolesList = data.data || (Array.isArray(data) ? data : data.roles || []);
+        setRoles(rolesList);
       } else {
         // Fallback roles
         setRoles([
@@ -224,20 +225,31 @@ export function AdminRoles() {
 
   const fetchPermissions = useCallback(async (roleId: string) => {
     try {
-      const res = await fetch(`/api/admin/roles/${roleId}/permissions`);
+      // Fetch single role with permissions from /api/admin/roles/:id
+      const res = await fetch(`/api/admin/roles/${roleId}`);
       if (res.ok) {
         const data = await res.json();
-        setPermissions(data.permissions || data || {});
+        const roleData = data.data || data;
+        const permList = roleData?.permissions || data?.permissions || [];
+        // Convert array [{ module, access }] to map { module: access }
+        const permMap: PermissionMap = {};
+        for (const p of permList) {
+          if (p.module && p.access) permMap[p.module] = p.access;
+        }
+        // Fill any missing modules with 'none'
+        for (const key of MODULE_KEYS) {
+          if (!permMap[key]) permMap[key] = 'none';
+        }
+        setPermissions(permMap);
         setPermissionsModified(false);
       } else {
         // Fallback permissions
         const level = roles.find((r) => r.id === roleId)?.level ?? 0;
         const fallback: PermissionMap = {};
         for (const key of MODULE_KEYS) {
-          if (level >= 4) fallback[key] = 'admin';
-          else if (level >= 3) fallback[key] = key === 'admin' ? 'read' : 'write';
-          else if (level >= 2) fallback[key] = key === 'admin' ? 'none' : 'write';
-          else if (level >= 1) fallback[key] = key === 'admin' ? 'none' : 'read';
+          if (level >= 100) fallback[key] = 'admin';
+          else if (level >= 50) fallback[key] = key === 'admin' ? 'none' : 'write';
+          else if (level >= 10) fallback[key] = key === 'accueil' ? 'read' : 'none';
           else fallback[key] = 'none';
         }
         setPermissions(fallback);
@@ -277,7 +289,10 @@ export function AdminRoles() {
       const res = await fetch('/api/admin/permissions', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roleId: selectedRoleId, permissions }),
+        body: JSON.stringify({
+          roleId: selectedRoleId,
+          permissions: Object.entries(permissions).map(([module, access]) => ({ module, access })),
+        }),
       });
       if (res.ok) {
         setPermissionsModified(false);

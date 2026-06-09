@@ -7,7 +7,7 @@ export async function GET() {
     const [totalUsers, activeUsers, totalRoles, configuredModules, auditLogCount] =
       await Promise.all([
         db.user.count(),
-        db.user.count({ where: { status: 'active' } }),
+        db.user.count({ where: { isActive: true } }),
         db.role.count(),
         db.permission.groupBy({ by: ['module'] }).then((m) => m.length),
         db.auditLog.count(),
