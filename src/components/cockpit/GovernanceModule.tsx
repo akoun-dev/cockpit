@@ -62,12 +62,12 @@ const lineChartConfig = {
 const formatNumber = (n: number) => new Intl.NumberFormat('fr-FR').format(n);
 
 const getLatestValue = (indicator: any) => {
-  if (!indicator.values?.length) return 0;
+  if (!indicator?.values?.length) return 0;
   return indicator.values[indicator.values.length - 1].value;
 };
 
 const getPreviousValue = (indicator: any) => {
-  if (!indicator.values?.length || indicator.values.length < 2) return null;
+  if (!indicator?.values?.length || indicator.values.length < 2) return null;
   return indicator.values[indicator.values.length - 2].value;
 };
 
