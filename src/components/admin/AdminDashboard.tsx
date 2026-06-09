@@ -88,7 +88,7 @@ export function AdminDashboard({ onViewChange }: AdminDashboardProps) {
         const logsRes = await fetch('/api/admin/audit-logs?limit=5&offset=0');
         if (logsRes.ok) {
           const data = await logsRes.json();
-          setRecentLogs(data.logs || data || []);
+          setRecentLogs(data.data || data.logs || (Array.isArray(data) ? data : []));
         }
       } catch {
         setError('Erreur lors du chargement des données');

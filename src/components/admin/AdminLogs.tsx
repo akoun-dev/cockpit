@@ -132,12 +132,12 @@ export function AdminLogs() {
       const res = await fetch(`/api/admin/audit-logs?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        setLogs(data.logs || []);
+        setLogs(data.data || data.logs || (Array.isArray(data) ? data : []));
         setPagination({
-          total: data.total ?? data.logs?.length ?? 0,
+          total: data.pagination?.total ?? data.total ?? (data.data || data.logs || []).length,
           limit: PAGE_SIZE,
           offset,
-          hasMore: data.hasMore ?? false,
+          hasMore: (data.pagination?.total ?? 0) > offset + PAGE_SIZE,
         });
       } else {
         // Fallback logs
