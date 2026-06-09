@@ -77,8 +77,8 @@ export function AppSidebar() {
       {/* Header with ANSUT branding */}
       <SidebarHeader className="px-4 py-5">
         <div className="flex items-center gap-3">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-fun-blue text-white font-bold text-sm">
-            A
+          <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white dark:bg-gray-900 shadow-sm">
+            <img src="/logo-ansut.png" alt="ANSUT" className="size-9 object-cover" />
           </div>
           <div
             className={`flex flex-col overflow-hidden transition-all duration-200 ${

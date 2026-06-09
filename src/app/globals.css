@@ -144,6 +144,12 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
 
 /* KPI card shine effect */
 .kpi-card {
@@ -159,6 +165,9 @@
   height: 100%;
   background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
   transition: left 0.5s;
+}
+.dark .kpi-card::before {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
 }
 .kpi-card:hover::before {
   left: 100%;

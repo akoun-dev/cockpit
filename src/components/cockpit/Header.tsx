@@ -16,8 +16,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { FileSpreadsheet, FileText, Download } from 'lucide-react';
+import { FileSpreadsheet, FileText, Download, Moon, Sun } from 'lucide-react';
 import { useAppStore, type ModuleKey, type AppViewKey } from '@/lib/store';
+import { useTheme } from 'next-themes';
 
 const MODULE_LABELS: Record<AppViewKey, string> = {
   accueil: 'Tableau de Bord',
@@ -45,6 +46,7 @@ interface Department {
 
 export function Header() {
   const { activeView, filters, setFilters } = useAppStore();
+  const { theme, setTheme } = useTheme();
   const isAdmin = activeView === 'admin';
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
@@ -197,6 +199,17 @@ export function Header() {
           </DropdownMenuContent>
         </DropdownMenu>
         </>)}
+
+        {/* Theme toggle */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 border border-white/20 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 hover:text-white"
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          aria-label="Basculer le thème"
+        >
+          {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
+        </Button>
       </div>
     </header>
   );

@@ -4,7 +4,6 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   Plus,
   Search,
-  MoreHorizontal,
   Pencil,
   Trash2,
   Loader2,

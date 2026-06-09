@@ -77,10 +77,10 @@ const ACCESS_LABELS: Record<string, string> = {
 const ACCESS_VALUES = ['none', 'read', 'write', 'admin'] as const;
 
 const ACCESS_COLORS: Record<string, string> = {
-  none: 'bg-gray-100 text-gray-600',
-  read: 'bg-blue-100 text-blue-700',
-  write: 'bg-tango/10 text-tango',
-  admin: 'bg-fun-blue/10 text-fun-blue',
+  none: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+  read: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  write: 'bg-tango/10 text-tango dark:bg-tango/20',
+  admin: 'bg-fun-blue/10 text-fun-blue dark:bg-fun-blue/20',
 };
 
 const LEVEL_LABELS: Record<number, string> = {
@@ -427,7 +427,7 @@ export function AdminRoles() {
         </div>
       )}
       {successMsg && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+        <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-400">
           {successMsg}
         </div>
       )}

@@ -27,12 +27,12 @@ import {
 // --- Constants ---
 
 const CATEGORY_COLORS: Record<string, string> = {
-  auth: 'bg-blue-100 text-blue-800',
-  user: 'bg-green-100 text-green-800',
-  role: 'bg-orange-100 text-orange-800',
-  permission: 'bg-purple-100 text-purple-800',
-  data: 'bg-gray-100 text-gray-700',
-  export: 'bg-teal-100 text-teal-800',
+  auth: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+  user: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  role: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
+  permission: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+  data: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+  export: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400',
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -165,10 +165,6 @@ export function AdminLogs() {
     }
   }, [category, search]);
 
-  useEffect(() => {
-    fetchLogs(0);
-  }, [fetchLogs]);
-
   function handlePageChange(newPage: number) {
     const newOffset = (newPage - 1) * PAGE_SIZE;
     fetchLogs(newOffset);
@@ -182,12 +178,9 @@ export function AdminLogs() {
     setSearch(val);
   }
 
-  // Apply filters on debounce-like reset
+  // Initial fetch + refetch on filter changes
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchLogs(0);
-    }, 300);
-    return () => clearTimeout(timer);
+    fetchLogs(0);
   }, [category, search]);
 
   return (
@@ -300,7 +293,7 @@ export function AdminLogs() {
                       <TableCell>
                         <Badge
                           variant="secondary"
-                          className={CATEGORY_COLORS[log.category] || 'bg-gray-100 text-gray-700'}
+                          className={CATEGORY_COLORS[log.category] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}
                         >
                           {CATEGORY_LABELS[log.category] || log.category}
                         </Badge>

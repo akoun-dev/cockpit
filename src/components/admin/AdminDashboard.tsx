@@ -37,12 +37,12 @@ interface AdminDashboardProps {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  auth: 'bg-blue-100 text-blue-800',
-  user: 'bg-green-100 text-green-800',
-  role: 'bg-orange-100 text-orange-800',
-  permission: 'bg-purple-100 text-purple-800',
-  data: 'bg-gray-100 text-gray-800',
-  export: 'bg-teal-100 text-teal-800',
+  auth: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+  user: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  role: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
+  permission: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+  data: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
+  export: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400',
 };
 
 function formatFrenchDate(date: string): string {
@@ -88,7 +88,18 @@ export function AdminDashboard({ onViewChange }: AdminDashboardProps) {
         const logsRes = await fetch('/api/admin/audit-logs?limit=5&offset=0');
         if (logsRes.ok) {
           const data = await logsRes.json();
-          setRecentLogs(data.data || data.logs || (Array.isArray(data) ? data : []));
+          setRecentLogs(
+            (data.data || data.logs || (Array.isArray(data) ? data : [])).map(
+              (log: Record<string, unknown>) => ({
+                id: log.id,
+                timestamp: log.createdAt ?? log.timestamp,
+                userName: (log as Record<string, unknown>).user?.name ?? log.userName ?? 'Inconnu',
+                action: log.action,
+                category: log.category,
+                details: log.details,
+              })
+            )
+          );
         }
       } catch {
         setError('Erreur lors du chargement des données');
@@ -169,19 +180,26 @@ export function AdminDashboard({ onViewChange }: AdminDashboardProps) {
       value: stats?.configuredModules ?? '—',
       description: 'Modules actifs',
       icon: Layers,
-      iconBg: 'bg-green-100 text-green-700',
+      iconBg: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
     },
     {
       label: 'Activités récentes',
       value: stats ? formatFrenchNumber(stats.auditLogCount) : '—',
       description: 'Entrées dans le journal',
       icon: Activity,
-      iconBg: 'bg-purple-100 text-purple-700',
+      iconBg: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
     },
   ];
 
   return (
     <div className="space-y-6">
+      {/* Error state */}
+      {error && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
       {/* Page title */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Tableau de bord admin</h1>
@@ -298,13 +316,6 @@ export function AdminDashboard({ onViewChange }: AdminDashboardProps) {
           )}
         </CardContent>
       </Card>
-
-      {/* Error state */}
-      {error && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-          {error}
-        </div>
-      )}
     </div>
   );
 }

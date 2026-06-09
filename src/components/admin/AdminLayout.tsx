@@ -31,9 +31,12 @@ export function AdminLayout({ activeView, onViewChange, children }: AdminLayoutP
       <aside className="hidden w-52 shrink-0 flex-col border-r border-border bg-muted/30 lg:flex">
         {/* Admin header */}
         <div className="border-b border-border px-4 py-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Administration
-          </h2>
+          <div className="flex items-center gap-3">
+            <img src="/logo-ansut.png" alt="ANSUT" className="size-7 rounded object-cover" />
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Administration
+            </h2>
+          </div>
         </div>
 
         {/* Navigation items */}

@@ -98,17 +98,17 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
 };
 
 const TYPE_COLORS: Record<string, string> = {
-  manuel: 'bg-gray-100 text-gray-700',
-  api: 'bg-blue-100 text-blue-700',
-  base_de_donnees: 'bg-purple-100 text-purple-700',
-  fichier: 'bg-orange-100 text-orange-700',
-  erp: 'bg-green-100 text-green-700',
+  manuel: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+  api: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  base_de_donnees: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  fichier: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+  erp: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  actif: { label: 'Actif', color: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircle2 },
-  inactif: { label: 'Inactif', color: 'bg-gray-100 text-gray-600 border-gray-200', icon: XCircle },
-  en_test: { label: 'En test', color: 'bg-amber-100 text-amber-800 border-amber-200', icon: AlertTriangle },
+  actif: { label: 'Actif', color: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800', icon: CheckCircle2 },
+  inactif: { label: 'Inactif', color: 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700', icon: XCircle },
+  en_test: { label: 'En test', color: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800', icon: AlertTriangle },
 };
 
 const FREQ_LABELS: Record<string, string> = {
@@ -178,9 +178,9 @@ export function AdminDataSources() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Module expand/collapse
+  // Module expand/collapse — default collapsed
   const [expandedModules, setExpandedModules] = useState<Set<string>>(
-    new Set(MODULE_KEYS)
+    new Set()
   );
 
   // Dialog state
@@ -388,7 +388,7 @@ export function AdminDataSources() {
         </div>
       )}
       {successMsg && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+        <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-400">
           {successMsg}
         </div>
       )}
@@ -396,10 +396,10 @@ export function AdminDataSources() {
       {/* Stats overview */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: 'Total Sources', value: sources.length, color: 'text-fun-blue' },
-          { label: 'Sources Actives', value: sources.filter((s) => s.status === 'actif').length, color: 'text-green-600' },
-          { label: 'En Test', value: sources.filter((s) => s.status === 'en_test').length, color: 'text-amber-500' },
-          { label: 'Modules Configurés', value: MODULE_KEYS.filter((m) => getModuleSourceCount(m) > 0).length, color: 'text-tango' },
+          { label: 'Total Sources', value: sources.length, color: 'text-fun-blue dark:text-blue-400' },
+          { label: 'Sources Actives', value: sources.filter((s) => s.status === 'actif').length, color: 'text-green-600 dark:text-green-400' },
+          { label: 'En Test', value: sources.filter((s) => s.status === 'en_test').length, color: 'text-amber-500 dark:text-amber-400' },
+          { label: 'Modules Configurés', value: MODULE_KEYS.filter((m) => getModuleSourceCount(m) > 0).length, color: 'text-tango dark:text-orange-400' },
         ].map((stat) => (
           <Card key={stat.label}>
             <CardContent className="p-4">
@@ -428,9 +428,12 @@ export function AdminDataSources() {
             return (
               <Card key={mod}>
                 {/* Module header — clickable */}
-                <button
-                  className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-muted/30"
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className="flex w-full cursor-pointer items-center gap-3 p-4 text-left transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() => toggleModule(mod)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleModule(mod); } }}
                 >
                   <div className={cn('size-3 rounded-full', MODULE_COLORS[mod])} />
                   <div className="flex-1">
@@ -440,7 +443,7 @@ export function AdminDataSources() {
                         {total} source{total > 1 ? 's' : ''}
                       </Badge>
                       {active > 0 && (
-                        <Badge className="bg-green-100 text-green-800 text-[10px] px-1.5 py-0">
+                        <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 text-[10px] px-1.5 py-0">
                           {active} active
                         </Badge>
                       )}
@@ -464,7 +467,7 @@ export function AdminDataSources() {
                       <ChevronRight className="size-4 text-muted-foreground" />
                     )}
                   </div>
-                </button>
+                </div>
 
                 {/* Expanded: source list */}
                 {isExpanded && (
@@ -498,10 +501,10 @@ export function AdminDataSources() {
                               className={cn(
                                 'rounded-lg border p-4 transition-colors',
                                 source.status === 'actif'
-                                  ? 'border-green-200/50 bg-green-50/30'
+                                  ? 'border-green-200/50 bg-green-50/30 dark:border-green-800/50 dark:bg-green-950/30'
                                   : source.status === 'en_test'
-                                    ? 'border-amber-200/50 bg-amber-50/30'
-                                    : 'border-border bg-muted/20'
+                                    ? 'border-amber-200/50 bg-amber-50/30 dark:border-amber-800/50 dark:bg-amber-950/30'
+                                    : 'border-border bg-muted/20 dark:bg-muted/40'
                               )}
                             >
                               <div className="flex items-start gap-3">
@@ -715,7 +718,7 @@ export function AdminDataSources() {
 
             {/* Connection details — shown for non-manual types */}
             {form.type !== 'manuel' && (
-              <div className="space-y-4 rounded-lg border border-border bg-muted/20 p-4">
+              <div className="space-y-4 rounded-lg border border-border bg-muted/20 dark:bg-muted/40 p-4">
                 <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   <Settings className="size-3.5" />
                   Paramètres de connexion
