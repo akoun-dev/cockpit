@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      String   @default("DG") // DG, PMO, CT, DFC, DJMG
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  code      String?
+  headName  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  indicators      Indicator[]
+  indicatorValues IndicatorValue[]
+  projects        Project[]
+}
+
+model Indicator {
+  id           String   @id @default(cuid())
+  name         String
+  code         String   @unique
+  description  String?
+  domain       String   // finance, rh, governance, operational, risque, pta
+  subDomain    String?  // budget, rentabilite, dette, effectifs, etc.
+  unit         String   @default("%") // %, FCFA, nombre, jours, etc.
+  targetValue  Float?
+  formula      String?
+  frequency    String   @default("mensuel") // journalier, hebdomadaire, mensuel, trimestriel, annuel
+  sourceSystem String   @default("manuel") // ERP, FILE, API, manuel
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  order        Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  values IndicatorValue[]
+}
+
+model IndicatorValue {
+  id           String   @id @default(cuid())
+  indicatorId  String
+  indicator    Indicator @relation(fields: [indicatorId], references: [id], onDelete: Cascade)
+  value        Float
+  period       String   // "2025-01", "2025-Q1", "2025"
+  year         Int
+  month        Int?
+  quarter      Int?
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  comment      String?
+  createdAt    DateTime @default(now())
+
+  @@unique([indicatorId, period, departmentId])
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique
+  description String?
+  status      String   @default("en_cours") // planifie, en_cours, termine, suspendu
+  priority    String   @default("moyenne") // critique, haute, moyenne, basse
+  startDate   DateTime?
+  endDate     DateTime?
+  budgetPlan  Float?
+  budgetReal  Float?
+  progress    Float    @default(0)
+  departmentId String?
+  department  Department? @relation(fields: [departmentId], references: [id])
+  manager     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  userId    String?
+  details   String?
+  createdAt DateTime @default(now())
+}
