@@ -1,13 +1,15 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { Search, ChevronLeft, ChevronRight, Download } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Search, ChevronLeft, ChevronRight, Download, Calendar, RefreshCw, Clock, BarChart3, RotateCcw } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Switch } from '@/components/ui/switch';
+import { useToast } from '@/hooks/use-toast';
 import {
   Select,
   SelectContent,
@@ -89,6 +91,14 @@ function formatFrenchDate(date: string): string {
   });
 }
 
+function formatTime(date: string): string {
+  return new Date(date).toLocaleTimeString('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
 function getInitials(name?: string | null): string {
   if (!name) return '?';
   return name
@@ -97,6 +107,31 @@ function getInitials(name?: string | null): string {
     .join('')
     .toUpperCase()
     .slice(0, 2);
+}
+
+function formatDateForInput(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function isToday(date: string): boolean {
+  const d = new Date(date);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
+
+function isThisWeek(date: string): boolean {
+  const d = new Date(date);
+  const now = new Date();
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - now.getDay());
+  startOfWeek.setHours(0, 0, 0, 0);
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 7);
+  return d >= startOfWeek && d < endOfWeek;
 }
 
 // --- Component ---
@@ -115,11 +150,34 @@ export function AdminLogs() {
   // Filters
   const [category, setCategory] = useState('all');
   const [search, setSearch] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  // Auto-refresh
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const { toast } = useToast();
 
   const totalPages = Math.ceil(pagination.total / PAGE_SIZE);
   const currentPage = Math.floor(pagination.offset / PAGE_SIZE) + 1;
 
-  async function fetchLogs(cat: string, searchTerm: string, offset = 0) {
+  // --- Statistics ---
+  const todayCount = logs.filter((log) => isToday(log.timestamp)).length;
+  const weekCount = logs.filter((log) => isThisWeek(log.timestamp)).length;
+
+  const updateLastUpdated = useCallback(() => {
+    setLastUpdated(formatTime(new Date().toISOString()));
+  }, []);
+
+  async function fetchLogs(
+    cat: string,
+    searchTerm: string,
+    offset = 0,
+    start?: string,
+    end?: string,
+  ) {
     setLoading(true);
     setError(null);
     try {
@@ -129,22 +187,30 @@ export function AdminLogs() {
       });
       if (cat !== 'all') params.set('category', cat);
       if (searchTerm.trim()) params.set('search', searchTerm.trim());
+      if (start) params.set('startDate', start);
+      if (end) params.set('endDate', end);
 
       const res = await fetch(`/api/admin/audit-logs?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
         const rawLogs = data.data || data.logs || (Array.isArray(data) ? data : []);
-        setLogs(rawLogs.map((log: Record<string, unknown>) => ({
-          id: log.id,
-          timestamp: (log as Record<string, unknown>).createdAt ?? log.timestamp,
-          userId: log.userId,
-          userName: (log as Record<string, unknown>).user?.name ?? log.userName ?? 'Inconnu',
-          userAvatar: (log as Record<string, unknown>).user?.avatar ?? log.userAvatar,
-          action: log.action,
-          category: log.category,
-          details: log.details,
-          ipAddress: log.ipAddress,
-        })));
+        setLogs(
+          rawLogs.map((log: Record<string, unknown>) => ({
+            id: log.id,
+            timestamp: (log as Record<string, unknown>).createdAt ?? log.timestamp,
+            userId: log.userId,
+            userName:
+              (log as Record<string, unknown>).user?.name ??
+              log.userName ??
+              'Inconnu',
+            userAvatar:
+              (log as Record<string, unknown>).user?.avatar ?? log.userAvatar,
+            action: log.action,
+            category: log.category,
+            details: log.details,
+            ipAddress: log.ipAddress,
+          })),
+        );
         setPagination({
           total: data.pagination?.total ?? data.total ?? rawLogs.length,
           limit: PAGE_SIZE,
@@ -154,20 +220,26 @@ export function AdminLogs() {
       } else {
         // Fallback logs
         setLogs(generateFallbackLogs());
-        setPagination({ total: 156, limit: PAGE_SIZE, offset: 0, hasMore: true });
+        setPagination({
+          total: 156,
+          limit: PAGE_SIZE,
+          offset: 0,
+          hasMore: true,
+        });
       }
     } catch {
-      setError('Erreur lors du chargement du journal d\'audit');
+      setError("Erreur lors du chargement du journal d'audit");
       setLogs(generateFallbackLogs());
       setPagination({ total: 156, limit: PAGE_SIZE, offset: 0, hasMore: true });
     } finally {
       setLoading(false);
+      updateLastUpdated();
     }
   }
 
   function handlePageChange(newPage: number) {
     const newOffset = (newPage - 1) * PAGE_SIZE;
-    fetchLogs(category, search, newOffset);
+    fetchLogs(category, search, newOffset, startDate, endDate);
   }
 
   function handleCategoryChange(val: string) {
@@ -178,22 +250,32 @@ export function AdminLogs() {
     setSearch(val);
   }
 
+  function handleResetFilters() {
+    setCategory('all');
+    setSearch('');
+    setStartDate('');
+    setEndDate('');
+  }
+
   function exportLogsCSV() {
-    const header = 'Date,Utilisateur,Action,Catégorie,Détails,Adresse IP\n';
-    const rows = logs.map((log) => {
-      const escaped = (val: string) =>
-        val.includes(',') || val.includes('"') || val.includes('\n')
-          ? `"${val.replace(/"/g, '""')}"`
-          : val;
-      return [
-        escaped(formatFrenchDate(log.timestamp)),
-        escaped(log.userName),
-        escaped(log.action),
-        escaped(CATEGORY_LABELS[log.category] || log.category),
-        escaped(log.details),
-        escaped(log.ipAddress ?? ''),
-      ].join(',');
-    }).join('\n');
+    const header =
+      'Date,Utilisateur,Action,Catégorie,Détails,Adresse IP\n';
+    const rows = logs
+      .map((log) => {
+        const escaped = (val: string) =>
+          val.includes(',') || val.includes('"') || val.includes('\n')
+            ? `"${val.replace(/"/g, '""')}"`
+            : val;
+        return [
+          escaped(formatFrenchDate(log.timestamp)),
+          escaped(log.userName),
+          escaped(log.action),
+          escaped(CATEGORY_LABELS[log.category] || log.category),
+          escaped(log.details),
+          escaped(log.ipAddress ?? ''),
+        ].join(',');
+      })
+      .join('\n');
     const csv = header + rows;
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -202,12 +284,37 @@ export function AdminLogs() {
     a.download = `audit-logs-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+
+    toast({
+      title: 'Export terminé',
+      description: 'Le fichier CSV a été téléchargé',
+    });
   }
 
   // Initial fetch + refetch on filter changes
   useEffect(() => {
-    fetchLogs(category, search, 0);
-  }, [category, search]);
+    fetchLogs(category, search, 0, startDate, endDate);
+  }, [category, search, startDate, endDate]);
+
+  // Auto-refresh polling
+  useEffect(() => {
+    if (autoRefresh) {
+      intervalRef.current = setInterval(() => {
+        fetchLogs(category, search, pagination.offset, startDate, endDate);
+      }, 30000);
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [autoRefresh]);
 
   return (
     <div className="space-y-6">
@@ -221,22 +328,62 @@ export function AdminLogs() {
             Historique de toutes les activités sur la plateforme
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={exportLogsCSV}
-          disabled={loading || logs.length === 0}
-          className="gap-1.5"
-        >
-          <Download className="size-4" />
-          Exporter CSV
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Auto-refresh toggle */}
+          <div className="flex items-center gap-2">
+            <Switch
+              id="auto-refresh"
+              checked={autoRefresh}
+              onCheckedChange={setAutoRefresh}
+            />
+            <label
+              htmlFor="auto-refresh"
+              className="flex cursor-pointer items-center gap-1.5 text-sm text-muted-foreground"
+            >
+              <RefreshCw className={`size-3.5 ${autoRefresh ? 'animate-spin text-primary' : ''}`} style={{ animationDuration: '3s' }} />
+              Rafraîchissement auto
+            </label>
+          </div>
+          {/* Last updated */}
+          {lastUpdated && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Clock className="size-3" />
+              Dernière mise à jour : {lastUpdated}
+            </span>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={exportLogsCSV}
+            disabled={loading || logs.length === 0}
+            className="gap-1.5"
+          >
+            <Download className="size-4" />
+            Exporter CSV
+          </Button>
+        </div>
+      </div>
+
+      {/* Summary statistics */}
+      <div className="flex flex-wrap gap-3">
+        <Badge variant="secondary" className="flex items-center gap-1.5 px-3 py-1.5 text-sm">
+          <BarChart3 className="size-3.5" />
+          Total entrées : {pagination.total}
+        </Badge>
+        <Badge variant="outline" className="flex items-center gap-1.5 px-3 py-1.5 text-sm">
+          <Calendar className="size-3.5" />
+          Aujourd&apos;hui : {todayCount}
+        </Badge>
+        <Badge variant="outline" className="flex items-center gap-1.5 px-3 py-1.5 text-sm">
+          <Calendar className="size-3.5" />
+          Cette semaine : {weekCount}
+        </Badge>
       </div>
 
       {/* Filters bar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:flex-wrap">
         <Select value={category} onValueChange={handleCategoryChange}>
-          <SelectTrigger className="w-full sm:w-[200px]">
+          <SelectTrigger className="w-full md:w-[200px]">
             <SelectValue placeholder="Catégorie" />
           </SelectTrigger>
           <SelectContent>
@@ -253,12 +400,47 @@ export function AdminLogs() {
             placeholder="Rechercher dans le journal..."
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="w-full pl-9 sm:max-w-sm"
+            className="w-full pl-9 md:max-w-sm"
           />
         </div>
-        <p className="text-sm text-muted-foreground">
-          {pagination.total} entrée{pagination.total > 1 ? 's' : ''}
-        </p>
+        {/* Date range filters */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative">
+            <Calendar className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="date"
+              placeholder="Date début"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full pl-9 sm:w-[160px]"
+              aria-label="Date début"
+            />
+          </div>
+          <span className="hidden text-sm text-muted-foreground sm:inline">—</span>
+          <div className="relative">
+            <Calendar className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="date"
+              placeholder="Date fin"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full pl-9 sm:w-[160px]"
+              aria-label="Date fin"
+            />
+          </div>
+        </div>
+        {/* Reset button */}
+        {(category !== 'all' || search.trim() !== '' || startDate || endDate) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleResetFilters}
+            className="gap-1.5 text-muted-foreground"
+          >
+            <RotateCcw className="size-3.5" />
+            Réinitialiser
+          </Button>
+        )}
       </div>
 
       {/* Error */}
@@ -268,7 +450,7 @@ export function AdminLogs() {
         </div>
       )}
 
-      {/* Logs table */}
+      {/* Logs table (desktop) + card view (mobile) */}
       <Card>
         <CardContent className="p-0">
           {loading ? (
@@ -292,67 +474,116 @@ export function AdminLogs() {
               </p>
             </div>
           ) : (
-            <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[170px]">Date</TableHead>
-                    <TableHead className="w-[160px]">Utilisateur</TableHead>
-                    <TableHead className="w-[140px]">Action</TableHead>
-                    <TableHead className="w-[130px]">Catégorie</TableHead>
-                    <TableHead className="hidden md:table-cell">Détails</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {logs.map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+            <>
+              {/* Desktop table view */}
+              <div className="hidden max-h-[600px] overflow-y-auto md:block custom-scrollbar">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[170px]">Date</TableHead>
+                      <TableHead className="w-[160px]">Utilisateur</TableHead>
+                      <TableHead className="w-[140px]">Action</TableHead>
+                      <TableHead className="w-[130px]">Catégorie</TableHead>
+                      <TableHead>Détails</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {logs.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                          {formatFrenchDate(log.timestamp)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Avatar className="size-7">
+                              <AvatarFallback className="bg-muted text-[10px]">
+                                {getInitials(log.userName)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="truncate text-sm font-medium">
+                              {log.userName}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs font-normal">
+                            {log.action}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="secondary"
+                            className={
+                              CATEGORY_COLORS[log.category] ||
+                              'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                            }
+                          >
+                            {CATEGORY_LABELS[log.category] || log.category}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate text-xs text-muted-foreground">
+                          {log.details}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile card view */}
+              <div className="max-h-[600px] space-y-2 overflow-y-auto p-3 md:hidden">
+                {logs.map((log) => (
+                  <Card key={log.id} className="p-3">
+                    <div className="space-y-2">
+                      {/* Top row: timestamp */}
+                      <p className="text-xs text-muted-foreground">
                         {formatFrenchDate(log.timestamp)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Avatar className="size-7">
-                            <AvatarFallback className="bg-muted text-[10px]">
-                              {getInitials(log.userName)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="truncate text-sm font-medium">
-                            {log.userName}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
+                      </p>
+                      {/* User row */}
+                      <div className="flex items-center gap-2">
+                        <Avatar className="size-7">
+                          <AvatarFallback className="bg-muted text-[10px]">
+                            {getInitials(log.userName)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-medium">{log.userName}</span>
+                      </div>
+                      {/* Badges row */}
+                      <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="outline" className="text-xs font-normal">
                           {log.action}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
                         <Badge
                           variant="secondary"
-                          className={CATEGORY_COLORS[log.category] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}
+                          className={
+                            CATEGORY_COLORS[log.category] ||
+                            'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                          }
                         >
                           {CATEGORY_LABELS[log.category] || log.category}
                         </Badge>
-                      </TableCell>
-                      <TableCell className="hidden max-w-xs truncate text-xs text-muted-foreground md:table-cell">
+                      </div>
+                      {/* Details */}
+                      <p className="text-xs text-muted-foreground">
                         {log.details}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                      </p>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
           <p className="text-sm text-muted-foreground">
-            Page {currentPage} sur {totalPages} — {pagination.total} entrées au total
+            Page {currentPage} sur {totalPages} — {pagination.total} entrées au
+            total
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -366,7 +597,10 @@ export function AdminLogs() {
             <div className="flex items-center gap-1">
               {generatePageNumbers(currentPage, totalPages).map((page, i) =>
                 page === '...' ? (
-                  <span key={`dots-${i}`} className="px-1 text-muted-foreground">
+                  <span
+                    key={`dots-${i}`}
+                    className="px-1 text-muted-foreground"
+                  >
                     …
                   </span>
                 ) : (
@@ -379,7 +613,7 @@ export function AdminLogs() {
                   >
                     {page}
                   </Button>
-                )
+                ),
               )}
             </div>
             <Button
@@ -431,7 +665,9 @@ function generateFallbackLogs(): AuditLog[] {
     const user = users[i % users.length];
     return {
       id: String(i + 1),
-      timestamp: new Date(Date.now() - i * 3600000 * Math.random() * 10).toISOString(),
+      timestamp: new Date(
+        Date.now() - i * 3600000 * Math.random() * 10,
+      ).toISOString(),
       userId: String((i % 6) + 1),
       userName: user,
       action: item.action,
@@ -442,7 +678,10 @@ function generateFallbackLogs(): AuditLog[] {
 }
 
 // Generate page numbers for pagination
-function generatePageNumbers(current: number, total: number): (number | string)[] {
+function generatePageNumbers(
+  current: number,
+  total: number,
+): (number | string)[] {
   if (total <= 7) {
     return Array.from({ length: total }, (_, i) => i + 1);
   }

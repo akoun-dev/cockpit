@@ -7,8 +7,11 @@ import {
   Trash2,
   Loader2,
   Shield,
+  ShieldCheck,
+  ShieldAlert,
   Users,
   Save,
+  Copy,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -50,7 +53,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 // --- Constants ---
 
@@ -81,6 +86,13 @@ const ACCESS_COLORS: Record<string, string> = {
   read: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
   write: 'bg-tango/10 text-tango dark:bg-tango/20',
   admin: 'bg-fun-blue/10 text-fun-blue dark:bg-fun-blue/20',
+};
+
+const ACCESS_BAR_COLORS: Record<string, string> = {
+  none: 'bg-gray-400',
+  read: 'bg-blue-500',
+  write: 'bg-tango',
+  admin: 'bg-fun-blue',
 };
 
 const LEVEL_LABELS: Record<number, string> = {
@@ -130,7 +142,8 @@ export function AdminRoles() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const { toast } = useToast();
 
   // Selected role & permissions
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
@@ -149,6 +162,12 @@ export function AdminRoles() {
   const [deletingRole, setDeletingRole] = useState<Role | null>(null);
 
   const selectedRole = roles.find((r) => r.id === selectedRoleId) || null;
+
+  // --- Computed stats ---
+
+  const totalRoles = roles.length;
+  const systemRolesCount = roles.filter((r) => r.isSystem).length;
+  const totalPermissionsCount = MODULE_KEYS.length * totalRoles;
 
   // --- Data fetching ---
 
@@ -296,8 +315,10 @@ export function AdminRoles() {
       });
       if (res.ok) {
         setPermissionsModified(false);
-        setSuccessMsg('Permissions sauvegardées avec succès');
-        setTimeout(() => setSuccessMsg(null), 3000);
+        toast({
+          title: 'Permissions sauvegardées avec succès',
+          description: `Les permissions du rôle "${selectedRole?.label}" ont été mises à jour.`,
+        });
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error || 'Erreur lors de la sauvegarde');
@@ -340,6 +361,19 @@ export function AdminRoles() {
     setDialogOpen(true);
   }
 
+  function handleDuplicateRole(role: Role) {
+    setEditingRole(null);
+    setRoleForm({
+      name: `${role.name}-copie`,
+      label: `${role.label} (copie)`,
+      description: role.description,
+      level: role.level,
+      color: role.color,
+    });
+    setFormErrors({});
+    setDialogOpen(true);
+  }
+
   async function handleSaveRole() {
     if (!validateRoleForm(roleForm)) return;
 
@@ -359,6 +393,17 @@ export function AdminRoles() {
       if (res.ok) {
         setDialogOpen(false);
         await fetchRoles();
+        if (editingRole) {
+          toast({
+            title: 'Rôle mis à jour',
+            description: `Le rôle "${roleForm.label}" a été mis à jour avec succès.`,
+          });
+        } else {
+          toast({
+            title: 'Rôle créé avec succès',
+            description: `Le rôle "${roleForm.label}" a été créé.`,
+          });
+        }
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error || 'Erreur lors de la sauvegarde');
@@ -385,12 +430,17 @@ export function AdminRoles() {
       });
       if (res.ok) {
         setDeleteDialogOpen(false);
+        const deletedLabel = deletingRole.label;
         setDeletingRole(null);
         if (selectedRoleId === deletingRole.id) {
           setSelectedRoleId(null);
           setPermissions({});
         }
         await fetchRoles();
+        toast({
+          title: 'Rôle supprimé',
+          description: `Le rôle "${deletedLabel}" a été supprimé.`,
+        });
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error || 'Erreur lors de la suppression');
@@ -426,14 +476,46 @@ export function AdminRoles() {
           {error}
         </div>
       )}
-      {successMsg && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-400">
-          {successMsg}
-        </div>
-      )}
+
+      {/* Stat Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Card>
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-fun-blue/10">
+              <Shield className="size-5 text-fun-blue" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-muted-foreground">Total Rôles</p>
+              <p className="text-2xl font-bold">{totalRoles}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-tango/10">
+              <ShieldAlert className="size-5 text-tango" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-muted-foreground">Rôles Système</p>
+              <p className="text-2xl font-bold">{systemRolesCount}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-green-500/10">
+              <ShieldCheck className="size-5 text-green-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-muted-foreground">Permissions Configurées</p>
+              <p className="text-2xl font-bold">{totalPermissionsCount}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Main layout: Roles list + Permissions matrix */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[320px_1fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
         {/* Left: Roles list */}
         <div className="space-y-3">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -500,6 +582,18 @@ export function AdminRoles() {
                         aria-label={`Modifier le rôle ${role.label}`}
                       >
                         <Pencil className="size-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 hover:bg-muted"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDuplicateRole(role);
+                        }}
+                        aria-label={`Dupliquer le rôle ${role.label}`}
+                      >
+                        <Copy className="size-3.5" />
                       </Button>
                       {!role.isSystem && (
                         <Button
@@ -568,67 +662,86 @@ export function AdminRoles() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[180px]">Module</TableHead>
-                      <TableHead>Niveau d&apos;accès</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {MODULE_KEYS.map((moduleId) => (
-                      <TableRow key={moduleId}>
-                        <TableCell className="font-medium text-sm">
-                          {MODULE_LABELS[moduleId]}
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={permissions[moduleId] || 'none'}
-                            onValueChange={(val) =>
-                              handlePermissionChange(moduleId, val)
-                            }
-                          >
-                            <SelectTrigger className="w-[200px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {ACCESS_VALUES.map((access) => (
-                                <SelectItem key={access} value={access}>
-                                  <span className="flex items-center gap-2">
-                                    <span
-                                      className={cn(
-                                        'inline-block size-2 rounded-full',
-                                        ACCESS_COLORS[access]
-                                      )}
-                                    />
-                                    {ACCESS_LABELS[access]}
-                                  </span>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
+                {/* Permissions table with horizontal scroll on mobile */}
+                <div className="overflow-x-auto -mx-6 px-6">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[180px]">Module</TableHead>
+                        <TableHead>Niveau d&apos;accès</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {MODULE_KEYS.map((moduleId) => (
+                        <TableRow key={moduleId}>
+                          <TableCell className="font-medium text-sm whitespace-nowrap">
+                            {MODULE_LABELS[moduleId]}
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={permissions[moduleId] || 'none'}
+                              onValueChange={(val) =>
+                                handlePermissionChange(moduleId, val)
+                              }
+                            >
+                              <SelectTrigger className="w-[200px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {ACCESS_VALUES.map((access) => (
+                                  <SelectItem key={access} value={access}>
+                                    <span className="flex items-center gap-2">
+                                      <span
+                                        className={cn(
+                                          'inline-block size-2 rounded-full',
+                                          ACCESS_COLORS[access]
+                                        )}
+                                      />
+                                      {ACCESS_LABELS[access]}
+                                    </span>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
 
-                {/* Permissions summary */}
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {ACCESS_VALUES.map((access) => {
-                    const count = MODULE_KEYS.filter(
-                      (m) => permissions[m] === access
-                    ).length;
-                    return (
-                      <Badge
-                        key={access}
-                        variant="secondary"
-                        className={cn('text-xs', ACCESS_COLORS[access])}
-                      >
-                        {ACCESS_LABELS[access]} : {count}
-                      </Badge>
-                    );
-                  })}
+                {/* Improved Permissions Summary with visual bars */}
+                <div className="mt-6 space-y-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Résumé des permissions
+                  </h3>
+                  <div className="space-y-2.5">
+                    {ACCESS_VALUES.map((access) => {
+                      const count = MODULE_KEYS.filter(
+                        (m) => permissions[m] === access
+                      ).length;
+                      const percentage = (count / MODULE_KEYS.length) * 100;
+                      return (
+                        <div key={access} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-medium">{ACCESS_LABELS[access]}</span>
+                            <span className="text-muted-foreground">
+                              {count} / {MODULE_KEYS.length} module{count !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                          <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+                            <div
+                              className={cn(
+                                'h-full rounded-full transition-all duration-500',
+                                ACCESS_BAR_COLORS[access]
+                              )}
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </CardContent>
             </Card>

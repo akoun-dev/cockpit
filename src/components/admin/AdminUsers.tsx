@@ -7,6 +7,10 @@ import {
   Pencil,
   Trash2,
   Loader2,
+  Users,
+  UserCheck,
+  UserX,
+  UserPlus,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -49,6 +53,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
 
 interface Role {
   id: string;
@@ -122,6 +127,7 @@ export function AdminUsers() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -135,6 +141,20 @@ export function AdminUsers() {
 
   // Toggle state
   const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  // ---------- Statistics ----------
+  const totalUsers = users.length;
+  const activeUsers = users.filter((u) => u.isActive).length;
+  const inactiveUsers = users.filter((u) => !u.isActive).length;
+  const newThisMonth = users.filter((u) => {
+    if (!u.lastLogin) return false;
+    const loginDate = new Date(u.lastLogin);
+    const now = new Date();
+    return (
+      loginDate.getMonth() === now.getMonth() &&
+      loginDate.getFullYear() === now.getFullYear()
+    );
+  }).length;
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -346,6 +366,17 @@ export function AdminUsers() {
       if (res.ok) {
         setDialogOpen(false);
         await fetchUsers();
+        if (isEdit) {
+          toast({
+            title: 'Utilisateur mis à jour',
+            description: `Les informations de ${formData.name} ont été mises à jour avec succès.`,
+          });
+        } else {
+          toast({
+            title: 'Utilisateur créé avec succès',
+            description: `${formData.name} a été ajouté à la plateforme.`,
+          });
+        }
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error || 'Erreur lors de la sauvegarde');
@@ -367,9 +398,14 @@ export function AdminUsers() {
         method: 'DELETE',
       });
       if (res.ok) {
+        const deletedName = deletingUser.name;
         setDeleteDialogOpen(false);
         setDeletingUser(null);
         await fetchUsers();
+        toast({
+          title: 'Utilisateur supprimé',
+          description: `${deletedName} a été supprimé de la plateforme.`,
+        });
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error || 'Erreur lors de la suppression');
@@ -392,6 +428,12 @@ export function AdminUsers() {
       });
       if (res.ok) {
         await fetchUsers();
+        toast({
+          title: `Statut de ${user.name} mis à jour`,
+          description: user.isActive
+            ? 'Le compte a été désactivé.'
+            : 'Le compte a été activé.',
+        });
       }
     } catch {
       // silent
@@ -424,6 +466,65 @@ export function AdminUsers() {
         </Button>
       </div>
 
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-fun-blue/10">
+              <Users className="size-5 text-fun-blue" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-muted-foreground">
+                Total Utilisateurs
+              </p>
+              <p className="text-2xl font-bold">{totalUsers}</p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10">
+              <UserCheck className="size-5 text-emerald-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-muted-foreground">
+                Utilisateurs Actifs
+              </p>
+              <p className="text-2xl font-bold text-emerald-600">{activeUsers}</p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-gray-500/10">
+              <UserX className="size-5 text-gray-500" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-muted-foreground">
+                Utilisateurs Inactifs
+              </p>
+              <p className="text-2xl font-bold text-gray-500">{inactiveUsers}</p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10">
+              <UserPlus className="size-5 text-amber-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-muted-foreground">
+                Nouveaux ce mois
+              </p>
+              <p className="text-2xl font-bold text-amber-600">{newThisMonth}</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
       {/* Search bar - full width on mobile */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -442,7 +543,7 @@ export function AdminUsers() {
         </div>
       )}
 
-      {/* Users table */}
+      {/* Users table (desktop) + Card view (mobile) */}
       <Card>
         <CardContent className="p-0">
           {loading ? (
@@ -459,101 +560,174 @@ export function AdminUsers() {
                 </div>
               ))}
             </div>
+          ) : filteredUsers.length === 0 ? (
+            <div className="py-12 text-center text-muted-foreground">
+              {search ? 'Aucun utilisateur trouvé' : 'Aucun utilisateur'}
+            </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Utilisateur</TableHead>
-                  <TableHead className="w-[120px]">Rôle</TableHead>
-                  <TableHead className="hidden w-[160px] md:table-cell">Département</TableHead>
-                  <TableHead className="w-[90px] text-center">Statut</TableHead>
-                  <TableHead className="hidden w-[160px] lg:table-cell">Dernière connexion</TableHead>
-                  <TableHead className="w-[60px] text-center">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
-                      {search ? 'Aucun utilisateur trouvé' : 'Aucun utilisateur'}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      {/* Avatar + Name + Email */}
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="size-9">
-                            <AvatarFallback className="bg-fun-blue/10 text-xs text-fun-blue">
-                              {getInitials(user.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">{user.name}</p>
-                            <p className="truncate text-xs text-muted-foreground">{user.email}</p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      {/* Role badge */}
-                      <TableCell>
-                        <Badge
-                          variant="secondary"
-                          className="text-xs"
-                          style={{
-                            backgroundColor: `${user.roleColor || '#64748b'}15`,
-                            color: user.roleColor || '#64748b',
-                          }}
-                        >
-                          {user.roleName}
-                        </Badge>
-                      </TableCell>
-                      {/* Department */}
-                      <TableCell className="hidden text-sm md:table-cell">
+            <>
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y">
+                {filteredUsers.map((user) => (
+                  <div key={user.id} className="p-4 space-y-3">
+                    {/* Top row: Avatar + Name + Status */}
+                    <div className="flex items-center gap-3">
+                      <Avatar className="size-10">
+                        <AvatarFallback className="bg-fun-blue/10 text-xs text-fun-blue">
+                          {getInitials(user.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="truncate text-sm font-medium">{user.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {user.email}
+                        </p>
+                      </div>
+                      <Switch
+                        checked={user.isActive}
+                        disabled={togglingId === user.id}
+                        onCheckedChange={() => handleToggleActive(user)}
+                        aria-label={`Statut de ${user.name}`}
+                      />
+                    </div>
+
+                    {/* Details row: Role + Department */}
+                    <div className="flex flex-wrap items-center gap-2 pl-[52px]">
+                      <Badge
+                        variant="secondary"
+                        className="text-xs"
+                        style={{
+                          backgroundColor: `${user.roleColor || '#64748b'}15`,
+                          color: user.roleColor || '#64748b',
+                        }}
+                      >
+                        {user.roleName}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
                         {user.departmentName}
-                      </TableCell>
-                      {/* Active switch */}
-                      <TableCell className="text-center">
-                        <div className="flex justify-center">
-                          <Switch
-                            checked={user.isActive}
-                            disabled={togglingId === user.id}
-                            onCheckedChange={() => handleToggleActive(user)}
-                          />
-                        </div>
-                      </TableCell>
-                      {/* Last login */}
-                      <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
+                      </span>
+                    </div>
+
+                    {/* Last login + Actions */}
+                    <div className="flex items-center justify-between pl-[52px]">
+                      <span className="text-xs text-muted-foreground">
                         {formatFrenchDate(user.lastLogin)}
-                      </TableCell>
-                      {/* Actions */}
-                      <TableCell>
-                        <div className="flex justify-center">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-8 hover:bg-muted"
-                            onClick={() => handleEdit(user)}
-                            aria-label={`Modifier ${user.name}`}
-                          >
-                            <Pencil className="size-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            onClick={() => handleDeleteClick(user)}
-                            aria-label={`Supprimer ${user.name}`}
-                          >
-                            <Trash2 className="size-3.5" />
-                          </Button>
-                        </div>
-                      </TableCell>
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 hover:bg-muted"
+                          onClick={() => handleEdit(user)}
+                          aria-label={`Modifier ${user.name}`}
+                        >
+                          <Pencil className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => handleDeleteClick(user)}
+                          aria-label={`Supprimer ${user.name}`}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Utilisateur</TableHead>
+                      <TableHead className="w-[120px]">Rôle</TableHead>
+                      <TableHead className="hidden w-[160px] md:table-cell">Département</TableHead>
+                      <TableHead className="w-[90px] text-center">Statut</TableHead>
+                      <TableHead className="hidden w-[160px] lg:table-cell">Dernière connexion</TableHead>
+                      <TableHead className="w-[60px] text-center">Actions</TableHead>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredUsers.map((user) => (
+                      <TableRow key={user.id}>
+                        {/* Avatar + Name + Email */}
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="size-9">
+                              <AvatarFallback className="bg-fun-blue/10 text-xs text-fun-blue">
+                                {getInitials(user.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">{user.name}</p>
+                              <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        {/* Role badge */}
+                        <TableCell>
+                          <Badge
+                            variant="secondary"
+                            className="text-xs"
+                            style={{
+                              backgroundColor: `${user.roleColor || '#64748b'}15`,
+                              color: user.roleColor || '#64748b',
+                            }}
+                          >
+                            {user.roleName}
+                          </Badge>
+                        </TableCell>
+                        {/* Department */}
+                        <TableCell className="hidden text-sm md:table-cell">
+                          {user.departmentName}
+                        </TableCell>
+                        {/* Active switch */}
+                        <TableCell className="text-center">
+                          <div className="flex justify-center">
+                            <Switch
+                              checked={user.isActive}
+                              disabled={togglingId === user.id}
+                              onCheckedChange={() => handleToggleActive(user)}
+                            />
+                          </div>
+                        </TableCell>
+                        {/* Last login */}
+                        <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
+                          {formatFrenchDate(user.lastLogin)}
+                        </TableCell>
+                        {/* Actions */}
+                        <TableCell>
+                          <div className="flex justify-center">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-8 hover:bg-muted"
+                              onClick={() => handleEdit(user)}
+                              aria-label={`Modifier ${user.name}`}
+                            >
+                              <Pencil className="size-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => handleDeleteClick(user)}
+                              aria-label={`Supprimer ${user.name}`}
+                            >
+                              <Trash2 className="size-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
