@@ -70,7 +70,7 @@ export function AdminLayout({ activeView, onViewChange, children }: AdminLayoutP
   const currentView = activeView || adminSubView;
 
   return (
-    <div className="flex min-h-0 flex-1 gap-0">
+    <div className="flex min-h-0 flex-1 gap-0 overflow-hidden">
       {/* Left navigation panel — desktop only */}
       <aside className="hidden w-56 shrink-0 flex-col border-r border-border bg-muted/30 lg:flex">
         {/* Admin header */}
@@ -129,7 +129,7 @@ export function AdminLayout({ activeView, onViewChange, children }: AdminLayoutP
       </aside>
 
       {/* Mobile tabs for admin sub-navigation */}
-      <div className="flex w-full flex-col lg:hidden">
+      <div className="flex min-w-0 w-full flex-col lg:hidden">
         <div className="relative">
           {/* Left fade gradient */}
           <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-6 bg-gradient-to-r from-muted/30 to-transparent" />
@@ -156,7 +156,7 @@ export function AdminLayout({ activeView, onViewChange, children }: AdminLayoutP
             })}
           </div>
         </div>
-        <main className="min-w-0 flex-1 overflow-y-auto">
+        <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
           <div className="p-3 sm:p-4">
             {children}
           </div>
@@ -164,7 +164,7 @@ export function AdminLayout({ activeView, onViewChange, children }: AdminLayoutP
       </div>
 
       {/* Main content area (desktop) */}
-      <main className="min-w-0 flex-1 overflow-y-auto hidden lg:block">
+      <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden hidden lg:block">
         <div className="p-4 lg:p-6">
           {children}
         </div>

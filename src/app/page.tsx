@@ -50,7 +50,7 @@ export default function CockpitPage() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
-                className="flex h-full"
+                className="flex h-full min-w-0"
               >
                 <AdminLayout activeView={adminSubView} onViewChange={() => {}}>
                   {(() => {

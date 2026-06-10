@@ -208,7 +208,7 @@ export function AdminSettings() {
       <div className="space-y-6">
         <div>
           <Skeleton className="h-8 w-64" />
-          <Skeleton className="mt-2 h-4 w-96" />
+          <Skeleton className="mt-2 h-4 w-48 sm:w-96" />
         </div>
         <div className="grid gap-6 md:grid-cols-2">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -220,16 +220,16 @@ export function AdminSettings() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden">
       {/* Page header */}
       <div>
         <div className="flex items-center gap-3">
           <div className="rounded-lg bg-fun-blue/10 p-2">
             <Settings className="size-5 text-fun-blue" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight">Paramètres</h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="line-clamp-2 text-sm text-muted-foreground">
               Configuration générale de la plateforme ANSUT Cockpit DG
             </p>
           </div>
@@ -240,7 +240,7 @@ export function AdminSettings() {
       <Card className="overflow-hidden">
         <CardHeader className="bg-gradient-to-r from-fun-blue/5 to-tango/5 border-b p-4 sm:p-6">
           <div className="flex items-center gap-2.5">
-            <div className="rounded-md bg-fun-blue/10 p-1.5">
+            <div className="shrink-0 rounded-md bg-fun-blue/10 p-1.5">
               <Building2 className="size-4 text-fun-blue" />
             </div>
             <div className="min-w-0">
@@ -284,10 +284,10 @@ export function AdminSettings() {
         <Card className="transition-shadow hover:shadow-md">
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2.5">
-              <div className="rounded-md bg-fun-blue/10 p-1.5">
+              <div className="shrink-0 rounded-md bg-fun-blue/10 p-1.5">
                 <Globe className="size-4 text-fun-blue" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <CardTitle className="text-base">Configuration Générale</CardTitle>
                 <CardDescription className="mt-0.5 text-xs">
                   Informations de base de l&apos;application
@@ -348,7 +348,7 @@ export function AdminSettings() {
             {/* Langue par défaut */}
             <div className="space-y-1.5">
               <Label htmlFor="defaultLanguage" className="text-sm font-medium flex items-center gap-1.5">
-                <Languages className="size-3.5 text-muted-foreground" />
+                <Languages className="shrink-0 size-3.5 text-muted-foreground" />
                 Langue par défaut
               </Label>
               <Select
@@ -368,7 +368,7 @@ export function AdminSettings() {
             {/* Fuseau horaire */}
             <div className="space-y-1.5">
               <Label htmlFor="timezone" className="text-sm font-medium flex items-center gap-1.5">
-                <Clock className="size-3.5 text-muted-foreground" />
+                <Clock className="shrink-0 size-3.5 text-muted-foreground" />
                 Fuseau horaire
               </Label>
               <Select
@@ -390,7 +390,7 @@ export function AdminSettings() {
             {/* Format de date */}
             <div className="space-y-1.5">
               <Label htmlFor="dateFormat" className="text-sm font-medium flex items-center gap-1.5">
-                <CalendarDays className="size-3.5 text-muted-foreground" />
+                <CalendarDays className="shrink-0 size-3.5 text-muted-foreground" />
                 Format de date
               </Label>
               <Select
@@ -411,7 +411,7 @@ export function AdminSettings() {
             {/* Fréquence de rafraîchissement du tableau de bord */}
             <div className="space-y-1.5">
               <Label htmlFor="dashboardRefreshFrequency" className="text-sm font-medium flex items-center gap-1.5">
-                <RefreshCw className="size-3.5 text-muted-foreground" />
+                <RefreshCw className="shrink-0 size-3.5 text-muted-foreground" />
                 Fréquence de rafraîchissement du tableau de bord
               </Label>
               <Select
@@ -436,7 +436,7 @@ export function AdminSettings() {
             {/* Période par défaut du tableau de bord */}
             <div className="space-y-1.5">
               <Label htmlFor="dashboardDefaultPeriod" className="text-sm font-medium flex items-center gap-1.5">
-                <CalendarRange className="size-3.5 text-muted-foreground" />
+                <CalendarRange className="shrink-0 size-3.5 text-muted-foreground" />
                 Période par défaut du tableau de bord
               </Label>
               <Select
@@ -461,10 +461,10 @@ export function AdminSettings() {
         <Card className="transition-shadow hover:shadow-md">
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2.5">
-              <div className="rounded-md bg-tango/10 p-1.5">
+              <div className="shrink-0 rounded-md bg-tango/10 p-1.5">
                 <Palette className="size-4 text-tango" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <CardTitle className="text-base">Affichage</CardTitle>
                 <CardDescription className="mt-0.5 text-xs">
                   Personnaliser le rendu visuel
@@ -546,7 +546,7 @@ export function AdminSettings() {
             {/* Nombre de décimales */}
             <div className="space-y-1.5">
               <Label htmlFor="decimalPlaces" className="text-sm font-medium flex items-center gap-1.5">
-                <Hash className="size-3.5 text-muted-foreground" />
+                <Hash className="shrink-0 size-3.5 text-muted-foreground" />
                 Nombre de décimales
               </Label>
               <Select
@@ -568,7 +568,7 @@ export function AdminSettings() {
             {/* Format des nombres */}
             <div className="space-y-1.5">
               <Label htmlFor="numberFormat" className="text-sm font-medium flex items-center gap-1.5">
-                <Hash className="size-3.5 text-muted-foreground" />
+                <Hash className="shrink-0 size-3.5 text-muted-foreground" />
                 Format des nombres
               </Label>
               <Select
@@ -592,10 +592,10 @@ export function AdminSettings() {
         <Card className="transition-shadow hover:shadow-md">
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2.5">
-              <div className="rounded-md bg-emerald-100 p-1.5 dark:bg-emerald-900/30">
+              <div className="shrink-0 rounded-md bg-emerald-100 p-1.5 dark:bg-emerald-900/30">
                 <FileText className="size-4 text-emerald-700 dark:text-emerald-400" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <CardTitle className="text-base">Export & Rapports</CardTitle>
                 <CardDescription className="mt-0.5 text-xs">
                   Configurer les templates et options d&apos;export
@@ -607,7 +607,7 @@ export function AdminSettings() {
             {/* Template PDF */}
             <div className="space-y-1.5">
               <Label htmlFor="pdfTemplate" className="text-sm font-medium flex items-center gap-1.5">
-                <FileText className="size-3.5 text-muted-foreground" />
+                <FileText className="shrink-0 size-3.5 text-muted-foreground" />
                 Template PDF
               </Label>
               <Select
@@ -627,7 +627,7 @@ export function AdminSettings() {
             {/* Template PPT */}
             <div className="space-y-1.5">
               <Label htmlFor="pptTemplate" className="text-sm font-medium flex items-center gap-1.5">
-                <Presentation className="size-3.5 text-muted-foreground" />
+                <Presentation className="shrink-0 size-3.5 text-muted-foreground" />
                 Template PPT
               </Label>
               <Select
@@ -647,7 +647,7 @@ export function AdminSettings() {
             {/* Template Excel */}
             <div className="space-y-1.5">
               <Label htmlFor="excelTemplate" className="text-sm font-medium flex items-center gap-1.5">
-                <FileSpreadsheet className="size-3.5 text-muted-foreground" />
+                <FileSpreadsheet className="shrink-0 size-3.5 text-muted-foreground" />
                 Template Excel
               </Label>
               <Select
@@ -690,7 +690,7 @@ export function AdminSettings() {
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0 space-y-0.5">
                 <Label htmlFor="includeLogo" className="text-sm font-medium flex items-center gap-1.5">
-                  <ImageLucide className="size-3.5 text-muted-foreground" />
+                  <ImageLucide className="shrink-0 size-3.5 text-muted-foreground" />
                   <span className="truncate">Inclure le logo ANSUT</span>
                 </Label>
                 <p className="truncate text-xs text-muted-foreground">
@@ -698,6 +698,7 @@ export function AdminSettings() {
                 </p>
               </div>
               <Switch
+                className="shrink-0"
                 id="includeLogo"
                 checked={settings.includeLogo}
                 onCheckedChange={(v) => handleChange('includeLogo', v)}
@@ -710,7 +711,7 @@ export function AdminSettings() {
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0 space-y-0.5">
                 <Label htmlFor="includeGenerationDate" className="text-sm font-medium flex items-center gap-1.5">
-                  <CalendarDays className="size-3.5 text-muted-foreground" />
+                  <CalendarDays className="shrink-0 size-3.5 text-muted-foreground" />
                   <span className="truncate">Inclure la date de génération</span>
                 </Label>
                 <p className="truncate text-xs text-muted-foreground">
@@ -718,6 +719,7 @@ export function AdminSettings() {
                 </p>
               </div>
               <Switch
+                className="shrink-0"
                 id="includeGenerationDate"
                 checked={settings.includeGenerationDate}
                 onCheckedChange={(v) => handleChange('includeGenerationDate', v)}
@@ -730,10 +732,10 @@ export function AdminSettings() {
         <Card className="transition-shadow hover:shadow-md">
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2.5">
-              <div className="rounded-md bg-green-100 p-1.5 dark:bg-green-900/30">
+              <div className="shrink-0 rounded-md bg-green-100 p-1.5 dark:bg-green-900/30">
                 <Bell className="size-4 text-green-700 dark:text-green-400" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <CardTitle className="text-base">Notifications</CardTitle>
                 <CardDescription className="mt-0.5 text-xs">
                   Gérer les alertes et rapports
@@ -753,6 +755,7 @@ export function AdminSettings() {
                 </p>
               </div>
               <Switch
+                className="shrink-0"
                 id="emailAlerts"
                 checked={settings.emailAlerts}
                 onCheckedChange={(v) => handleChange('emailAlerts', v)}
@@ -784,7 +787,7 @@ export function AdminSettings() {
             {/* Email destinataire */}
             <div className="space-y-1.5">
               <Label htmlFor="recipientEmail" className="text-sm font-medium flex items-center gap-1.5">
-                <Mail className="size-3.5 text-muted-foreground" />
+                <Mail className="shrink-0 size-3.5 text-muted-foreground" />
                 Email destinataire
               </Label>
               <Input
@@ -803,10 +806,10 @@ export function AdminSettings() {
         <Card className="transition-shadow hover:shadow-md lg:col-span-2">
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2.5">
-              <div className="rounded-md bg-purple-100 p-1.5 dark:bg-purple-900/30">
+              <div className="shrink-0 rounded-md bg-purple-100 p-1.5 dark:bg-purple-900/30">
                 <Shield className="size-4 text-purple-700 dark:text-purple-400" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <CardTitle className="text-base">Sécurité</CardTitle>
                 <CardDescription className="mt-0.5 text-xs">
                   Politiques d&apos;authentification et de session
@@ -819,7 +822,7 @@ export function AdminSettings() {
               {/* Politique de mot de passe */}
               <div className="space-y-1.5">
                 <Label htmlFor="passwordPolicy" className="text-sm font-medium flex items-center gap-1.5">
-                  <Lock className="size-3.5 text-muted-foreground" />
+                  <Lock className="shrink-0 size-3.5 text-muted-foreground" />
                   Politique de mot de passe
                 </Label>
                 <Select
@@ -844,7 +847,7 @@ export function AdminSettings() {
               {/* Expiration session */}
               <div className="space-y-1.5">
                 <Label htmlFor="sessionExpiration" className="text-sm font-medium flex items-center gap-1.5">
-                  <Clock className="size-3.5 text-muted-foreground" />
+                  <Clock className="shrink-0 size-3.5 text-muted-foreground" />
                   Expiration de session
                 </Label>
                 <Select
@@ -875,6 +878,7 @@ export function AdminSettings() {
                   </p>
                 </div>
                 <Switch
+                  className="shrink-0"
                   id="ipLogging"
                   checked={settings.ipLogging}
                   onCheckedChange={(v) => handleChange('ipLogging', v)}
@@ -889,10 +893,10 @@ export function AdminSettings() {
       <Card className="transition-shadow hover:shadow-md">
         <CardHeader className="pb-4">
           <div className="flex items-center gap-2.5">
-            <div className="rounded-md bg-sky-100 p-1.5 dark:bg-sky-900/30">
+            <div className="shrink-0 rounded-md bg-sky-100 p-1.5 dark:bg-sky-900/30">
               <Server className="size-4 text-sky-700 dark:text-sky-400" />
             </div>
-            <div>
+            <div className="min-w-0">
               <CardTitle className="text-base">Informations Système</CardTitle>
               <CardDescription className="mt-0.5 text-xs">
                 Détails techniques sur l&apos;environnement
@@ -1016,7 +1020,7 @@ export function AdminSettings() {
         <Button
           onClick={handleSave}
           disabled={saving}
-          className="gap-2 bg-fun-blue hover:bg-fun-blue-dark text-white min-w-[200px]"
+          className="w-full gap-2 bg-fun-blue hover:bg-fun-blue-dark text-white sm:w-auto sm:min-w-[200px]"
         >
           {saving ? (
             <>
