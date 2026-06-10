@@ -195,3 +195,124 @@ Stage Summary:
 - AdminAlerts: full alert management with stats, filters, table/card views, batch actions, auto-refresh, critical red border
 - AdminNotifications: complete notification config with per-type toggles/channels/recipients and shared SMTP settings
 - 3 API routes (alerts GET/POST, alerts/[id] GET/PUT/DELETE, notifications GET/PUT)
+
+---
+Task ID: 6
+Agent: Full-stack Developer
+Task: Improve AdminLayout mobile navigation for better responsiveness and UX
+
+Work Log:
+- Wrapped mobile tab scroll container in a relative div and added two gradient fade indicators (left + right, w-6, pointer-events-none, z-10) to visually hint at overflow content
+- Added snap-x snap-mandatory to scroll container and snap-start to each tab button for snap scrolling behavior
+- Added scroll-smooth for smooth native scrolling on touch devices
+- Reduced tab button padding from px-3 py-2 to px-2.5 py-1.5 and gap from gap-2 to gap-1.5 to fit more tabs on screen
+- Added hidden sm:inline to tab label span so only icons show on very small screens (< 640px) and icons + labels show on sm+
+- Changed mobile content padding from p-4 to p-3 sm:p-4 for more usable space on small screens
+- Desktop sidebar left completely unchanged
+
+Stage Summary:
+- Mobile admin tabs now show icon-only on small screens, icon+label on sm+
+- Gradient fade edges indicate scrollable overflow for 12 nav items
+- Snap scrolling and smooth scroll improve mobile tab navigation UX
+- Reduced padding gives more content space on very small screens
+- Lint passes clean, no new files created, single-file edit only
+
+---
+Task ID: 2
+Agent: Full-stack Developer
+Task: Ensure AdminSettings component is fully responsive and applies ANSUT organizational context
+
+Work Log:
+- Added ANSUT organizational info Card section at top of page (after header, before settings grid)
+  - Full org name displayed in CardDescription with truncate for mobile
+  - 7 roles/directions (DG, PMO, DSIS, DDIR, DJMG, RDRHF, DFC) in responsive grid
+  - Grid: single column on mobile → 2 cols on sm → 4 cols on lg
+  - Each role item shows colored sigle badge (bg-fun-blue/10) + truncated libellé
+  - Gradient header (from-fun-blue/5 to-tango/5) for brand color accent
+- Fixed responsiveness in Export & Rapports card:
+  - Added min-w-0 to switch label containers to prevent overflow
+  - Added truncate to label text and description text
+- Fixed responsiveness in Notifications card:
+  - Added min-w-0 to email alerts switch container
+  - Added truncate to description text
+- Fixed responsiveness in Sécurité card:
+  - Added min-w-0 to Journalisation IP switch container
+  - Added truncate to description text
+- Applied responsive padding (p-4 sm:p-6) to all CardContent elements:
+  - Configuration Générale, Affichage, Export & Rapports, Notifications, Sécurité, Informations Système
+- Added two new settings fields in Configuration Générale card (after dateFormat):
+  - "Fréquence de rafraîchissement du tableau de bord" with RefreshCw icon
+    Options: Temps réel (5s), 30 secondes, 1 minute, 5 minutes, 15 minutes, 30 minutes, Manuel
+  - "Période par défaut du tableau de bord" with CalendarRange icon
+    Options: Mois en cours, Trimestre en cours, Semestre en cours, Année en cours
+- Added new icons to imports: Building2, RefreshCw, CalendarRange
+- Added dashboardRefreshFrequency and dashboardDefaultPeriod to SettingsState interface and DEFAULT_SETTINGS
+- Lint passes clean, no new files created, single-file edit only
+
+Stage Summary:
+- ANSUT organizational context now visible at top of settings page with 7 roles in responsive grid
+- All switch+label pairs now have min-w-0 and truncate for proper mobile wrapping
+- All CardContent sections use responsive padding (p-4 mobile, p-6 desktop)
+- Two new dashboard configuration fields: refresh frequency (7 options) and default period (4 options)
+- All existing functionality preserved, French language throughout, brand colors applied
+
+---
+Task ID: 4
+Agent: Full-stack Developer
+Task: Ensure AdminSecurity component is fully responsive, especially adding a mobile card view for the sessions table
+
+Work Log:
+- Added info banner at top (after header) with 2 cards in responsive grid (grid-cols-1 sm:grid-cols-2):
+  - Card 1: Active sessions count with Activity icon and bg-fun-blue/10 icon container
+  - Card 2: MFA status Badge ("MFA Activé" emerald / "MFA Désactivé" red) based on mfaEnabled state, with ShieldCheck icon
+- Wrapped desktop sessions Table in `hidden md:block` div with max-h-96 overflow-y-auto
+- Added mobile card view (`md:hidden`) for sessions section:
+  - Each session rendered as a Card with p-4 and space-y-3
+  - Top section: user email (font-semibold, truncate) + device info below, status Badge top-right
+  - 2x2 grid (grid-cols-2 gap-2) showing: Adresse IP (font-mono), Connexion date, Appareil, Statut
+  - Full-width "Déconnecter" destructive button at bottom
+  - Empty state with centered Info icon and "Aucune session active" text
+- Added `min-w-0` to all 11 label/description containers across 3 cards (Authentification, Contrôles de sécurité, Politique de mots de passe)
+- Added `shrink-0` to all Label icons to prevent icon squishing on small screens
+- Added `truncate` to all Label text spans for proper text overflow
+- Made save button responsive: `flex flex-col-reverse items-center gap-3 sm:flex-row sm:justify-end`
+- Applied ANSUT branding to save button: `bg-fun-blue hover:bg-fun-blue-dark text-white`
+- Made save button full-width on mobile: `w-full sm:w-auto`
+- Added Activity icon import from lucide-react
+- Lint passes clean, dev server compiles successfully, no new files created
+
+Stage Summary:
+- AdminSecurity now fully responsive with mobile card view for sessions table
+- Info banner shows active session count and MFA status at page top
+- All 11 switch+label patterns have min-w-0, shrink-0 icons, and truncate for mobile safety
+- Save button uses flex-col-reverse on mobile, ANSUT fun-blue branding, full-width on small screens
+- Desktop table preserved in hidden md:block, mobile cards in md:hidden
+- All existing functionality intact, French language, shadcn/ui components only
+
+---
+Task ID: 3
+Agent: Full-stack Developer
+Task: Ensure AdminNotifications component is fully responsive
+
+Work Log:
+- Added page header icon: green Mail icon in rounded-lg container (bg-green-100 dark:bg-green-900/30, text-green-700 dark:text-green-400) matching AdminSettings pattern
+- Refactored "Configuration des alertes" section header from plain `<div>` with icon+h3 to Card with CardHeader containing colored icon (amber Bell), CardTitle, and CardDescription
+- Refactored "Configuration SMTP" section header from plain `<div>` with icon+h3 to Card with CardHeader containing colored icon (slate Settings), CardTitle, and CardDescription
+- Both section headers now follow the consistent Card wrapper pattern used in AdminSettings
+- Added `shrink-0` class to Switch in alert card header to prevent switch shrinking on very small screens (< 360px)
+- Verified `min-w-0` already present on title container div and `line-clamp-2` on description text
+- Changed channel label width from `w-16` to `w-20 sm:w-16` for better small screen fit
+- Added `min-w-0` to channel SelectTrigger (already had `flex-1`)
+- Changed recipients label width from `w-16` to `w-20 sm:w-16` for consistency
+- Added `min-w-0` to recipients input container div and `min-w-0 flex-1` to the Input itself
+- Verified SMTP button layout already uses `flex-col sm:flex-row items-stretch sm:items-center gap-3`
+- Verified all SMTP Input fields inherit `w-full` from grid layout
+- Lint passes clean, no new files created, single-file edit only
+
+Stage Summary:
+- AdminNotifications page header now has green Mail icon matching other admin components' style
+- Both section headers (Alertes + SMTP) use consistent Card wrapper pattern with colored icon badges
+- All labels, inputs, and selects properly handle very small screens (< 360px) with min-w-0 and responsive widths
+- Switch controls use shrink-0 to maintain minimum touch target size
+- SMTP buttons stack vertically on mobile, side-by-side on desktop
+- All existing functionality preserved, French language throughout

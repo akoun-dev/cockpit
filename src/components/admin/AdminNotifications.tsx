@@ -239,19 +239,34 @@ export function AdminNotifications() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Configuration des notifications</h2>
-        <p className="text-muted-foreground text-sm">
-          Gérez les canaux de notification et la configuration SMTP
-        </p>
+      <div className="flex items-center gap-3">
+        <div className="rounded-lg bg-green-100 p-2 dark:bg-green-900/30">
+          <Mail className="size-5 text-green-700 dark:text-green-400" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Configuration des notifications</h2>
+          <p className="text-muted-foreground text-sm">
+            Gérez les canaux de notification et la configuration SMTP
+          </p>
+        </div>
       </div>
 
       {/* Section: Configuration des alertes */}
-      <div>
-        <div className="flex items-center gap-2 mb-4">
-          <Bell className="size-5 text-primary" />
-          <h3 className="text-lg font-semibold">Configuration des alertes</h3>
-        </div>
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="rounded-md bg-amber-100 p-1.5 dark:bg-amber-900/30">
+              <Bell className="size-4 text-amber-700 dark:text-amber-400" />
+            </div>
+            <div className="min-w-0">
+              <CardTitle className="text-base">Configuration des alertes</CardTitle>
+              <CardDescription className="mt-0.5 text-xs">
+                Définir les canaux et destinataires par type d&apos;alerte
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
 
         {loading ? (
           <div className="grid gap-4 sm:grid-cols-2">
@@ -280,6 +295,7 @@ export function AdminNotifications() {
                         </div>
                       </div>
                       <Switch
+                        className="shrink-0"
                         checked={config?.enabled ?? false}
                         onCheckedChange={() => config && toggleEnabled(config)}
                         disabled={saving === config?.id}
@@ -289,13 +305,13 @@ export function AdminNotifications() {
                   <CardContent className="pt-0 space-y-3">
                     {/* Channel */}
                     <div className="flex items-center gap-2">
-                      <Label className="text-xs text-muted-foreground shrink-0 w-16">Canal</Label>
+                      <Label className="text-xs text-muted-foreground shrink-0 w-20 sm:w-16">Canal</Label>
                       <Select
                         value={config?.channel ?? 'email'}
                         onValueChange={(v) => config && changeChannel(config, v)}
                         disabled={saving === config?.id}
                       >
-                        <SelectTrigger className="h-8 text-xs flex-1">
+                        <SelectTrigger className="h-8 text-xs flex-1 min-w-0">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -320,12 +336,12 @@ export function AdminNotifications() {
 
                     {/* Recipients */}
                     <div className="flex items-center gap-2">
-                      <Label className="text-xs text-muted-foreground shrink-0 w-16">
+                      <Label className="text-xs text-muted-foreground shrink-0 w-20 sm:w-16">
                         Destinataires
                       </Label>
-                      <div className="flex-1 flex gap-1.5">
+                      <div className="flex-1 flex gap-1.5 min-w-0">
                         <Input
-                          className="h-8 text-xs"
+                          className="h-8 text-xs min-w-0 flex-1"
                           placeholder="email@ansut.tg, email2@..."
                           defaultValue={config ? parseRecipients(config.recipients) : ''}
                           onBlur={(e) => config && updateRecipients(config, e.target.value)}
@@ -367,19 +383,27 @@ export function AdminNotifications() {
             })}
           </div>
         )}
-      </div>
+        </CardContent>
+      </Card>
 
       <Separator />
 
       {/* Section: Configuration SMTP */}
-      <div>
-        <div className="flex items-center gap-2 mb-4">
-          <Settings className="size-5 text-primary" />
-          <h3 className="text-lg font-semibold">Configuration SMTP</h3>
-        </div>
-
-        <Card>
-          <CardContent className="p-6 space-y-4">
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="rounded-md bg-slate-100 p-1.5 dark:bg-slate-900/30">
+              <Settings className="size-4 text-slate-700 dark:text-slate-400" />
+            </div>
+            <div className="min-w-0">
+              <CardTitle className="text-base">Configuration SMTP</CardTitle>
+              <CardDescription className="mt-0.5 text-xs">
+                Paramètres du serveur d&apos;envoi d&apos;emails
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-4 sm:p-6 space-y-4">
             <p className="text-sm text-muted-foreground">
               Configurez le serveur SMTP pour l&apos;envoi des notifications par email. Ces paramètres sont appliqués à toutes les notifications par email.
             </p>
@@ -470,7 +494,6 @@ export function AdminNotifications() {
             </div>
           </CardContent>
         </Card>
-      </div>
     </div>
   )
 }

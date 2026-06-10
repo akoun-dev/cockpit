@@ -45,7 +45,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { key: 'admin_sync', label: 'Synchronisations', icon: RefreshCw },
       { key: 'admin_documents', label: 'Documents', icon: FolderOpen },
-      { key: 'admin_alertes', label: 'Alertes', icon: Bell },
+      { key: 'admin_alerts', label: 'Alertes', icon: Bell },
       { key: 'admin_logs', label: 'Journal d\'audit', icon: ScrollText },
       { key: 'admin_notifications', label: 'Notifications', icon: Mail },
       { key: 'admin_settings', label: 'Paramètres', icon: Settings },
@@ -130,28 +130,34 @@ export function AdminLayout({ activeView, onViewChange, children }: AdminLayoutP
 
       {/* Mobile tabs for admin sub-navigation */}
       <div className="flex w-full flex-col lg:hidden">
-        <div className="flex gap-1 overflow-x-auto border-b border-border bg-muted/30 px-2 py-2 scrollbar-none">
-          {ALL_NAV_ITEMS.map(({ key, label, icon: Icon }) => {
-            const isActive = currentView === key;
-            return (
-              <button
-                key={key}
-                onClick={() => setAdminSubView(key)}
-                className={cn(
-                  'flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors',
-                  isActive
-                    ? 'bg-fun-blue text-white shadow-sm'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                )}
-              >
-                <Icon className="size-3.5 shrink-0" />
-                <span className="whitespace-nowrap">{label}</span>
-              </button>
-            );
-          })}
+        <div className="relative">
+          {/* Left fade gradient */}
+          <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-6 bg-gradient-to-r from-muted/30 to-transparent" />
+          {/* Right fade gradient */}
+          <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-6 bg-gradient-to-l from-muted/30 to-transparent" />
+          <div className="flex snap-x snap-mandatory gap-1 overflow-x-auto border-b border-border bg-muted/30 px-2 py-2 scroll-smooth scrollbar-none">
+            {ALL_NAV_ITEMS.map(({ key, label, icon: Icon }) => {
+              const isActive = currentView === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setAdminSubView(key)}
+                  className={cn(
+                    'flex snap-start shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors',
+                    isActive
+                      ? 'bg-fun-blue text-white shadow-sm'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                >
+                  <Icon className="size-3.5 shrink-0" />
+                  <span className="whitespace-nowrap hidden sm:inline">{label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
         <main className="min-w-0 flex-1 overflow-y-auto">
-          <div className="p-4">
+          <div className="p-3 sm:p-4">
             {children}
           </div>
         </main>

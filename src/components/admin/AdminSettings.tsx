@@ -24,6 +24,9 @@ import {
   CalendarDays,
   Hash,
   Languages,
+  Building2,
+  RefreshCw,
+  CalendarRange,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -70,6 +73,9 @@ interface SettingsState {
   emailAlerts: boolean;
   reportFrequency: string;
   recipientEmail: string;
+  // Tableau de bord
+  dashboardRefreshFrequency: string;
+  dashboardDefaultPeriod: string;
   // Sécurité
   passwordPolicy: string;
   sessionExpiration: string;
@@ -102,6 +108,8 @@ const DEFAULT_SETTINGS: SettingsState = {
   passwordPolicy: 'standard',
   sessionExpiration: '4h',
   ipLogging: true,
+  dashboardRefreshFrequency: '30s',
+  dashboardDefaultPeriod: 'mois-en-cours',
   pdfTemplate: 'standard',
   pptTemplate: 'standard',
   excelTemplate: 'standard',
@@ -228,6 +236,49 @@ export function AdminSettings() {
         </div>
       </div>
 
+      {/* ====== ANSUT Organizational Info ====== */}
+      <Card className="overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-fun-blue/5 to-tango/5 border-b p-4 sm:p-6">
+          <div className="flex items-center gap-2.5">
+            <div className="rounded-md bg-fun-blue/10 p-1.5">
+              <Building2 className="size-4 text-fun-blue" />
+            </div>
+            <div className="min-w-0">
+              <CardTitle className="text-base">Organisation ANSUT</CardTitle>
+              <CardDescription className="mt-0.5 truncate text-xs">
+                Agence Nationale du Service Universel des Télécommunications/TIC
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-4 sm:p-6">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { sigle: 'DG', libelle: 'Directeur Général' },
+              { sigle: 'PMO', libelle: 'Project Management Officer' },
+              { sigle: 'DSIS', libelle: 'Direction des Solutions et Intégration de Services' },
+              { sigle: 'DDIR', libelle: 'Direction du Développement des Infrastructures et du RNHD' },
+              { sigle: 'DJMG', libelle: 'Direction Juridique et des Moyens Généraux' },
+              { sigle: 'RDRHF', libelle: 'Responsable du Département Ressources Humaines et Formation' },
+              { sigle: 'DFC', libelle: 'Direction des Finances et Comptabilité' },
+            ].map((role) => (
+              <div
+                key={role.sigle}
+                className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-3 transition-colors hover:bg-muted/40"
+              >
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-fun-blue/10 font-bold text-xs text-fun-blue">
+                  {role.sigle}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold leading-tight">{role.libelle}</p>
+                  <p className="text-xs text-muted-foreground">{role.sigle}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-6 lg:grid-cols-2">
         {/* ====== 1. Configuration Générale ====== */}
         <Card className="transition-shadow hover:shadow-md">
@@ -244,7 +295,7 @@ export function AdminSettings() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 p-4 sm:p-6">
             {/* Nom de l'application */}
             <div className="space-y-1.5">
               <Label htmlFor="appName" className="text-sm font-medium">
@@ -356,6 +407,53 @@ export function AdminSettings() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Fréquence de rafraîchissement du tableau de bord */}
+            <div className="space-y-1.5">
+              <Label htmlFor="dashboardRefreshFrequency" className="text-sm font-medium flex items-center gap-1.5">
+                <RefreshCw className="size-3.5 text-muted-foreground" />
+                Fréquence de rafraîchissement du tableau de bord
+              </Label>
+              <Select
+                value={settings.dashboardRefreshFrequency}
+                onValueChange={(v) => handleChange('dashboardRefreshFrequency', v)}
+              >
+                <SelectTrigger id="dashboardRefreshFrequency" className="h-9 w-full">
+                  <SelectValue placeholder="Sélectionner une fréquence" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5s">Temps réel (5s)</SelectItem>
+                  <SelectItem value="30s">30 secondes</SelectItem>
+                  <SelectItem value="1m">1 minute</SelectItem>
+                  <SelectItem value="5m">5 minutes</SelectItem>
+                  <SelectItem value="15m">15 minutes</SelectItem>
+                  <SelectItem value="30m">30 minutes</SelectItem>
+                  <SelectItem value="manual">Manuel</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Période par défaut du tableau de bord */}
+            <div className="space-y-1.5">
+              <Label htmlFor="dashboardDefaultPeriod" className="text-sm font-medium flex items-center gap-1.5">
+                <CalendarRange className="size-3.5 text-muted-foreground" />
+                Période par défaut du tableau de bord
+              </Label>
+              <Select
+                value={settings.dashboardDefaultPeriod}
+                onValueChange={(v) => handleChange('dashboardDefaultPeriod', v)}
+              >
+                <SelectTrigger id="dashboardDefaultPeriod" className="h-9 w-full">
+                  <SelectValue placeholder="Sélectionner une période" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mois-en-cours">Mois en cours</SelectItem>
+                  <SelectItem value="trimestre-en-cours">Trimestre en cours</SelectItem>
+                  <SelectItem value="semestre-en-cours">Semestre en cours</SelectItem>
+                  <SelectItem value="annee-en-cours">Année en cours</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardContent>
         </Card>
 
@@ -374,7 +472,7 @@ export function AdminSettings() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 p-4 sm:p-6">
             {/* Thème */}
             <div className="space-y-1.5">
               <Label htmlFor="theme" className="text-sm font-medium">
@@ -505,7 +603,7 @@ export function AdminSettings() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 p-4 sm:p-6">
             {/* Template PDF */}
             <div className="space-y-1.5">
               <Label htmlFor="pdfTemplate" className="text-sm font-medium flex items-center gap-1.5">
@@ -590,12 +688,12 @@ export function AdminSettings() {
 
             {/* Include Logo ANSUT */}
             <div className="flex items-center justify-between gap-4">
-              <div className="space-y-0.5">
+              <div className="min-w-0 space-y-0.5">
                 <Label htmlFor="includeLogo" className="text-sm font-medium flex items-center gap-1.5">
                   <ImageLucide className="size-3.5 text-muted-foreground" />
-                  Inclure le logo ANSUT
+                  <span className="truncate">Inclure le logo ANSUT</span>
                 </Label>
-                <p className="text-xs text-muted-foreground">
+                <p className="truncate text-xs text-muted-foreground">
                   Afficher le logo sur les exports et rapports
                 </p>
               </div>
@@ -610,12 +708,12 @@ export function AdminSettings() {
 
             {/* Include generation date */}
             <div className="flex items-center justify-between gap-4">
-              <div className="space-y-0.5">
+              <div className="min-w-0 space-y-0.5">
                 <Label htmlFor="includeGenerationDate" className="text-sm font-medium flex items-center gap-1.5">
                   <CalendarDays className="size-3.5 text-muted-foreground" />
-                  Inclure la date de génération
+                  <span className="truncate">Inclure la date de génération</span>
                 </Label>
-                <p className="text-xs text-muted-foreground">
+                <p className="truncate text-xs text-muted-foreground">
                   Ajouter la date et l&apos;heure sur les documents exportés
                 </p>
               </div>
@@ -643,14 +741,14 @@ export function AdminSettings() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-5">
+          <CardContent className="space-y-5 p-4 sm:p-6">
             {/* Alertes par email */}
             <div className="flex items-center justify-between gap-4">
-              <div className="space-y-0.5">
+              <div className="min-w-0 space-y-0.5">
                 <Label htmlFor="emailAlerts" className="text-sm font-medium">
                   Alertes par email
                 </Label>
-                <p className="text-xs text-muted-foreground">
+                <p className="truncate text-xs text-muted-foreground">
                   Recevoir les notifications par courriel
                 </p>
               </div>
@@ -716,7 +814,7 @@ export function AdminSettings() {
               </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 sm:p-6">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {/* Politique de mot de passe */}
               <div className="space-y-1.5">
@@ -768,11 +866,11 @@ export function AdminSettings() {
 
               {/* Journalisation IP */}
               <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/20 p-3 dark:bg-muted/40">
-                <div className="space-y-0.5">
+                <div className="min-w-0 space-y-0.5">
                   <Label htmlFor="ipLogging" className="text-sm font-medium">
                     Journalisation IP
                   </Label>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="truncate text-xs text-muted-foreground">
                     Enregistrer les adresses IP dans le journal d&apos;audit
                   </p>
                 </div>
@@ -802,7 +900,7 @@ export function AdminSettings() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6">
           {loadingSystem ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {Array.from({ length: 8 }).map((_, i) => (
