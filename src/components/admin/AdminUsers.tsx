@@ -186,7 +186,23 @@ export function AdminUsers() {
       const res = await fetch('/api/admin/users');
       if (res.ok) {
         const data = await res.json();
-        setUsers(Array.isArray(data) ? data : data.users || []);
+        const rawUsers = Array.isArray(data) ? data : data.data || data.users || [];
+        setUsers(rawUsers.map((u: Record<string, unknown>) => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          matricule: u.matricule,
+          fonction: u.fonction,
+          roleId: u.roleId || (u.role as Record<string, string>)?.id || '',
+          roleName: (u.role as Record<string, string>)?.label || u.roleName || '',
+          roleColor: (u.role as Record<string, string>)?.color || u.roleColor,
+          departmentId: u.departmentId || (u.department as Record<string, string>)?.id || '',
+          departmentName: (u.department as Record<string, string>)?.name || u.departmentName || '',
+          isActive: u.isActive,
+          mustChangePassword: u.mustChangePassword,
+          isLocked: u.isLocked,
+          lastLogin: u.lastLogin,
+        })));
       } else {
         // Fallback users
         setUsers([
@@ -284,7 +300,13 @@ export function AdminUsers() {
       const res = await fetch('/api/admin/roles');
       if (res.ok) {
         const data = await res.json();
-        setRoles(Array.isArray(data) ? data : data.roles || []);
+        const rawRoles = Array.isArray(data) ? data : data.data || data.roles || [];
+        setRoles(rawRoles.map((r: Record<string, unknown>) => ({
+          id: r.id,
+          name: r.name,
+          label: r.label,
+          color: r.color,
+        })));
       } else {
         setRoles([
           { id: 'admin', name: 'admin', label: 'Administrateur', color: '#ef4444' },

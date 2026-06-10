@@ -24,3 +24,28 @@ Stage Summary:
 - AdminSettings.tsx is now fully responsive on mobile (320px+)
 - Key fixes: shrink-0 on all icons/switches, min-w-0 on text containers, responsive save button, overflow containment in AdminLayout
 - Files modified: AdminSettings.tsx, AdminLayout.tsx, page.tsx
+
+---
+Task ID: 2
+Agent: Main
+Task: Créer les différents comptes des acteurs ANSUT
+
+Work Log:
+- Analyzed existing database: 7 users, 7 roles, 8 departments already existed
+- Identified 4 missing actors: DSIS, DDIR, DJMG, RDRHF
+- Created seed script `prisma/seed-actors.ts` with 11 actor definitions
+- Each actor includes: email, name, matricule (ANSUT-XXX-001), fonction, role, department, color
+- Ran seed: 4 new departments (DSIS, DDIR, DJMG), 4 new roles, 4 new users created; 7 existing users updated with matricule & fonction
+- Fixed AdminUsers.tsx data extraction bug: API returns `{ data: [...] }` but frontend expected `data.users`
+- Fixed role fetching: same `{ data: [...] }` pattern
+- Departments API returns raw array (correct, no fix needed)
+- Verified in browser: all 11 matricules visible, all users displayed correctly in admin panel
+
+Stage Summary:
+- 11 actor accounts created/updated in database
+- 11 roles with proper levels (10-100) and ANSUT brand colors
+- 11 departments including 3 new ones (DSIS, DDIR, DJMG)
+- AdminUsers.tsx fixed to properly map API response data
+- All accounts use password "ansut2025"
+- Files created: prisma/seed-actors.ts
+- Files modified: src/components/admin/AdminUsers.tsx (data mapping fix)
