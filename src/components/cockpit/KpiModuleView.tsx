@@ -1,6 +1,25 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import {
   Card,
   CardContent,
@@ -8,6 +27,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Tabs,
   TabsContent,
@@ -23,7 +43,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { useAppStore } from '@/lib/store';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   BarChart3,
   CheckCircle2,
@@ -31,6 +58,8 @@ import {
   XCircle,
   LayoutDashboard,
   Star,
+  GripVertical,
+  RotateCcw,
 } from 'lucide-react';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -54,45 +83,39 @@ interface Indicator {
   criticalValue: number | null;
   isPriority: boolean;
   values: PeriodValue[];
+  order: number;
 }
 
 type StatusType = 'atteint' | 'partiel' | 'non_atteint';
 
 interface KpiModuleViewProps {
   domain: string;
-  year: number;
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const SUB_DOMAIN_LABELS: Record<string, string> = {
-  // Gouvernance
   reporting_reglementaire: 'Reporting réglementaire',
   gouvernance_ethique: 'Gouvernance & Éthique',
   marches_publics: 'Passation des Marchés Publics',
   relations_publiques: 'Dons, Honoraires & Relations Publiques',
-  // Finance
   execution_budgetaire: 'Exécution budgétaire',
   rentabilite: 'Rentabilité & Performance',
   ressources_specifiques: 'Ressources Spécifiques',
   dette: 'Endettement',
-  // Opérationnel
   deploiement_infra: 'Déploiement Infrastructures',
   relations_operateurs: 'Relations Opérateurs',
   service_universel: 'Service Universel',
   projets_programmes: 'Projets & Programmes',
-  // RH
   effectifs: 'Effectifs & Organisation',
   performance: 'Performance & Productivité',
   competences: 'Développement Compétences',
   couts_rh: 'Maîtrise Coûts RH',
-  // Risques
   risque_strategique: 'Risque Stratégique',
   risque_financier: 'Risque Financier',
   risque_operationnel: 'Risque Opérationnel',
   risque_technologique: 'Risque Technologique',
   risque_gouvernance: 'Risque Gouvernance',
-  // PTA
   pta_gouvernance: 'Gouvernance',
   pta_operationnel: 'Opérationnel',
   pta_finance: 'Finance',
@@ -104,7 +127,7 @@ const DOMAIN_LABELS: Record<string, string> = {
   operational: 'Opérationnel',
   rh: 'Ressources Humaines',
   risque: 'Gestion des Risques',
-  pta: 'Plan Triennal d\'Actions',
+  pta: "Plan Triennal d'Actions",
 };
 
 const STATUS_CONFIG: Record<StatusType, { label: string; className: string }> = {
@@ -148,9 +171,7 @@ function computeStatus(
   unit: string
 ): StatusType {
   if (value == null || target == null || target === 0) return 'non_atteint';
-
   const lower = isLowerBetter(unit);
-
   if (lower) {
     if (value <= target) return 'atteint';
     if (value <= target * 1.5) return 'partiel';
@@ -171,7 +192,6 @@ function computeEcart(
   const ecart = value - target;
   const lower = isLowerBetter(unit);
   const positive = lower ? ecart <= 0 : ecart >= 0;
-
   const sign = ecart >= 0 ? '+' : '';
   let suffix = '';
   if (unit === '%') suffix = ' pts';
@@ -182,7 +202,6 @@ function computeEcart(
   else if (unit === 'ratio') suffix = '';
   else if (unit === 'nb') suffix = '';
   else suffix = unit ? ` ${unit}` : '';
-
   return {
     text: `${sign}${ecart.toFixed(unit === 'ratio' || unit === 'Mds FCFA' ? 2 : 1)}${suffix}`,
     positive,
@@ -203,7 +222,7 @@ function StatusBadge({ status }: { status: StatusType }) {
   );
 }
 
-// ─── Mobile Card for indicator ──────────────────────────────────────────────
+// ─── Priority Badge ─────────────────────────────────────────────────────────
 
 function PriorityBadge() {
   return (
@@ -214,52 +233,186 @@ function PriorityBadge() {
   );
 }
 
-function IndicatorMobileCard({ ind }: { ind: Indicator }) {
+// ─── Sortable Desktop Table Row ────────────────────────────────────────────
+
+function SortableTableRow({ ind }: { ind: Indicator }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: ind.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+    position: 'relative' as const,
+  };
+
   const value = getLatestValue(ind);
   const status = computeStatus(value, ind.targetValue, ind.unit);
   const ecart = computeEcart(value, ind.targetValue, ind.unit);
 
   return (
-    <Card className={cn('p-4', ind.isPriority && 'border-l-4 border-l-tango')}>
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <p className="text-[10px] font-mono text-muted-foreground">{ind.code}</p>
-            {ind.isPriority && <PriorityBadge />}
-          </div>
-          <p className="text-sm font-medium leading-tight mt-0.5">{ind.name}</p>
-        </div>
-        <StatusBadge status={status} />
-      </div>
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <div>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Valeur</p>
-          <p className="text-sm font-semibold mt-0.5">
-            {formatValue(value, ind.unit)}
-          </p>
-        </div>
-        <div>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Cible</p>
-          <p className="text-sm font-semibold mt-0.5">
-            {formatValue(ind.targetValue, ind.unit)}
-          </p>
-        </div>
-        <div>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Écart</p>
-          <p
-            className={`text-sm font-semibold mt-0.5 ${
-              ecart
-                ? ecart.positive
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-red-600 dark:text-red-400'
-                : 'text-muted-foreground'
-            }`}
+    <TableRow
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        ind.isPriority && 'bg-tango/[0.03]',
+        isDragging && 'opacity-40 shadow-lg',
+      )}
+    >
+      {/* Drag handle */}
+      <TableCell className="w-[40px] p-1">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              {...attributes}
+              {...listeners}
+              className="cursor-grab active:cursor-grabbing p-1.5 rounded-md hover:bg-muted touch-none"
+              aria-label={`Réordonner ${ind.name}`}
+            >
+              <GripVertical className="size-3.5 text-muted-foreground/60" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs">
+            Glisser pour réordonner
+          </TooltipContent>
+        </Tooltip>
+      </TableCell>
+      <TableCell className="font-mono text-xs text-muted-foreground">
+        {ind.code}
+      </TableCell>
+      <TableCell className="font-medium text-sm">{ind.name}</TableCell>
+      <TableCell className="text-center">
+        {ind.isPriority ? <PriorityBadge /> : <span className="text-muted-foreground/30">—</span>}
+      </TableCell>
+      <TableCell className="text-center text-xs text-muted-foreground">
+        {ind.unit}
+      </TableCell>
+      <TableCell className="text-right text-sm">
+        {formatValue(ind.targetValue, ind.unit)}
+      </TableCell>
+      <TableCell className="text-right text-sm font-semibold">
+        {formatValue(value, ind.unit)}
+      </TableCell>
+      <TableCell className="text-right text-sm font-medium">
+        {ecart ? (
+          <span
+            className={
+              ecart.positive
+                ? 'text-emerald-600 dark:text-emerald-400'
+                : 'text-red-600 dark:text-red-400'
+            }
           >
-            {ecart?.text ?? '—'}
-          </p>
+            {ecart.text}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </TableCell>
+      <TableCell className="text-center">
+        <StatusBadge status={status} />
+      </TableCell>
+    </TableRow>
+  );
+}
+
+// ─── Sortable Mobile Card ──────────────────────────────────────────────────
+
+function SortableMobileCard({ ind }: { ind: Indicator }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: ind.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+    position: 'relative' as const,
+  };
+
+  const value = getLatestValue(ind);
+  const status = computeStatus(value, ind.targetValue, ind.unit);
+  const ecart = computeEcart(value, ind.targetValue, ind.unit);
+
+  return (
+    <div ref={setNodeRef} style={style} className={cn(isDragging && 'opacity-40')}>
+      <Card className={cn('p-4', ind.isPriority && 'border-l-4 border-l-tango')}>
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <div className="flex items-start gap-2 min-w-0 flex-1">
+            <button
+              {...attributes}
+              {...listeners}
+              className="cursor-grab active:cursor-grabbing p-1 rounded-md hover:bg-muted mt-0.5 shrink-0 touch-none"
+              aria-label={`Réordonner ${ind.name}`}
+            >
+              <GripVertical className="size-4 text-muted-foreground/50" />
+            </button>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <p className="text-[10px] font-mono text-muted-foreground">{ind.code}</p>
+                {ind.isPriority && <PriorityBadge />}
+              </div>
+              <p className="text-sm font-medium leading-tight mt-0.5">{ind.name}</p>
+            </div>
+          </div>
+          <StatusBadge status={status} />
         </div>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Valeur</p>
+            <p className="text-sm font-semibold mt-0.5">
+              {formatValue(value, ind.unit)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Cible</p>
+            <p className="text-sm font-semibold mt-0.5">
+              {formatValue(ind.targetValue, ind.unit)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Écart</p>
+            <p
+              className={`text-sm font-semibold mt-0.5 ${
+                ecart
+                  ? ecart.positive
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-red-600 dark:text-red-400'
+                  : 'text-muted-foreground'
+              }`}
+            >
+              {ecart?.text ?? '—'}
+            </p>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Drag Overlay Content ──────────────────────────────────────────────────
+
+function DragOverlayRow({ ind }: { ind: Indicator }) {
+  const value = getLatestValue(ind);
+  return (
+    <div className="rounded-lg border-2 border-fun-blue/40 bg-card p-3 shadow-xl opacity-90">
+      <div className="flex items-center gap-2">
+        <GripVertical className="size-4 text-muted-foreground" />
+        <span className="font-mono text-xs text-muted-foreground">{ind.code}</span>
+        <span className="text-sm font-medium flex-1 truncate">{ind.name}</span>
+        <span className="text-sm font-bold">{formatValue(value, ind.unit)}</span>
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -300,12 +453,9 @@ function SummaryCard({
 function ModuleSkeleton() {
   return (
     <div className="space-y-6">
-      {/* Title skeleton */}
       <Skeleton className="h-7 w-64" />
-
-      {/* Summary cards skeleton */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }).map((_, i) => (
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+        {Array.from({ length: 5 }).map((_, i) => (
           <Card key={i}>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -319,11 +469,7 @@ function ModuleSkeleton() {
           </Card>
         ))}
       </div>
-
-      {/* Tabs skeleton */}
       <Skeleton className="h-10 w-full rounded-lg" />
-
-      {/* Table skeleton */}
       <Card>
         <CardContent className="p-4">
           <div className="space-y-3">
@@ -340,24 +486,85 @@ function ModuleSkeleton() {
 // ─── Custom scrollbar style ─────────────────────────────────────────────────
 
 const SCROLLBAR_STYLE = `
-  .kpi-module-scroll::-webkit-scrollbar {
-    width: 6px;
-  }
-  .kpi-module-scroll::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .kpi-module-scroll::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 3px;
-  }
-  .kpi-module-scroll::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
-  }
+  .kpi-module-scroll::-webkit-scrollbar { width: 6px; }
+  .kpi-module-scroll::-webkit-scrollbar-track { background: transparent; }
+  .kpi-module-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  .kpi-module-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 `;
 
-// ─── SubDomain Table Content ────────────────────────────────────────────────
+// ─── SubDomain Content with DnD ────────────────────────────────────────────
 
-function SubDomainContent({ indicators }: { indicators: Indicator[] }) {
+function SubDomainContent({
+  indicators,
+  domain,
+  subDomain,
+}: {
+  indicators: Indicator[];
+  domain: string;
+  subDomain: string;
+}) {
+  const isMobile = useIsMobile();
+  const { cardOrder, setCardOrder, resetCardOrder } = useAppStore();
+  const orderKey = `${domain}__${subDomain}`;
+  const savedOrder = cardOrder[orderKey];
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  // Apply custom order
+  const orderedIndicators = useMemo(() => {
+    if (!savedOrder || savedOrder.length === 0) return indicators;
+    const orderMap = new Map(savedOrder.map((id, idx) => [id, idx]));
+    return [...indicators].sort((a, b) => {
+      const aIdx = orderMap.get(a.id) ?? Infinity;
+      const bIdx = orderMap.get(b.id) ?? Infinity;
+      return aIdx - bIdx;
+    });
+  }, [indicators, savedOrder]);
+
+  const itemIds = useMemo(
+    () => orderedIndicators.map((i) => i.id),
+    [orderedIndicators],
+  );
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  const activeIndicator = useMemo(
+    () => (activeId ? indicators.find((i) => i.id === activeId) : null),
+    [activeId, indicators],
+  );
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveId(String(event.active.id));
+  }, []);
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      setActiveId(null);
+      const { active, over } = event;
+      if (over && active.id !== over.id) {
+        const oldIndex = orderedIndicators.findIndex((i) => i.id === active.id);
+        const newIndex = orderedIndicators.findIndex((i) => i.id === over.id);
+        if (oldIndex !== -1 && newIndex !== -1) {
+          const newOrder = arrayMove(orderedIndicators, oldIndex, newIndex).map(
+            (i) => i.id,
+          );
+          setCardOrder(orderKey, newOrder);
+        }
+      }
+    },
+    [orderedIndicators, orderKey, setCardOrder],
+  );
+
+  const handleDragCancel = useCallback(() => {
+    setActiveId(null);
+  }, []);
+
+  const hasCustomOrder = savedOrder && savedOrder.length > 0;
+
   if (indicators.length === 0) {
     return (
       <Card className="p-8 text-center">
@@ -369,86 +576,77 @@ function SubDomainContent({ indicators }: { indicators: Indicator[] }) {
   }
 
   return (
-    <>
-      {/* Mobile: Card-based layout */}
-      <div className="md:hidden space-y-3">
-        {indicators.map((ind) => (
-          <IndicatorMobileCard key={ind.id} ind={ind} />
-        ))}
-      </div>
+    <div className="relative">
+      {/* Reset order button */}
+      {hasCustomOrder && (
+        <div className="flex justify-end mb-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => resetCardOrder(orderKey)}
+          >
+            <RotateCcw className="size-3" />
+            Réinitialiser l&apos;ordre
+          </Button>
+        </div>
+      )}
 
-      {/* Desktop: Table layout */}
-      <div className="hidden md:block max-h-[600px] overflow-y-auto overflow-x-auto kpi-module-scroll">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[100px]">Code</TableHead>
-              <TableHead>Indicateur</TableHead>
-              <TableHead className="w-[60px] text-center">Priorité</TableHead>
-              <TableHead className="w-[80px] text-center">Unité</TableHead>
-              <TableHead className="w-[100px] text-right">Cible</TableHead>
-              <TableHead className="w-[100px] text-right">Valeur</TableHead>
-              <TableHead className="w-[120px] text-right">Écart</TableHead>
-              <TableHead className="w-[120px] text-center">Statut</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {indicators.map((ind) => {
-              const value = getLatestValue(ind);
-              const status = computeStatus(value, ind.targetValue, ind.unit);
-              const ecart = computeEcart(value, ind.targetValue, ind.unit);
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
+      >
+        <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
+          {isMobile ? (
+            /* ── Mobile: Card-based layout ── */
+            <div className="space-y-3">
+              {orderedIndicators.map((ind) => (
+                <SortableMobileCard key={ind.id} ind={ind} />
+              ))}
+            </div>
+          ) : (
+            /* ── Desktop: Table layout ── */
+            <div className="max-h-[600px] overflow-y-auto overflow-x-auto kpi-module-scroll">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[40px] p-1" />
+                    <TableHead className="w-[100px]">Code</TableHead>
+                    <TableHead>Indicateur</TableHead>
+                    <TableHead className="w-[60px] text-center">Priorité</TableHead>
+                    <TableHead className="w-[80px] text-center">Unité</TableHead>
+                    <TableHead className="w-[100px] text-right">Cible</TableHead>
+                    <TableHead className="w-[100px] text-right">Valeur</TableHead>
+                    <TableHead className="w-[120px] text-right">Écart</TableHead>
+                    <TableHead className="w-[120px] text-center">Statut</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {orderedIndicators.map((ind) => (
+                    <SortableTableRow key={ind.id} ind={ind} />
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </SortableContext>
 
-              return (
-                <TableRow key={ind.id} className={cn(ind.isPriority && 'bg-tango/[0.03]')}>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {ind.code}
-                  </TableCell>
-                  <TableCell className="font-medium text-sm">
-                    {ind.name}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {ind.isPriority ? <PriorityBadge /> : <span className="text-muted-foreground/30">—</span>}
-                  </TableCell>
-                  <TableCell className="text-center text-xs text-muted-foreground">
-                    {ind.unit}
-                  </TableCell>
-                  <TableCell className="text-right text-sm">
-                    {formatValue(ind.targetValue, ind.unit)}
-                  </TableCell>
-                  <TableCell className="text-right text-sm font-semibold">
-                    {formatValue(value, ind.unit)}
-                  </TableCell>
-                  <TableCell className="text-right text-sm font-medium">
-                    {ecart ? (
-                      <span
-                        className={
-                          ecart.positive
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-red-600 dark:text-red-400'
-                        }
-                      >
-                        {ecart.text}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <StatusBadge status={status} />
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
-    </>
+        {/* Drag overlay */}
+        <DragOverlay dropAnimation={null}>
+          {activeIndicator ? <DragOverlayRow ind={activeIndicator} /> : null}
+        </DragOverlay>
+      </DndContext>
+    </div>
   );
 }
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
-export function KpiModuleView({ domain, year }: KpiModuleViewProps) {
+export function KpiModuleView({ domain }: KpiModuleViewProps) {
+  const { filters } = useAppStore();
   const [indicators, setIndicators] = useState<Indicator[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -456,7 +654,12 @@ export function KpiModuleView({ domain, year }: KpiModuleViewProps) {
     let cancelled = false;
     setLoading(true);
 
-    fetch(`/api/indicators/domain?domain=${domain}&year=${year || 2025}`)
+    const params = new URLSearchParams({ domain, year: String(filters.year || 2025) });
+    if (filters.quarter) params.set('quarter', String(filters.quarter));
+    if (filters.month) params.set('month', String(filters.month));
+    if (filters.day) params.set('day', String(filters.day));
+
+    fetch(`/api/indicators/domain?${params}`)
       .then((res) => res.json())
       .then((data) => {
         if (!cancelled) {
@@ -474,7 +677,7 @@ export function KpiModuleView({ domain, year }: KpiModuleViewProps) {
     return () => {
       cancelled = true;
     };
-  }, [domain, year]);
+  }, [domain, filters.year, filters.quarter, filters.month, filters.day]);
 
   // ── Group by sub-domain (priority KPIs first within each group) ──
   const subDomains = useMemo(() => {
@@ -484,7 +687,6 @@ export function KpiModuleView({ domain, year }: KpiModuleViewProps) {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(ind);
     });
-    // Sort: priority first, then by order
     for (const arr of map.values()) {
       arr.sort((a, b) => {
         if (a.isPriority !== b.isPriority) return a.isPriority ? -1 : 1;
@@ -512,13 +714,7 @@ export function KpiModuleView({ domain, year }: KpiModuleViewProps) {
       else non_atteint++;
     });
 
-    return {
-      total: indicators.length,
-      atteint,
-      partiel,
-      non_atteint,
-      priority,
-    };
+    return { total: indicators.length, atteint, partiel, non_atteint, priority };
   }, [indicators]);
 
   // ── Loading state ──
@@ -534,7 +730,7 @@ export function KpiModuleView({ domain, year }: KpiModuleViewProps) {
         <Card className="p-12 text-center">
           <LayoutDashboard className="size-12 text-muted-foreground mx-auto mb-3" />
           <p className="text-sm text-muted-foreground">
-            Aucun indicateur disponible pour ce module en {year}
+            Aucun indicateur disponible pour ce module en {filters.year}
           </p>
         </Card>
       </div>
@@ -545,23 +741,32 @@ export function KpiModuleView({ domain, year }: KpiModuleViewProps) {
 
   return (
     <div className="space-y-6">
-      {/* ── Custom scrollbar styles ── */}
       <style>{SCROLLBAR_STYLE}</style>
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
           <h2 className="text-xl font-bold text-fun-blue">
             {DOMAIN_LABELS[domain] || domain}
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {summaryStats.total} indicateurs &middot; <span className="text-tango font-medium">{summaryStats.priority} Lot 1</span> &middot; Année {year}
+            {summaryStats.total} indicateurs &middot;{' '}
+            <span className="text-tango font-medium">
+              {summaryStats.priority} Lot 1
+            </span>{' '}
+            &middot; Année {filters.year}
           </p>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <GripVertical className="size-4 text-muted-foreground/50" />
+          <span className="text-[11px] text-muted-foreground hidden sm:inline">
+            Glisser pour réordonner
+          </span>
         </div>
       </div>
 
       {/* ── Summary KPI Cards ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
         <SummaryCard
           label="Total KPI"
           value={summaryStats.total}
@@ -616,7 +821,8 @@ export function KpiModuleView({ domain, year }: KpiModuleViewProps) {
               >
                 {SUB_DOMAIN_LABELS[key] || key.replace(/_/g, ' ')}
                 <span className="ml-1.5 text-[10px] opacity-70">
-                  ({subDomains.get(key)!.filter(i => i.isPriority).length}/{subDomains.get(key)!.length})
+                  ({subDomains.get(key)!.filter((i) => i.isPriority).length}/
+                  {subDomains.get(key)!.length})
                 </span>
               </TabsTrigger>
             ))}
@@ -626,12 +832,18 @@ export function KpiModuleView({ domain, year }: KpiModuleViewProps) {
             <TabsContent key={key} value={key} className="mt-4">
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-semibold text-fun-blue">
-                    {SUB_DOMAIN_LABELS[key] || key.replace(/_/g, ' ')}
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-semibold text-fun-blue">
+                      {SUB_DOMAIN_LABELS[key] || key.replace(/_/g, ' ')}
+                    </CardTitle>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <SubDomainContent indicators={subDomains.get(key)!} />
+                  <SubDomainContent
+                    indicators={subDomains.get(key)!}
+                    domain={domain}
+                    subDomain={key}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>
