@@ -165,7 +165,7 @@ const EMPTY_FORM: IndicatorFormData = {
   formula: '',
   frequency: 'mensuel',
   sourceSystem: 'manuel',
-  departmentId: '',
+  departmentId: '__none__',
 };
 
 // --- Component ---
@@ -277,7 +277,7 @@ export function AdminKPI() {
       formula: indicator.formula || '',
       frequency: indicator.frequency,
       sourceSystem: indicator.sourceSystem,
-      departmentId: indicator.departmentId || '',
+      departmentId: indicator.departmentId || '__none__',
     });
     setDialogOpen(true);
   }
@@ -307,7 +307,7 @@ export function AdminKPI() {
       if (form.alertValue) body.alertValue = parseFloat(form.alertValue);
       if (form.criticalValue) body.criticalValue = parseFloat(form.criticalValue);
       if (form.formula.trim()) body.formula = form.formula.trim();
-      if (form.departmentId) body.departmentId = form.departmentId;
+      if (form.departmentId && form.departmentId !== '__none__') body.departmentId = form.departmentId;
 
       const res = await fetch(url, {
         method,
@@ -846,7 +846,7 @@ export function AdminKPI() {
                     <SelectValue placeholder="Sélectionner..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">— Aucun —</SelectItem>
+                    <SelectItem value="__none__">— Aucun —</SelectItem>
                     {departments.map((dept) => (
                       <SelectItem key={dept.id} value={dept.id}>
                         {dept.name}
