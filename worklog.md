@@ -162,3 +162,65 @@ Stage Summary:
 - Both changes work on desktop and mobile viewports
 - ESLint clean, no compilation errors
 - Files modified: Header.tsx, ModuleHeroSection.tsx
+
+---
+Task ID: 2
+Agent: full-stack-developer
+Task: Enhance dashboard API with richer data
+
+Work Log:
+- Read worklog.md and existing `/api/dashboard/route.ts` to understand current implementation
+- Analyzed Prisma schema: Indicator (isPriority, targetValue, unit), IndicatorValue (quarter field)
+- Created `computeStatus()` helper with tri-state logic:
+  - Lower-is-better units (jours, nb, h, ratio): value<=target=atteint, value<=target*1.5=partiel, else=non_atteint
+  - All other units (%, Mds FCFA, FCFA, km): value>=target=atteint, value>=target*0.8=partiel, else=non_atteint
+  - Null value, null target, or zero target → non_atteint
+- Created `computeAchievementPct()` helper: for lower-is-better uses target/value, for others uses value/target
+- Created `computeTrend()` mapping status to positive/neutral/negative for backward compat
+- Added `quarter` query param support: filters IndicatorValue.quarter when provided
+- Added per-domain status counts (atteint, partiel, non_atteint) and weighted `performance` field
+- Added global `statusCounts` object with {atteint, partiel, non_atteint}
+- Added `priorityStats` with status breakdown for 43 isPriority indicators
+- Added `topPriorityIndicators`: first 6 priority KPIs sorted worst-first by achievementPct, each with id/name/code/unit/targetValue/value/domain/status/achievementPct
+- Replaced old binary score (value>=target only) with weighted: atteint=100%, partiel=50%, non_atteint=0%
+- Fixed projectSummary.avgProgress division-by-zero guard when no projects exist
+- Verified: lint clean, API returns correct shape with all new fields
+- Tested with and without quarter filter (quarter=1 vs default): results differ correctly
+
+Stage Summary:
+- `/api/dashboard` now returns 8 top-level fields: summary, globalPerformance, totalIndicators, statusCounts, priorityStats, topPriorityIndicators, projectSummary, lastUpdated
+- Each domain in summary now includes: count, atteint, partiel, non_atteint, performance (weighted), indicators[]
+- Global performance uses weighted scoring (atteint=100, partiel=50, non_atteint=0) instead of binary
+- Quarter filtering via `?quarter=N` query param
+- Files modified: src/app/api/dashboard/route.ts
+
+---
+Task ID: 3
+Agent: Main
+Task: Redesign DashboardAccueil with premium executive dashboard
+
+Work Log:
+- Analyzed user's reference dashboard screenshot (7 flat metric cards) to understand desired direction
+- Enhanced `/api/dashboard` API via subagent: added statusCounts, priorityStats, topPriorityIndicators, per-domain performance
+- Completely rewrote DashboardAccueil.tsx (~560 lines) with 7 rich sections:
+  1. Executive Summary Strip: 6 compact KPI cards (Score Global with mini gauge, Total KPI, Atteint/Partiel/Non Atteint with percentages, Lot 1 DG)
+  2. Performance par Domaine: Horizontal bar chart with tooltips showing A/P/NA breakdown, clickable bars
+  3. Répartition par Statut: Donut chart with legend showing counts + mini progress bars
+  4. Accès Rapide par Domaine: 6 clickable domain cards with stacked status bars (green/amber/red) and performance %
+  5. KPI Lot 1 Points d'Attention: Top 6 worst-achieving priority KPIs with progress bars, status badges, value/target
+  6. Aperçu des Projets: Project stats grid (4 metrics), average progress bar, budget consumption card
+  7. Alertes Critiques: Cards for indicators below 60% achievement, sorted worst-first
+- Created MiniGauge component (SVG semicircle arc gauge with animation)
+- Created StatPill component (compact icon+label+value card)
+- Responsive: 2-col mobile, 3-col sm, 6-col xl for strips
+- All domain cards and chart bars are clickable → navigate to module
+- Verified on desktop (1440x900) via Agent Browser + VLM: all 7 sections visible, real data (116 KPI, 62% global, etc.)
+- Verified on mobile (iPhone 14): 2-col grids, vertical chart stacking, all readable
+- Verified domain card click navigates to Finance module correctly
+- No console errors, ESLint clean
+
+Stage Summary:
+- Dashboard redesigned from basic mock-data gauge + simple cards to a data-driven executive dashboard with 7 rich sections
+- Uses real API data (no more mock fallback) with weighted performance scoring
+- Files rewritten: src/components/cockpit/DashboardAccueil.tsx
+- Files modified: src/app/api/dashboard/route.ts (enhanced by subagent)

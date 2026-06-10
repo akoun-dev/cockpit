@@ -10,7 +10,6 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  ResponsiveContainer,
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -24,9 +23,9 @@ import {
   ChartLegendContent,
   type ChartConfig,
 } from '@/components/ui/chart';
-import { KpiCard } from '@/components/cockpit/KpiCard';
 import { StatusBadge } from '@/components/cockpit/StatusBadge';
 import { useAppStore, type ModuleKey } from '@/lib/store';
+import { cn } from '@/lib/utils';
 import {
   Wallet,
   Landmark,
@@ -34,29 +33,50 @@ import {
   Users,
   ShieldAlert,
   Target,
-  TrendingDown,
   AlertTriangle,
   FolderKanban,
   CheckCircle2,
   Clock,
   CalendarClock,
   Banknote,
+  Activity,
+  Star,
+  TrendingUp,
+  ArrowRight,
+  CircleDot,
 } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 interface IndicatorSummary {
+  id: string;
   name: string;
   code: string;
-  subDomain: string;
+  subDomain: string | null;
   unit: string;
-  targetValue: number;
+  targetValue: number | null;
   value: number;
-  trend: 'positive' | 'negative' | 'neutral';
+  trend: string;
+}
+
+interface TopPriorityIndicator {
+  id: string;
+  name: string;
+  code: string;
+  unit: string;
+  targetValue: number | null;
+  value: number;
+  domain: string;
+  status: string;
+  achievementPct: number;
 }
 
 interface DomainSummary {
   count: number;
+  atteint: number;
+  partiel: number;
+  non_atteint: number;
+  performance: number;
   indicators: IndicatorSummary[];
 }
 
@@ -74,6 +94,9 @@ interface DashboardData {
   summary: Record<string, DomainSummary>;
   globalPerformance: number;
   totalIndicators: number;
+  statusCounts: { atteint: number; partiel: number; non_atteint: number };
+  priorityStats: { total: number; atteint: number; partiel: number; non_atteint: number };
+  topPriorityIndicators: TopPriorityIndicator[];
   projectSummary: ProjectSummary;
   lastUpdated: string;
 }
@@ -82,51 +105,23 @@ interface DashboardData {
 
 const DOMAIN_META: Record<
   string,
-  { key: ModuleKey; label: string; icon: React.ElementType; color: string }
+  { key: ModuleKey; label: string; icon: React.ElementType; color: string; bgLight: string }
 > = {
-  finance: { key: 'finance', label: 'Finance', icon: Wallet, color: '#1c55a3' },
-  governance: { key: 'governance', label: 'Gouvernance', icon: Landmark, color: '#205eb3' },
-  operational: { key: 'operational', label: 'Opérationnel', icon: Settings, color: '#f18120' },
-  rh: { key: 'rh', label: 'Ressources Humaines', icon: Users, color: '#22c55e' },
-  risque: { key: 'risque', label: 'Cadre de Risque', icon: ShieldAlert, color: '#ef4444' },
-  pta: { key: 'pta', label: 'Plan Triennal', icon: Target, color: '#f59e0b' },
+  finance: { key: 'finance', label: 'Finance', icon: Wallet, color: '#1c55a3', bgLight: '#1c55a310' },
+  governance: { key: 'governance', label: 'Gouvernance', icon: Landmark, color: '#205eb3', bgLight: '#205eb310' },
+  operational: { key: 'operational', label: 'Opérationnel', icon: Settings, color: '#f18120', bgLight: '#f1812010' },
+  rh: { key: 'rh', label: 'Ressources Humaines', icon: Users, color: '#22c55e', bgLight: '#22c55e10' },
+  risque: { key: 'risque', label: 'Cadre de Risque', icon: ShieldAlert, color: '#ef4444', bgLight: '#ef444410' },
+  pta: { key: 'pta', label: 'Plan Triennal', icon: Target, color: '#f59e0b', bgLight: '#f59e0b10' },
 };
 
-const MONTHS_FR = [
-  'Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin',
-  'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc',
-];
+const STATUS_LABELS: Record<string, string> = {
+  atteint: 'Atteint',
+  partiel: 'Partiel',
+  non_atteint: 'Non atteint',
+};
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-
-function formatLargeNumber(n: number, compact = false): string {
-  if (compact) {
-    if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)} Mrd`;
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} M`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(1)} K`;
-  }
-  return n.toLocaleString('fr-FR');
-}
-
-function formatCurrency(n: number): string {
-  if (n >= 1_000_000_000) {
-    const val = n / 1_000_000_000;
-    return `${val.toFixed(1).replace('.', ' ')} Mrd FCFA`;
-  }
-  if (n >= 1_000_000) {
-    const val = n / 1_000_000;
-    return `${val.toFixed(1).replace('.', ' ')} M FCFA`;
-  }
-  return `${formatLargeNumber(n)} FCFA`;
-}
-
-function countTrends(indicators: IndicatorSummary[]) {
-  return {
-    positive: indicators.filter((i) => i.trend === 'positive').length,
-    negative: indicators.filter((i) => i.trend === 'negative').length,
-    neutral: indicators.filter((i) => i.trend === 'neutral').length,
-  };
-}
 
 function getPerformanceColor(pct: number): string {
   if (pct >= 80) return '#22c55e';
@@ -134,403 +129,629 @@ function getPerformanceColor(pct: number): string {
   return '#ef4444';
 }
 
-// ── Mock Data ───────────────────────────────────────────────────────────────
-
-function generateMockData(): DashboardData {
-  const makeIndicators = (codes: [string, string, string, string][], trendSeed: string) =>
-    codes.map(([name, code, sub, unit], idx) => ({
-      name,
-      code,
-      subDomain: sub,
-      unit,
-      targetValue: 80 + Math.floor(Math.random() * 20),
-      value: 50 + Math.floor(Math.random() * 50),
-      trend: (['positive', 'negative', 'neutral'] as const)[
-        (trendSeed.charCodeAt(0) + idx) % 3
-      ],
-    }));
-
-  return {
-    summary: {
-      finance: {
-        count: 10,
-        indicators: makeIndicators(
-          [
-            ["Taux d'exécution budgétaire", 'FIN-001', 'budget', '%'],
-            ["Chiffre d'affaires", 'FIN-002', 'rentabilité', 'FCFA'],
-            ['Excédent Brut Exploitation', 'FIN-003', 'rentabilité', 'FCFA'],
-            ['Marge brute', 'FIN-004', 'rentabilité', '%'],
-            ['Résultat net', 'FIN-005', 'rentabilité', 'FCFA'],
-          ],
-          'fin',
-        ),
-      },
-      governance: {
-        count: 7,
-        indicators: makeIndicators(
-          [
-            ['Taux de conformité réglementaire', 'GOV-001', 'conformité', '%'],
-            ['Indice de gouvernance', 'GOV-002', 'gouvernance', 'idx'],
-            ['Taux de réalisation des audits', 'GOV-003', 'audit', '%'],
-          ],
-          'gov',
-        ),
-      },
-      operational: {
-        count: 8,
-        indicators: makeIndicators(
-          [
-            ['Taux de disponibilité réseau', 'OP-001', 'réseau', '%'],
-            ['Taux incidents résolus', 'OP-002', 'incidents', '%'],
-            ['Délai moyen de réparation', 'OP-003', 'maintenance', 'h'],
-          ],
-          'op',
-        ),
-      },
-      rh: {
-        count: 6,
-        indicators: makeIndicators(
-          [
-            ['Taux de turn-over', 'RH-001', 'talent', '%'],
-            ['Taux de formation', 'RH-002', 'formation', '%'],
-            ['Indice de satisfaction', 'RH-003', 'satisfaction', 'idx'],
-          ],
-          'rh',
-        ),
-      },
-      risque: {
-        count: 4,
-        indicators: makeIndicators(
-          [
-            ['Score de risque global', 'RIS-001', 'global', 'idx'],
-            ['Taux de couverture', 'RIS-002', 'couverture', '%'],
-          ],
-          'ri',
-        ),
-      },
-      pta: {
-        count: 3,
-        indicators: makeIndicators(
-          [
-            ['Taux de réalisation PTA', 'PTA-001', 'réalisation', '%'],
-            ['Nombre d\'actions livrées', 'PTA-002', 'livraison', 'nb'],
-          ],
-          'pt',
-        ),
-      },
-    },
-    globalPerformance: 72,
-    totalIndicators: 38,
-    projectSummary: {
-      total: 12,
-      en_cours: 10,
-      termine: 0,
-      planifie: 2,
-      avgProgress: 55,
-      totalBudget: 12_350_000_000,
-      totalSpent: 6_870_000_000,
-    },
-    lastUpdated: new Date().toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }),
-  };
+function getPerformanceBg(pct: number): string {
+  if (pct >= 80) return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400';
+  if (pct >= 60) return 'bg-amber-500/10 text-amber-600 dark:text-amber-400';
+  return 'bg-red-500/10 text-red-600 dark:text-red-400';
 }
 
-// ── Gauge Component ──────────────────────────────────────────────────────────
+function formatCurrency(n: number): string {
+  if (n >= 1_000_000_000) {
+    const val = n / 1_000_000_000;
+    return `${val.toFixed(1).replace('.', ' ')} Mrd`;
+  }
+  if (n >= 1_000_000) {
+    const val = n / 1_000_000;
+    return `${val.toFixed(1).replace('.', ' ')} M`;
+  }
+  return n.toLocaleString('fr-FR');
+}
 
-const gaugeChartConfig = {
-  performance: { label: 'Performance', color: '#1c55a3' },
-  remaining: { label: 'Restant', color: '#e2e8f0' },
+// ── Chart configs ─────────────────────────────────────────────────────────
+
+const domainChartConfig = {
+  performance: { label: 'Performance', color: '#205eb3' },
 } satisfies ChartConfig;
 
-function PerformanceGauge({ value }: { value: number }) {
-  const [animValue, setAnimValue] = useState(0);
+const statusChartConfig = {
+  atteint: { label: 'Atteint', color: '#22c55e' },
+  partiel: { label: 'Partiel', color: '#f59e0b' },
+  non_atteint: { label: 'Non atteint', color: '#ef4444' },
+} satisfies ChartConfig;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ── SECTION 1: Executive Summary Strip ────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+function MiniGauge({ value, size = 64 }: { value: number; size?: number }) {
+  const [animValue, setAnimValue] = useState(0);
   useEffect(() => {
-    const timeout = setTimeout(() => setAnimValue(value), 100);
-    return () => clearTimeout(timeout);
+    const t = setTimeout(() => setAnimValue(value), 150);
+    return () => clearTimeout(t);
   }, [value]);
 
   const color = getPerformanceColor(animValue);
-  const data = [
-    { name: 'performance', value: animValue },
-    { name: 'remaining', value: 100 - animValue },
-  ];
+  const r = size / 2;
+  const strokeWidth = 5;
+  const circumference = Math.PI * (r - strokeWidth);
+  const filled = (animValue / 100) * circumference;
 
   return (
-    <div className="flex flex-col items-center">
-      <ChartContainer
-        config={gaugeChartConfig}
-        className="mx-auto aspect-square h-[200px] w-[200px] lg:h-[240px] lg:w-[240px]"
-      >
-        <PieChart>
-          <Pie
-            data={data}
-            dataKey="value"
-            nameKey="name"
-            cx="50%"
-            cy="50%"
-            innerRadius="65%"
-            outerRadius="85%"
-            startAngle={90}
-            endAngle={-270}
-            strokeWidth={0}
-            animationDuration={1200}
-            animationEasing="ease-out"
-          >
-            <Cell fill={color} />
-            <Cell fill="var(--color-remaining, #e2e8f0)" />
-          </Pie>
-        </PieChart>
-      </ChartContainer>
-      <div className="-mt-[140px] lg:-mt-[160px] flex flex-col items-center">
-        <span
-          className="text-4xl font-bold lg:text-5xl"
-          style={{ color }}
-        >
+    <div className="relative" style={{ width: size, height: size / 2 + 4 }}>
+      <svg width={size} height={size / 2 + 4} viewBox={`0 0 ${size} ${size / 2 + 4}`}>
+        {/* Background arc */}
+        <path
+          d={`M ${strokeWidth} ${r} A ${r - strokeWidth} ${r - strokeWidth} 0 0 1 ${size - strokeWidth} ${r}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          className="text-muted/30"
+        />
+        {/* Filled arc */}
+        <path
+          d={`M ${strokeWidth} ${r} A ${r - strokeWidth} ${r - strokeWidth} 0 0 1 ${size - strokeWidth} ${r}`}
+          fill="none"
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference - filled}
+          style={{ transition: 'stroke-dashoffset 1.2s ease-out, stroke 0.5s ease' }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-end justify-center pb-0">
+        <span className="text-sm font-bold leading-none" style={{ color }}>
           {Math.round(animValue)}%
         </span>
-        <span className="text-xs text-muted-foreground mt-1 font-medium">
-          Score Global
-        </span>
-      </div>
-      <div className="mt-[72px] lg:mt-[88px] flex items-center gap-4 text-xs text-muted-foreground">
-        <div className="flex items-center gap-1.5">
-          <span className="size-2.5 rounded-full bg-success" />
-          {'≥'} 80%
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="size-2.5 rounded-full bg-warning" />
-          60-79%
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="size-2.5 rounded-full bg-danger" />
-          {'<'} 60%
-        </div>
       </div>
     </div>
   );
 }
 
-// ── Domain Card ─────────────────────────────────────────────────────────────
-
-function DomainCard({
-  domainKey,
-  data,
+function StatPill({
+  icon: Icon,
+  label,
+  value,
+  subValue,
+  color,
+  bgLight,
   onClick,
 }: {
-  domainKey: string;
-  data: DomainSummary;
-  onClick: () => void;
+  icon: React.ElementType;
+  label: string;
+  value: string | number;
+  subValue?: string;
+  color: string;
+  bgLight: string;
+  onClick?: () => void;
 }) {
-  const meta = DOMAIN_META[domainKey];
-  if (!meta) return null;
-
-  const Icon = meta.icon;
-  const trends = countTrends(data.indicators);
-  const domainPerf =
-    data.indicators.length > 0
-      ? Math.round(
-          data.indicators.reduce((acc, i) => {
-            const ratio = i.targetValue > 0 ? i.value / i.targetValue : 0;
-            return acc + Math.min(ratio, 1) * 100;
-          }, 0) / data.indicators.length,
-        )
-      : 0;
-
   return (
     <Card
-      className="group cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border-l-4"
-      style={{ borderLeftColor: meta.color }}
+      className={cn(
+        'transition-all duration-200 hover:shadow-md cursor-default',
+        onClick && 'hover:-translate-y-0.5 cursor-pointer',
+      )}
       onClick={onClick}
     >
-      <CardContent className="p-4 lg:p-5">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2.5">
-            <div
-              className="flex size-9 items-center justify-center rounded-lg"
-              style={{ backgroundColor: `${meta.color}15`, color: meta.color }}
-            >
-              <Icon className="size-4.5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-foreground leading-tight">
-                {meta.label}
-              </h3>
-              <p className="text-[11px] text-muted-foreground">
-                {data.count} indicateur{data.count > 1 ? 's' : ''}
-              </p>
-            </div>
-          </div>
+      <CardContent className="p-3 sm:p-4">
+        <div className="flex items-center gap-2.5">
           <div
-            className="text-lg font-bold"
-            style={{ color: getPerformanceColor(domainPerf) }}
+            className="flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-lg"
+            style={{ backgroundColor: bgLight, color }}
           >
-            {domainPerf}%
+            <Icon className="size-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight truncate">
+              {label}
+            </p>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="text-lg sm:text-xl font-bold text-foreground tracking-tight">
+                {value}
+              </span>
+              {subValue && (
+                <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
+                  {subValue}
+                </span>
+              )}
+            </div>
           </div>
         </div>
-
-        {/* Trend dots */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-xs">
-            <span className="size-2 rounded-full bg-success" />
-            <span className="text-muted-foreground">{trends.positive}</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-xs">
-            <span className="size-2 rounded-full bg-danger" />
-            <span className="text-muted-foreground">{trends.negative}</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-xs">
-            <span className="size-2 rounded-full bg-warning" />
-            <span className="text-muted-foreground">{trends.neutral}</span>
-          </div>
-        </div>
-
-        {/* Mini progress */}
-        <Progress value={domainPerf} className="h-1.5 mt-3" />
       </CardContent>
     </Card>
   );
 }
 
-// ── Projects Section ────────────────────────────────────────────────────────
-
-const budgetChartConfig = {
-  budget: { label: 'Budget total', color: '#1c55a3' },
-  spent: { label: 'Dépensé', color: '#f18120' },
-} satisfies ChartConfig;
-
-function ProjectsOverview({ projects }: { projects: ProjectSummary }) {
-  const budgetData = [
-    { name: 'Budget', budget: projects.totalBudget / 1_000_000_000, spent: projects.totalSpent / 1_000_000_000 },
-  ];
-
-  const budgetPct = projects.totalBudget > 0
-    ? Math.round((projects.totalSpent / projects.totalBudget) * 100)
-    : 0;
+function ExecutiveStrip({
+  data,
+  onNavigate,
+}: {
+  data: DashboardData;
+  onNavigate: (module: ModuleKey) => void;
+}) {
+  const { statusCounts, priorityStats, globalPerformance, totalIndicators } = data;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-      {/* Left: stats */}
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <KpiCard
-            title="Total Projets"
-            value={projects.total}
-            icon={<FolderKanban className="size-5" />}
-          />
-          <KpiCard
-            title="En Cours"
-            value={projects.en_cours}
-            icon={<Clock className="size-5" />}
-            trend={projects.en_cours > 0 ? 'positive' : 'neutral'}
-            trendValue="actif"
-          />
-          <KpiCard
-            title="Terminés"
-            value={projects.termine}
-            icon={<CheckCircle2 className="size-5" />}
-          />
-          <KpiCard
-            title="Planifiés"
-            value={projects.planifie}
-            icon={<CalendarClock className="size-5" />}
-          />
-        </div>
-
-        {/* Average progress */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-muted-foreground">
-                Progression Moyenne
-              </span>
-              <span className="text-sm font-bold text-foreground">
-                {projects.avgProgress}%
-              </span>
-            </div>
-            <Progress
-              value={projects.avgProgress}
-              className="h-2.5"
-            />
-            <div className="flex items-center justify-between mt-1.5 text-[11px] text-muted-foreground">
-              <span>0%</span>
-              <span>100%</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Budget summary */}
-        <Card>
-          <CardContent className="p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <Banknote className="size-4 text-tango" />
-              <span className="text-xs font-medium text-muted-foreground">
-                Consommation Budgétaire
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-[11px] text-muted-foreground">Budget Total</p>
-                <p className="text-sm font-bold text-fun-blue">
-                  {formatCurrency(projects.totalBudget)}
-                </p>
-              </div>
-              <div>
-                <p className="text-[11px] text-muted-foreground">Dépensé</p>
-                <p className="text-sm font-bold text-tango">
-                  {formatCurrency(projects.totalSpent)}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Taux de consommation</span>
-              <span
-                className={`font-medium ${
-                  budgetPct > 90 ? 'text-danger' : budgetPct > 70 ? 'text-warning' : 'text-success'
-                }`}
-              >
-                {budgetPct}%
-              </span>
-            </div>
-            <Progress value={budgetPct} className="h-1.5" />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Right: bar chart */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold">
-            Budget vs Dépenses (Mrd FCFA)
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4">
-          <ChartContainer config={budgetChartConfig} className="h-[200px] w-full">
-            <BarChart data={budgetData} layout="vertical" barSize={28}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} vertical />
-              <XAxis type="number" tickFormatter={(v: number) => `${v.toFixed(1)}`} />
-              <YAxis type="category" dataKey="name" width={60} tick={{ fontSize: 12 }} />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <Bar dataKey="budget" fill="var(--color-budget)" radius={[0, 4, 4, 0]} />
-              <Bar dataKey="spent" fill="var(--color-spent)" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ChartContainer>
-          <ChartLegend className="mt-2">
-            <ChartLegendContent />
-          </ChartLegend>
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      {/* Global Score */}
+      <Card className="lg:col-span-1">
+        <CardContent className="p-3 sm:p-4 flex items-center gap-3">
+          <MiniGauge value={globalPerformance} size={64} />
+          <div>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">Score Global</p>
+            <p className="text-[10px] text-muted-foreground">{totalIndicators} indicateurs</p>
+          </div>
         </CardContent>
       </Card>
+
+      {/* Total KPI */}
+      <StatPill
+        icon={Activity}
+        label="Total KPI"
+        value={totalIndicators}
+        color="#205eb3"
+        bgLight="#205eb310"
+      />
+
+      {/* Atteint */}
+      <StatPill
+        icon={CheckCircle2}
+        label="KPI Atteint"
+        value={statusCounts.atteint}
+        subValue={totalIndicators > 0 ? `${Math.round((statusCounts.atteint / totalIndicators) * 100)}%` : ''}
+        color="#22c55e"
+        bgLight="#22c55e10"
+      />
+
+      {/* Partiel */}
+      <StatPill
+        icon={Clock}
+        label="KPI Partiel"
+        value={statusCounts.partiel}
+        subValue={totalIndicators > 0 ? `${Math.round((statusCounts.partiel / totalIndicators) * 100)}%` : ''}
+        color="#f59e0b"
+        bgLight="#f59e0b10"
+      />
+
+      {/* Non atteint */}
+      <StatPill
+        icon={AlertTriangle}
+        label="KPI Non Atteint"
+        value={statusCounts.non_atteint}
+        subValue={totalIndicators > 0 ? `${Math.round((statusCounts.non_atteint / totalIndicators) * 100)}%` : ''}
+        color="#ef4444"
+        bgLight="#ef444410"
+      />
+
+      {/* Lot 1 DG */}
+      <StatPill
+        icon={Star}
+        label="KPI Lot 1 (DG)"
+        value={priorityStats.total}
+        subValue={`${priorityStats.atteint} atteints`}
+        color="#f18120"
+        bgLight="#f1812010"
+        onClick={() => onNavigate('governance')}
+      />
     </div>
   );
 }
 
-// ── Alerts Section ──────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// ── SECTION 2: Domain Performance Bar Chart ───────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+function DomainPerformanceChart({
+  summary,
+  onDomainClick,
+}: {
+  summary: Record<string, DomainSummary>;
+  onDomainClick: (module: ModuleKey) => void;
+}) {
+  const data = useMemo(() => {
+    return Object.entries(DOMAIN_META)
+      .map(([key, meta]) => {
+        const d = summary[key];
+        if (!d) return null;
+        return {
+          name: meta.label,
+          shortName: meta.label.length > 12 ? meta.label.substring(0, 12) + '…' : meta.label,
+          performance: d.performance,
+          atteint: d.atteint,
+          partiel: d.partiel,
+          non_atteint: d.non_atteint,
+          total: d.count,
+          color: meta.color,
+          domainKey: key,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => (b as NonNullable<typeof a>).performance - (a as NonNullable<typeof a>).performance);
+  }, [summary]);
+
+  if (data.length === 0) return null;
+
+  return (
+    <Card className="h-full">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <TrendingUp className="size-4 text-fun-blue" />
+            Performance par Domaine
+          </CardTitle>
+          <span className="text-[10px] text-muted-foreground">Atteint = 100% · Partiel = 50%</span>
+        </div>
+      </CardHeader>
+      <CardContent className="p-4 pt-0">
+        <ChartContainer config={domainChartConfig} className="h-[260px] w-full">
+          <BarChart data={data as unknown as Array<Record<string, unknown>>} layout="vertical" margin={{ left: 0, right: 16, top: 4, bottom: 4 }}>
+            <CartesianGrid strokeDasharray="3 3" horizontal={false} vertical strokeDashoffset={3} className="stroke-border/50" />
+            <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}%`} className="text-muted-foreground" />
+            <YAxis
+              type="category"
+              dataKey="shortName"
+              width={110}
+              tick={{ fontSize: 11 }}
+              className="text-muted-foreground"
+              tickLine={false}
+            />
+            <ChartTooltip
+              content={
+                <ChartTooltipContent
+                  formatter={(value: number, name: string, item: { payload?: Record<string, unknown> }) => {
+                    const p = item?.payload as Record<string, unknown> | undefined;
+                    if (!p) return [`${value}%`, name];
+                    return [
+                      `${value}% (${(p.atteint as number)}A / ${(p.partiel as number)}P / ${(p.non_atteint as number)}NA)`,
+                      'Performance',
+                    ];
+                  }}
+                />
+              }
+            />
+            <Bar
+              dataKey="performance"
+              fill="var(--color-performance)"
+              radius={[0, 6, 6, 0]}
+              barSize={22}
+              cursor="pointer"
+              onClick={(entry) => {
+                const domainKey = (entry as unknown as Record<string, unknown>).domainKey as string;
+                if (domainKey) onDomainClick(domainKey as ModuleKey);
+              }}
+            />
+          </BarChart>
+        </ChartContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ── SECTION 3: Status Distribution Donut ─────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+function StatusDonutSection({ data }: { data: DashboardData }) {
+  const { statusCounts, totalIndicators } = data;
+  const donutData = [
+    { name: 'atteint', value: statusCounts.atteint },
+    { name: 'partiel', value: statusCounts.partiel },
+    { name: 'non_atteint', value: statusCounts.non_atteint },
+  ].filter((d) => d.value > 0);
+
+  const scorePct =
+    totalIndicators > 0
+      ? Math.round(((statusCounts.atteint + statusCounts.partiel * 0.5) / totalIndicators) * 100)
+      : 0;
+
+  return (
+    <Card className="h-full">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <CircleDot className="size-4 text-fun-blue" />
+            Répartition par Statut
+          </CardTitle>
+          <span
+            className={cn('text-xl font-bold', getPerformanceBg(scorePct).split(' ').pop())}
+          >
+            {scorePct}%
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent className="flex items-center gap-4 pt-0">
+        <ChartContainer config={statusChartConfig} className="mx-auto aspect-square h-[160px] w-[160px] shrink-0">
+          <PieChart>
+            <Pie
+              data={donutData}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              innerRadius="55%"
+              outerRadius="80%"
+              strokeWidth={2}
+              stroke="var(--color-card)"
+            >
+              {donutData.map((entry) => (
+                <Cell key={entry.name} fill={`var(--color-${entry.name})`} />
+              ))}
+            </Pie>
+            <ChartTooltip content={<ChartTooltipContent />} />
+          </PieChart>
+        </ChartContainer>
+        <div className="space-y-3 text-sm min-w-0 flex-1">
+          {(['atteint', 'partiel', 'non_atteint'] as const).map((key) => {
+            const count = statusCounts[key];
+            const pct = totalIndicators > 0 ? Math.round((count / totalIndicators) * 100) : 0;
+            const colorMap = { atteint: 'bg-emerald-500', partiel: 'bg-amber-500', non_atteint: 'bg-red-500' };
+            return (
+              <div key={key} className="flex items-center gap-2.5">
+                <span className={cn('size-3 rounded-full shrink-0', colorMap[key])} />
+                <span className="text-muted-foreground text-xs sm:text-sm min-w-0 truncate">
+                  {STATUS_LABELS[key]}
+                </span>
+                <div className="flex items-center gap-2 ml-auto">
+                  <Progress value={pct} className="h-1.5 w-12 sm:w-16" />
+                  <span className="font-bold text-xs sm:text-sm tabular-nums w-6 text-right">
+                    {count}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+          <div className="pt-1.5 border-t border-border flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">Total</span>
+            <span className="font-bold text-xs sm:text-sm tabular-nums">{totalIndicators}</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ── SECTION 4: Top Priority KPIs ─────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+function TopPriorityKpis({
+  indicators,
+  onNavigate,
+}: {
+  indicators: TopPriorityIndicator[];
+  onNavigate: (module: ModuleKey) => void;
+}) {
+  if (indicators.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Star className="size-4 text-tango fill-tango" />
+            KPI Lot 1 (DG) — Points d&apos;Attention
+          </CardTitle>
+          <Badge variant="outline" className="text-[10px] border-tango/30 text-tango bg-tango/5">
+            Pire atteintes
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="p-4 pt-0">
+        <div className="space-y-2.5">
+          {indicators.map((ind) => {
+            const domainMeta = DOMAIN_META[ind.domain];
+            const pct = Math.min(ind.achievementPct, 100);
+            const barColor = pct >= 80 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444';
+            const statusLabel = STATUS_LABELS[ind.status] || ind.status;
+
+            return (
+              <div
+                key={ind.id}
+                className="group flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                onClick={() => domainMeta && onNavigate(domainMeta.key)}
+              >
+                {/* Code + Name */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-[10px] text-muted-foreground shrink-0">{ind.code}</span>
+                    {domainMeta && (
+                      <span
+                        className="size-1.5 rounded-full shrink-0"
+                        style={{ backgroundColor: domainMeta.color }}
+                      />
+                    )}
+                    <p className="text-xs font-medium text-foreground truncate">{ind.name}</p>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${pct}%`, backgroundColor: barColor }}
+                      />
+                    </div>
+                    <span className="text-[10px] font-semibold tabular-nums w-7 text-right" style={{ color: barColor }}>
+                      {pct}%
+                    </span>
+                  </div>
+                </div>
+
+                {/* Value / Target */}
+                <div className="hidden sm:flex flex-col items-end shrink-0">
+                  <span className="text-xs font-bold text-foreground tabular-nums">{ind.value}</span>
+                  <span className="text-[10px] text-muted-foreground">/ {ind.targetValue}</span>
+                </div>
+
+                {/* Status badge */}
+                <StatusBadge status={ind.status} label={statusLabel} />
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ── SECTION 5: Projects Overview ─────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+function ProjectsOverview({ projects }: { projects: ProjectSummary }) {
+  const budgetPct = projects.totalBudget > 0 ? Math.round((projects.totalSpent / projects.totalBudget) * 100) : 0;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <FolderKanban className="size-4 text-fun-blue" />
+          Aperçu des Projets
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-4 pt-0 space-y-4">
+        {/* Project stats row */}
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { label: 'Total', value: projects.total, icon: FolderKanban, color: '#205eb3' },
+            { label: 'En Cours', value: projects.en_cours, icon: Clock, color: '#f59e0b' },
+            { label: 'Terminés', value: projects.termine, icon: CheckCircle2, color: '#22c55e' },
+            { label: 'Planifiés', value: projects.planifie, icon: CalendarClock, color: '#94a3b8' },
+          ].map((item) => {
+            const Icon = item.icon;
+            return (
+              <div key={item.label} className="flex flex-col items-center gap-1 py-2 rounded-lg bg-muted/30">
+                <Icon className="size-4" style={{ color: item.color }} />
+                <span className="text-base font-bold text-foreground tabular-nums">{item.value}</span>
+                <span className="text-[9px] text-muted-foreground text-center leading-tight">{item.label}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Average progress */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Progression Moyenne</span>
+            <span className="font-bold text-foreground">{projects.avgProgress}%</span>
+          </div>
+          <Progress value={projects.avgProgress} className="h-2" />
+        </div>
+
+        {/* Budget */}
+        <div className="space-y-2.5 rounded-lg bg-muted/30 p-3">
+          <div className="flex items-center gap-2">
+            <Banknote className="size-3.5 text-tango" />
+            <span className="text-xs font-medium text-muted-foreground">Consommation Budgétaire</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <p className="text-[10px] text-muted-foreground">Budget</p>
+              <p className="text-sm font-bold text-fun-blue">{formatCurrency(projects.totalBudget)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-muted-foreground">Dépensé</p>
+              <p className="text-sm font-bold text-tango">{formatCurrency(projects.totalSpent)}</p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Taux de consommation</span>
+            <span
+              className={cn(
+                'font-semibold',
+                budgetPct > 90 ? 'text-danger' : budgetPct > 70 ? 'text-warning' : 'text-success',
+              )}
+            >
+              {budgetPct}%
+            </span>
+          </div>
+          <Progress value={budgetPct} className="h-1.5" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ── SECTION 6: Domain Quick Access Cards ─────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+function DomainQuickAccess({
+  summary,
+  onDomainClick,
+}: {
+  summary: Record<string, DomainSummary>;
+  onDomainClick: (module: ModuleKey) => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold text-foreground">Accès Rapide par Domaine</h2>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        {Object.entries(DOMAIN_META).map(([key, meta]) => {
+          const d = summary[key];
+          const Icon = meta.icon;
+          const perf = d?.performance ?? 0;
+
+          return (
+            <Card
+              key={key}
+              className="group cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 overflow-hidden"
+              onClick={() => onDomainClick(meta.key)}
+            >
+              <div className="h-1" style={{ backgroundColor: meta.color }} />
+              <CardContent className="p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <div
+                    className="flex size-7 items-center justify-center rounded-md shrink-0"
+                    style={{ backgroundColor: meta.bgLight, color: meta.color }}
+                  >
+                    <Icon className="size-3.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-foreground truncate">{meta.label}</p>
+                    <p className="text-[10px] text-muted-foreground">{d?.count ?? 0} KPI</p>
+                  </div>
+                </div>
+
+                {/* Status mini-bar (stacked) */}
+                {d && d.count > 0 && (
+                  <>
+                    <div className="flex h-1.5 rounded-full overflow-hidden bg-muted mb-2">
+                      <div className="bg-emerald-500" style={{ width: `${(d.atteint / d.count) * 100}%` }} />
+                      <div className="bg-amber-500" style={{ width: `${(d.partiel / d.count) * 100}%` }} />
+                      <div className="bg-red-500" style={{ width: `${(d.non_atteint / d.count) * 100}%` }} />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] text-emerald-600 font-medium">{d.atteint}A</span>
+                        <span className="text-[9px] text-amber-600 font-medium">{d.partiel}P</span>
+                        <span className="text-[9px] text-red-600 font-medium">{d.non_atteint}NA</span>
+                      </div>
+                      <span className="text-xs font-bold" style={{ color: getPerformanceColor(perf) }}>
+                        {perf}%
+                      </span>
+                    </div>
+                  </>
+                )}
+
+                {/* Hover arrow */}
+                <div className="flex justify-end mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <ArrowRight className="size-3.5 text-muted-foreground" />
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ── SECTION 7: Alerts ───────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
 
 function AlertsSection({ summary }: { summary: Record<string, DomainSummary> }) {
   const allAlerts = useMemo(() => {
@@ -546,9 +767,8 @@ function AlertsSection({ summary }: { summary: Record<string, DomainSummary> }) 
       const meta = DOMAIN_META[domainKey];
       if (!meta) return;
       domain.indicators.forEach((ind) => {
-        const achievement =
-          ind.targetValue > 0 ? (ind.value / ind.targetValue) * 100 : 100;
-        if (achievement < 80) {
+        const achievement = ind.targetValue && ind.targetValue > 0 ? (ind.value / ind.targetValue) * 100 : ind.value > 0 ? 0 : 100;
+        if (achievement < 60) {
           alerts.push({
             domain: domainKey,
             domainLabel: meta.label,
@@ -566,13 +786,11 @@ function AlertsSection({ summary }: { summary: Record<string, DomainSummary> }) 
   if (allAlerts.length === 0) {
     return (
       <Card>
-        <CardContent className="flex flex-col items-center justify-center py-8 text-center">
-          <CheckCircle2 className="size-10 text-success mb-3" />
-          <p className="text-sm font-medium text-foreground">
-            Aucune alerte
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Tous les indicateurs sont au-dessus de 80% de leur objectif.
+        <CardContent className="flex flex-col items-center justify-center py-6 text-center">
+          <CheckCircle2 className="size-8 text-success mb-2" />
+          <p className="text-sm font-medium text-foreground">Aucune alerte critique</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Tous les indicateurs sont au-dessus de 60% de leur objectif.
           </p>
         </CardContent>
       </Card>
@@ -580,53 +798,44 @@ function AlertsSection({ summary }: { summary: Record<string, DomainSummary> }) 
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <AlertTriangle className="size-4 text-danger" />
-        <h3 className="text-sm font-semibold text-foreground">
-          Alertes ({allAlerts.length})
-        </h3>
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="size-4 text-danger" />
+          <h2 className="text-sm font-semibold text-foreground">
+            Alertes Critiques
+          </h2>
+        </div>
+        <Badge variant="destructive" className="text-[10px]">
+          {allAlerts.length}
+        </Badge>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {allAlerts.slice(0, 9).map((alert, idx) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+        {allAlerts.slice(0, 6).map((alert, idx) => (
           <Card
             key={`${alert.domain}-${alert.indicator.code}-${idx}`}
-            className="border-l-2"
+            className="border-l-2 hover:shadow-sm transition-shadow"
             style={{ borderLeftColor: '#ef4444' }}
           >
-            <CardContent className="p-3 lg:p-4">
-              <div className="flex items-start justify-between gap-2 mb-2">
+            <CardContent className="p-3">
+              <div className="flex items-start justify-between gap-2 mb-1.5">
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold text-foreground truncate">
-                    {alert.indicator.name}
-                  </p>
+                  <p className="text-xs font-semibold text-foreground truncate">{alert.indicator.name}</p>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <span
-                      className="size-1.5 rounded-full"
-                      style={{ backgroundColor: alert.color }}
-                    />
-                    <span className="text-[11px] text-muted-foreground">
-                      {alert.domainLabel}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      &middot; {alert.indicator.code}
-                    </span>
+                    <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: alert.color }} />
+                    <span className="text-[10px] text-muted-foreground">{alert.domainLabel}</span>
+                    <span className="text-[10px] text-muted-foreground">&middot; {alert.indicator.code}</span>
                   </div>
                 </div>
                 <Badge variant="destructive" className="shrink-0 text-[10px] px-1.5 py-0">
                   {Math.round(alert.achievement)}%
                 </Badge>
               </div>
-              <div className="flex items-center gap-2 text-[11px]">
-                <span className="text-muted-foreground">
-                  Réalisé: <strong className="text-foreground">{alert.indicator.value}</strong>
-                  {' '}{alert.indicator.unit}
-                </span>
-                <span className="text-muted-foreground">
-                  / Cible: <strong className="text-foreground">{alert.indicator.targetValue}</strong>
-                </span>
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                <span>Réalisé: <strong className="text-foreground">{alert.indicator.value}</strong> {alert.indicator.unit}</span>
+                <span>/ Cible: <strong className="text-foreground">{alert.indicator.targetValue}</strong></span>
               </div>
-              <Progress value={alert.achievement} className="h-1 mt-2" />
+              <Progress value={Math.min(alert.achievement, 100)} className="h-1 mt-1.5" />
             </CardContent>
           </Card>
         ))}
@@ -635,45 +844,49 @@ function AlertsSection({ summary }: { summary: Record<string, DomainSummary> }) 
   );
 }
 
-// ── Loading Skeleton ────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// ── Loading Skeleton ─────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
 
 function DashboardSkeleton() {
   return (
     <div className="space-y-6">
-      {/* Gauge skeleton */}
-      <div className="flex flex-col items-center py-8">
-        <Skeleton className="h-[200px] w-[200px] rounded-full" />
-        <Skeleton className="h-8 w-24 mt-6" />
-      </div>
-      {/* Domain cards skeleton */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Executive strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-[140px] rounded-lg" />
+          <Skeleton key={i} className="h-[80px] rounded-lg" />
         ))}
       </div>
-      {/* Projects skeleton */}
+      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-[100px] rounded-lg" />
-            ))}
-          </div>
-          <Skeleton className="h-[80px] rounded-lg" />
-        </div>
+        <Skeleton className="h-[340px] rounded-lg" />
+        <Skeleton className="h-[340px] rounded-lg" />
+      </div>
+      {/* Domain cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-[120px] rounded-lg" />
+        ))}
+      </div>
+      {/* Priority + Projects */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Skeleton className="h-[300px] rounded-lg" />
         <Skeleton className="h-[300px] rounded-lg" />
       </div>
     </div>
   );
 }
 
-// ── Main Component ──────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// ── Main Component ───────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
 
 export function DashboardAccueil() {
   const { setActiveModule, filters } = useAppStore();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  const handleNavigate = (module: ModuleKey) => setActiveModule(module);
 
   useEffect(() => {
     let cancelled = false;
@@ -681,93 +894,55 @@ export function DashboardAccueil() {
     async function fetchDashboard() {
       try {
         setLoading(true);
-        setError(null);
-        const res = await fetch(
-          `/api/dashboard?year=${filters.year}${filters.quarter ? `&quarter=${filters.quarter}` : ''}`,
-        );
+        const params = new URLSearchParams({ year: String(filters.year || 2025) });
+        if (filters.quarter) params.set('quarter', String(filters.quarter));
+
+        const res = await fetch(`/api/dashboard?${params}`);
         if (res.ok) {
           const json = await res.json();
           if (!cancelled) setData(json);
-        } else {
-          if (!cancelled) setData(generateMockData());
         }
       } catch {
-        // Fallback to mock data when API is unavailable
-        if (!cancelled) setData(generateMockData());
+        // Silently fail - dashboard will stay in loading state
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
 
     fetchDashboard();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [filters.year, filters.quarter]);
 
   if (loading) return <DashboardSkeleton />;
-
-  if (!data) {
-    return (
-      <Card className="p-8 text-center">
-        <AlertTriangle className="size-8 text-warning mx-auto mb-3" />
-        <p className="text-sm text-muted-foreground">
-          Impossible de charger les données du tableau de bord.
-        </p>
-      </Card>
-    );
-  }
+  if (!data) return null;
 
   return (
-    <div className="space-y-6 lg:space-y-8">
-      {/* ── Performance Score Ring ────────────────────────────────────── */}
-      <Card>
-        <CardContent className="flex flex-col items-center pt-6 pb-4">
-          <h2 className="text-sm font-semibold text-muted-foreground mb-2">
-            Performance Globale — {data.totalIndicators} indicateurs
-          </h2>
-          <PerformanceGauge value={data.globalPerformance} />
-          <p className="text-[11px] text-muted-foreground mt-3">
-            Dernière mise à jour : {new Date(data.lastUpdated).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-          </p>
-        </CardContent>
-      </Card>
+    <div className="space-y-6">
+      {/* ── 1. Executive Summary Strip ─────────────────────────────────── */}
+      <ExecutiveStrip data={data} onNavigate={handleNavigate} />
 
-      {/* ── Domain Summary Cards ────────────────────────────────────── */}
-      <div>
-        <h2 className="text-sm font-semibold text-foreground mb-3">
-          Synthèse par Domaine
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Object.entries(DOMAIN_META).map(([key, meta]) => {
-            const domainData = data.summary[key];
-            return (
-              <DomainCard
-                key={key}
-                domainKey={key}
-                data={domainData || { count: 0, indicators: [] }}
-                onClick={() => setActiveModule(meta.key)}
-              />
-            );
-          })}
-        </div>
+      {/* ── 2. Performance Charts Row ──────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <DomainPerformanceChart summary={data.summary} onDomainClick={handleNavigate} />
+        <StatusDonutSection data={data} />
       </div>
 
-      {/* ── Projects Overview ────────────────────────────────────────── */}
-      <div>
-        <h2 className="text-sm font-semibold text-foreground mb-3">
-          Aperçu des Projets
-        </h2>
+      {/* ── 3. Domain Quick Access ─────────────────────────────────────── */}
+      <DomainQuickAccess summary={data.summary} onDomainClick={handleNavigate} />
+
+      {/* ── 4. Priority KPIs + Projects ────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <TopPriorityKpis indicators={data.topPriorityIndicators} onNavigate={handleNavigate} />
         <ProjectsOverview projects={data.projectSummary} />
       </div>
 
-      {/* ── Alerts ───────────────────────────────────────────────────── */}
-      <div>
-        <h2 className="text-sm font-semibold text-foreground mb-3">
-          Alertes &amp; Points d&apos;Attention
-        </h2>
-        <AlertsSection summary={data.summary} />
-      </div>
+      {/* ── 5. Critical Alerts ─────────────────────────────────────────── */}
+      <AlertsSection summary={data.summary} />
+
+      {/* ── Last updated footer ─────────────────────────────────────────── */}
+      <p className="text-[10px] text-muted-foreground text-center pb-2">
+        Dernière mise à jour : {new Date(data.lastUpdated).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+      </p>
     </div>
   );
 }
