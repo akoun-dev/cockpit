@@ -52,14 +52,10 @@ import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
-  BarChart3,
-  CheckCircle2,
-  AlertTriangle,
-  XCircle,
-  LayoutDashboard,
   Star,
   GripVertical,
   RotateCcw,
+  TableProperties,
 } from 'lucide-react';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -119,15 +115,6 @@ const SUB_DOMAIN_LABELS: Record<string, string> = {
   pta_gouvernance: 'Gouvernance',
   pta_operationnel: 'Opérationnel',
   pta_finance: 'Finance',
-};
-
-const DOMAIN_LABELS: Record<string, string> = {
-  governance: 'Gouvernance',
-  finance: 'Finance',
-  operational: 'Opérationnel',
-  rh: 'Ressources Humaines',
-  risque: 'Gestion des Risques',
-  pta: "Plan Triennal d'Actions",
 };
 
 const STATUS_CONFIG: Record<StatusType, { label: string; className: string }> = {
@@ -416,58 +403,16 @@ function DragOverlayRow({ ind }: { ind: Indicator }) {
   );
 }
 
-// ─── Summary KPI Card ───────────────────────────────────────────────────────
 
-function SummaryCard({
-  label,
-  value,
-  icon,
-  colorClass,
-  bgColorClass,
-  borderClass,
-}: {
-  label: string;
-  value: number;
-  icon: React.ReactNode;
-  colorClass: string;
-  bgColorClass: string;
-  borderClass: string;
-}) {
-  return (
-    <Card className={`border-l-4 ${borderClass}`}>
-      <CardContent className="p-4 flex items-center gap-3">
-        <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${bgColorClass}`}>
-          {icon}
-        </div>
-        <div className="min-w-0">
-          <p className="text-xs text-muted-foreground truncate">{label}</p>
-          <p className={`text-xl font-bold ${colorClass}`}>{value}</p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 // ─── Loading Skeleton ───────────────────────────────────────────────────────
 
 function ModuleSkeleton() {
   return (
-    <div className="space-y-6">
-      <Skeleton className="h-7 w-64" />
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Card key={i}>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Skeleton className="size-10 rounded-lg" />
-                <div className="space-y-2 flex-1">
-                  <Skeleton className="h-3 w-20" />
-                  <Skeleton className="h-6 w-10" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <TableProperties className="size-4 text-fun-blue" />
+        <Skeleton className="h-5 w-48" />
       </div>
       <Skeleton className="h-10 w-full rounded-lg" />
       <Card>
@@ -652,7 +597,6 @@ export function KpiModuleView({ domain }: KpiModuleViewProps) {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
 
     const params = new URLSearchParams({ domain, year: String(filters.year || 2025) });
     if (filters.quarter) params.set('quarter', String(filters.quarter));
@@ -698,115 +642,28 @@ export function KpiModuleView({ domain }: KpiModuleViewProps) {
 
   const subDomainKeys = useMemo(() => Array.from(subDomains.keys()), [subDomains]);
 
-  // ── Compute summary stats ──
-  const summaryStats = useMemo(() => {
-    let atteint = 0;
-    let partiel = 0;
-    let non_atteint = 0;
-    let priority = 0;
-
-    indicators.forEach((ind) => {
-      if (ind.isPriority) priority++;
-      const value = getLatestValue(ind);
-      const status = computeStatus(value, ind.targetValue, ind.unit);
-      if (status === 'atteint') atteint++;
-      else if (status === 'partiel') partiel++;
-      else non_atteint++;
-    });
-
-    return { total: indicators.length, atteint, partiel, non_atteint, priority };
-  }, [indicators]);
-
-  // ── Loading state ──
+  // ── Loading / Empty state ──
   if (loading) return <ModuleSkeleton />;
-
-  // ── Empty state ──
-  if (indicators.length === 0) {
-    return (
-      <div className="space-y-6">
-        <h2 className="text-xl font-bold text-fun-blue">
-          {DOMAIN_LABELS[domain] || domain}
-        </h2>
-        <Card className="p-12 text-center">
-          <LayoutDashboard className="size-12 text-muted-foreground mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">
-            Aucun indicateur disponible pour ce module en {filters.year}
-          </p>
-        </Card>
-      </div>
-    );
-  }
+  if (indicators.length === 0) return null;
 
   const defaultTab = subDomainKeys[0] || '';
+  const priorityCount = indicators.filter((i) => i.isPriority).length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <style>{SCROLLBAR_STYLE}</style>
 
-      {/* ── Header ── */}
+      {/* ── Section header ── */}
       <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <h2 className="text-xl font-bold text-fun-blue">
-            {DOMAIN_LABELS[domain] || domain}
-          </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {summaryStats.total} indicateurs &middot;{' '}
-            <span className="text-tango font-medium">
-              {summaryStats.priority} Lot 1
-            </span>{' '}
-            &middot; Année {filters.year}
-          </p>
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <GripVertical className="size-4 text-muted-foreground/50" />
-          <span className="text-[11px] text-muted-foreground hidden sm:inline">
-            Glisser pour réordonner
+        <div className="flex items-center gap-2 min-w-0">
+          <TableProperties className="size-4 text-fun-blue shrink-0" />
+          <h3 className="text-sm font-semibold text-fun-blue truncate">
+            Détail des Indicateurs
+          </h3>
+          <span className="text-xs text-muted-foreground shrink-0">
+            ({priorityCount} Lot 1 / {indicators.length} total) &middot; Glisser pour réordonner
           </span>
         </div>
-      </div>
-
-      {/* ── Summary KPI Cards ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
-        <SummaryCard
-          label="Total KPI"
-          value={summaryStats.total}
-          icon={<BarChart3 className="size-5 text-fun-blue" />}
-          colorClass="text-fun-blue"
-          bgColorClass="bg-fun-blue/10"
-          borderClass="border-l-fun-blue"
-        />
-        <SummaryCard
-          label="KPI Lot 1 (DG)"
-          value={summaryStats.priority}
-          icon={<Star className="size-5 text-tango fill-tango" />}
-          colorClass="text-tango"
-          bgColorClass="bg-tango/10"
-          borderClass="border-l-tango"
-        />
-        <SummaryCard
-          label="KPI Atteint"
-          value={summaryStats.atteint}
-          icon={<CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400" />}
-          colorClass="text-emerald-600 dark:text-emerald-400"
-          bgColorClass="bg-emerald-100 dark:bg-emerald-900/40"
-          borderClass="border-l-emerald-500"
-        />
-        <SummaryCard
-          label="KPI Partiel"
-          value={summaryStats.partiel}
-          icon={<AlertTriangle className="size-5 text-amber-600 dark:text-amber-400" />}
-          colorClass="text-amber-600 dark:text-amber-400"
-          bgColorClass="bg-amber-100 dark:bg-amber-900/40"
-          borderClass="border-l-amber-500"
-        />
-        <SummaryCard
-          label="KPI Non atteint"
-          value={summaryStats.non_atteint}
-          icon={<XCircle className="size-5 text-red-600 dark:text-red-400" />}
-          colorClass="text-red-600 dark:text-red-400"
-          bgColorClass="bg-red-100 dark:bg-red-900/40"
-          borderClass="border-l-red-500"
-        />
       </div>
 
       {/* ── Sub-domain Tabs ── */}

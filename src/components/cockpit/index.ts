@@ -1,3 +1,5 @@
+export { ModuleHeroSection } from './ModuleHeroSection';
+export { KpiModuleView } from './KpiModuleView';
 export { AppSidebar } from './AppSidebar';
 export { Header } from './Header';
 export { KpiCard, type KpiCardProps } from './KpiCard';
