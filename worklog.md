@@ -78,3 +78,21 @@ Stage Summary:
 - Dashboard Accueil shows "116 indicateurs" with correct domain counts
 - Files created: prisma/seed-kpi.ts, src/components/cockpit/KpiModuleView.tsx
 - Files modified: 6 module wrappers (Governance, Finance, Operational, RH, Risque, PTA), api/indicators/domain/route.ts
+
+---
+Task ID: 4
+Agent: Main
+Task: Fix Gouvernance KPI filter not showing results in AdminKPI view
+
+Work Log:
+- User reported Gouvernance filter in "Indicateurs KPI" admin view returned empty
+- Root cause: AdminKPI.tsx used French key `gouvernance` in DOMAIN_LABELS/DOMAIN_COLORS/DOMAIN_BADGE_COLORS but database stores English key `governance`
+- Verified via DB query: 19 indicators with domain=governance, not gouvernance
+- Confirmed cockpit module views and dashboard API use `governance` (English) consistently
+- Fixed 4 occurrences in AdminKPI.tsx: `gouvernance` → `governance` in DOMAIN_LABELS, DOMAIN_COLORS, DOMAIN_BADGE_COLORS, and EMPTY_FORM default domain
+- Verified via Agent Browser: dropdown filter "Gouvernance" now correctly sends `domain=governance` to API
+- API test confirmed: `GET /api/admin/indicators?domain=governance` returns 19 indicators (GOV-001 to GOV-019)
+
+Stage Summary:
+- AdminKPI domain filter now works correctly for all 6 domains
+- Files modified: src/components/admin/AdminKPI.tsx (4 string replacements)

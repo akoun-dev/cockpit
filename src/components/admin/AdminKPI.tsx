@@ -63,7 +63,7 @@ import { useToast } from '@/hooks/use-toast';
 // --- Constants ---
 
 const DOMAIN_LABELS: Record<string, string> = {
-  gouvernance: 'Gouvernance',
+  governance: 'Gouvernance',
   finance: 'Finance',
   operational: 'Opérationnel',
   rh: 'Ressources Humaines',
@@ -72,7 +72,7 @@ const DOMAIN_LABELS: Record<string, string> = {
 };
 
 const DOMAIN_COLORS: Record<string, string> = {
-  gouvernance: 'bg-fun-blue',
+  governance: 'bg-fun-blue',
   finance: 'bg-green-600',
   operational: 'bg-tango',
   rh: 'bg-amber-500',
@@ -81,7 +81,7 @@ const DOMAIN_COLORS: Record<string, string> = {
 };
 
 const DOMAIN_BADGE_COLORS: Record<string, string> = {
-  gouvernance: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+  governance: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
   finance: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
   operational: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
   rh: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
@@ -156,7 +156,7 @@ const EMPTY_FORM: IndicatorFormData = {
   name: '',
   code: '',
   description: '',
-  domain: 'gouvernance',
+  domain: 'governance',
   subDomain: '',
   unit: '%',
   targetValue: '',
