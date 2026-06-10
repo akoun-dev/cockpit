@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Search, ChevronLeft, ChevronRight, Download, Calendar, RefreshCw, Clock, BarChart3, RotateCcw } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Download, Calendar, RefreshCw, Clock, BarChart3, RotateCcw, FileText, FileSpreadsheet, ChevronDown } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -35,6 +35,13 @@ const CATEGORY_COLORS: Record<string, string> = {
   permission: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
   data: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
   export: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400',
+  sync: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400',
+  alerte: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+  security: 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400',
+  kpi: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+  document: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400',
+  notification: 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-400',
+  setting: 'bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-400',
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -44,6 +51,13 @@ const CATEGORY_LABELS: Record<string, string> = {
   permission: 'Permission',
   data: 'Données',
   export: 'Export',
+  sync: 'Synchronisation',
+  alerte: 'Alerte',
+  security: 'Sécurité',
+  kpi: 'KPI',
+  document: 'Document',
+  notification: 'Notification',
+  setting: 'Paramètre',
 };
 
 const CATEGORIES = [
@@ -54,6 +68,13 @@ const CATEGORIES = [
   { value: 'permission', label: 'Permission' },
   { value: 'data', label: 'Données' },
   { value: 'export', label: 'Export' },
+  { value: 'sync', label: 'Synchronisation' },
+  { value: 'alerte', label: 'Alerte' },
+  { value: 'security', label: 'Sécurité' },
+  { value: 'kpi', label: 'KPI' },
+  { value: 'document', label: 'Document' },
+  { value: 'notification', label: 'Notification' },
+  { value: 'setting', label: 'Paramètre' },
 ];
 
 const PAGE_SIZE = 50;
@@ -109,10 +130,6 @@ function getInitials(name?: string | null): string {
     .slice(0, 2);
 }
 
-function formatDateForInput(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
 function isToday(date: string): boolean {
   const d = new Date(date);
   const now = new Date();
@@ -152,16 +169,23 @@ export function AdminLogs() {
   const [search, setSearch] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [userFilter, setUserFilter] = useState('all');
 
   // Auto-refresh
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Export dropdown
+  const [exportOpen, setExportOpen] = useState(false);
+
   const { toast } = useToast();
 
   const totalPages = Math.ceil(pagination.total / PAGE_SIZE);
   const currentPage = Math.floor(pagination.offset / PAGE_SIZE) + 1;
+
+  // --- Unique users from logs ---
+  const uniqueUsers = Array.from(new Set(logs.map((l) => l.userName))).sort();
 
   // --- Statistics ---
   const todayCount = logs.filter((log) => isToday(log.timestamp)).length;
@@ -177,6 +201,7 @@ export function AdminLogs() {
     offset = 0,
     start?: string,
     end?: string,
+    user?: string,
   ) {
     setLoading(true);
     setError(null);
@@ -189,6 +214,7 @@ export function AdminLogs() {
       if (searchTerm.trim()) params.set('search', searchTerm.trim());
       if (start) params.set('startDate', start);
       if (end) params.set('endDate', end);
+      if (user && user !== 'all') params.set('userId', user);
 
       const res = await fetch(`/api/admin/audit-logs?${params.toString()}`);
       if (res.ok) {
@@ -239,7 +265,7 @@ export function AdminLogs() {
 
   function handlePageChange(newPage: number) {
     const newOffset = (newPage - 1) * PAGE_SIZE;
-    fetchLogs(category, search, newOffset, startDate, endDate);
+    fetchLogs(category, search, newOffset, startDate, endDate, userFilter);
   }
 
   function handleCategoryChange(val: string) {
@@ -250,11 +276,16 @@ export function AdminLogs() {
     setSearch(val);
   }
 
+  function handleUserFilterChange(val: string) {
+    setUserFilter(val);
+  }
+
   function handleResetFilters() {
     setCategory('all');
     setSearch('');
     setStartDate('');
     setEndDate('');
+    setUserFilter('all');
   }
 
   function exportLogsCSV() {
@@ -289,18 +320,27 @@ export function AdminLogs() {
       title: 'Export terminé',
       description: 'Le fichier CSV a été téléchargé',
     });
+    setExportOpen(false);
+  }
+
+  function exportLogsPDF() {
+    toast({
+      title: 'Export PDF',
+      description: 'Export PDF en cours de développement',
+    });
+    setExportOpen(false);
   }
 
   // Initial fetch + refetch on filter changes
   useEffect(() => {
-    fetchLogs(category, search, 0, startDate, endDate);
-  }, [category, search, startDate, endDate]);
+    fetchLogs(category, search, 0, startDate, endDate, userFilter);
+  }, [category, search, startDate, endDate, userFilter]);
 
   // Auto-refresh polling
   useEffect(() => {
     if (autoRefresh) {
       intervalRef.current = setInterval(() => {
-        fetchLogs(category, search, pagination.offset, startDate, endDate);
+        fetchLogs(category, search, pagination.offset, startDate, endDate, userFilter);
       }, 30000);
     } else {
       if (intervalRef.current) {
@@ -351,16 +391,41 @@ export function AdminLogs() {
               Dernière mise à jour : {lastUpdated}
             </span>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={exportLogsCSV}
-            disabled={loading || logs.length === 0}
-            className="gap-1.5"
-          >
-            <Download className="size-4" />
-            Exporter CSV
-          </Button>
+          {/* Export dropdown */}
+          <div className="relative">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setExportOpen(!exportOpen)}
+              disabled={loading || logs.length === 0}
+              className="gap-1.5"
+            >
+              <Download className="size-4" />
+              Exporter
+              <ChevronDown className="size-3" />
+            </Button>
+            {exportOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
+                <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border border-border bg-popover p-1 shadow-md">
+                  <button
+                    onClick={exportLogsCSV}
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted transition-colors"
+                  >
+                    <FileSpreadsheet className="size-4 text-green-600" />
+                    Exporter CSV
+                  </button>
+                  <button
+                    onClick={exportLogsPDF}
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted transition-colors"
+                  >
+                    <FileText className="size-4 text-red-600" />
+                    Exporter PDF
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -394,6 +459,22 @@ export function AdminLogs() {
             ))}
           </SelectContent>
         </Select>
+
+        {/* User filter */}
+        <Select value={userFilter} onValueChange={handleUserFilterChange}>
+          <SelectTrigger className="w-full md:w-[180px]">
+            <SelectValue placeholder="Utilisateur" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tous les utilisateurs</SelectItem>
+            {uniqueUsers.map((u) => (
+              <SelectItem key={u} value={u}>
+                {u}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -430,7 +511,7 @@ export function AdminLogs() {
           </div>
         </div>
         {/* Reset button */}
-        {(category !== 'all' || search.trim() !== '' || startDate || endDate) && (
+        {(category !== 'all' || search.trim() !== '' || startDate || endDate || userFilter !== 'all') && (
           <Button
             variant="ghost"
             size="sm"
@@ -485,6 +566,7 @@ export function AdminLogs() {
                       <TableHead className="w-[140px]">Action</TableHead>
                       <TableHead className="w-[130px]">Catégorie</TableHead>
                       <TableHead>Détails</TableHead>
+                      <TableHead className="w-[130px]">Adresse IP</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -523,6 +605,9 @@ export function AdminLogs() {
                         </TableCell>
                         <TableCell className="max-w-xs truncate text-xs text-muted-foreground">
                           {log.details}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-xs text-muted-foreground font-mono">
+                          {log.ipAddress || '—'}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -567,6 +652,12 @@ export function AdminLogs() {
                       <p className="text-xs text-muted-foreground">
                         {log.details}
                       </p>
+                      {/* IP (mobile) */}
+                      {log.ipAddress && (
+                        <p className="text-[10px] text-muted-foreground font-mono">
+                          IP: {log.ipAddress}
+                        </p>
+                      )}
                     </div>
                   </Card>
                 ))}
@@ -650,6 +741,15 @@ function generateFallbackLogs(): AuditLog[] {
     { action: 'Indicateur modifié', category: 'data', details: 'Mise à jour du KPI CAQ-001' },
     { action: 'Export PDF', category: 'export', details: 'Export du module Finance — T1 2025' },
     { action: 'Export Excel', category: 'export', details: 'Export des données Opérationnel — complet' },
+    { action: 'Synchronisation réussie', category: 'sync', details: 'Sync Sage ERP — 342 enregistrements' },
+    { action: 'Échec de synchronisation', category: 'sync', details: 'Timeout lors de la sync SharePoint' },
+    { action: 'Alerte critique', category: 'alerte', details: 'KPI "Taux de réalisation" en dessous du seuil' },
+    { action: 'Alerte résolue', category: 'alerte', details: 'KPI "Budget exécution" revenu à la normale' },
+    { action: 'Tentative d\'intrusion bloquée', category: 'security', details: 'IP 10.0.0.99 bloquée après 5 tentatives' },
+    { action: 'KPI mis à jour', category: 'kpi', details: 'Mise à jour automatique de 12 indicateurs RH' },
+    { action: 'Document uploadé', category: 'document', details: 'Rapport mensuel Finance uploadé' },
+    { action: 'Notification envoyée', category: 'notification', details: 'Rapport hebdomadaire envoyé par email' },
+    { action: 'Paramètre modifié', category: 'setting', details: 'Format monétaire changé en EUR' },
   ];
   const users = [
     'Admin Principal',
@@ -673,6 +773,7 @@ function generateFallbackLogs(): AuditLog[] {
       action: item.action,
       category: item.category,
       details: item.details,
+      ipAddress: `192.168.${(i % 5) + 1}.${(i % 250) + 1}`,
     };
   });
 }

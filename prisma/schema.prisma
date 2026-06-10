@@ -11,9 +11,14 @@ model User {
   id            String   @id @default(cuid())
   email         String   @unique
   name          String
-  password      String   @default("ansut2025") // hashed in prod, plain for demo
+  matricule     String?  @unique // Identifiant ANSUT
+  fonction      String?  // Poste: Directeur Général, Chef de Département, etc.
+  password      String   @default("ansut2025")
   avatar        String?
   isActive      Boolean  @default(true)
+  isLocked      Boolean  @default(false)
+  mustChangePassword Boolean @default(false)
+  failedAttempts Int      @default(0)
   lastLogin     DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -28,11 +33,12 @@ model User {
 model Role {
   id          String   @id @default(cuid())
   name        String   @unique
-  label       String   // Display name: "Directeur Général", "Chef de Département"
+  label       String
   description String?
-  level       Int      @default(0) // hierarchy level: 100=DG, 80=CT, 60=DFC, 40=PMO, 20=Chef, 10=Agent
+  level       Int      @default(0)
   color       String   @default("#1c55a3")
-  isSystem    Boolean  @default(false) // system roles can't be deleted
+  isSystem    Boolean  @default(false)
+  permissionsJson String? @default("{}") // Granular JSON permissions
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -44,8 +50,8 @@ model Permission {
   id        String   @id @default(cuid())
   roleId    String
   role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  module    String   // accueil, governance, finance, operational, rh, risque, pta, admin
-  access    String   @default("read") // none, read, write, admin
+  module    String
+  access    String   @default("read")
   createdAt DateTime @default(now())
 
   @@unique([roleId, module])
@@ -74,6 +80,8 @@ model Indicator {
   subDomain    String?
   unit         String   @default("%")
   targetValue  Float?
+  alertValue   Float?   // Seuil alerte
+  criticalValue Float?  // Seuil critique
   formula      String?
   frequency    String   @default("mensuel")
   sourceSystem String   @default("manuel")
@@ -125,8 +133,8 @@ model Project {
 
 model AuditLog {
   id        String   @id @default(cuid())
-  action    String   // LOGIN, LOGOUT, CREATE_USER, UPDATE_USER, DELETE_USER, CREATE_ROLE, UPDATE_ROLE, DELETE_ROLE, UPDATE_PERMISSION, EXPORT_DATA
-  category  String   @default("general") // auth, user, role, permission, data, export
+  action    String
+  category  String   @default("general")
   userId    String?
   user      User?    @relation(fields: [userId], references: [id])
   details   String?
@@ -136,19 +144,86 @@ model AuditLog {
 
 model DataSource {
   id          String   @id @default(cuid())
-  module      String   // Which dashboard module this feeds: accueil, governance, finance, operational, rh, risque, pta, admin
-  name        String   // Display name: "SAP B1", "Sig RHS", etc.
-  type        String   @default("manuel") // manuel, api, base_de_donnees, fichier, erp
-  host        String?  // Server / host URL
-  port        Int?     // Port number
-  endpoint    String?  // API endpoint path
-  database    String?  // Database name (for db sources)
-  username    String?  // Credential username
-  password    String?  // Credential password (encrypted in prod)
+  module      String
+  name        String
+  type        String   @default("manuel")
+  host        String?
+  port        Int?
+  endpoint    String?
+  database    String?
+  username    String?
+  password    String?
   description String?
-  status      String   @default("actif") // actif, inactif, en_test
+  status      String   @default("actif")
   lastSync    DateTime?
-  refreshFreq String   @default("manuel") // temps_reel, journalier, hebdomadaire, mensuel, manuel
+  refreshFreq String   @default("manuel")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  syncLogs    SyncLog[]
+}
+
+// ─── NEW MODELS ───────────────────────────────────────────────────
+
+model SyncLog {
+  id           String     @id @default(cuid())
+  dataSourceId String
+  dataSource   DataSource @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+  status       String     @default("success") // success, warning, error
+  recordsSynced Int       @default(0)
+  errorMessage String?
+  duration     Int        @default(0) // ms
+  startedAt    DateTime
+  completedAt  DateTime?
+  createdAt    DateTime    @default(now())
+
+  @@index([dataSourceId])
+}
+
+model Document {
+  id          String   @id @default(cuid())
+  name        String
+  url         String
+  type        String   @default("lien") // lien, sharepoint, onedrive, teams
+  module      String
+  description String?
+  visibility  String   @default("all") // all, or comma-separated role names: "DG,DFC,PMO"
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Alert {
+  id          String   @id @default(cuid())
+  type        String   @default("kpi") // kpi, technique, securite
+  severity    String   @default("info") // info, warning, critical
+  title       String
+  message     String
+  source      String?  // indicator code, data source name, etc.
+  isRead      Boolean  @default(false)
+  isResolved  Boolean  @default(false)
+  resolvedBy  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([type])
+  @@index([severity])
+  @@index([isRead])
+}
+
+model NotificationConfig {
+  id               String   @id @default(cuid())
+  type             String   @unique // kpi_critique, rapport_genere, sync_echouee, utilisateur_cree
+  label            String
+  enabled          Boolean  @default(true)
+  channel          String   @default("email") // email, in_app, both
+  recipients       String   @default("[]") // JSON array of emails or user IDs
+  smtpHost         String?  // SMTP config
+  smtpPort         Int?
+  smtpEncryption   String?  // TLS, SSL, none
+  smtpUser         String?
+  smtpPassword     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }

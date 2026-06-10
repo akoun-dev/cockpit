@@ -2,7 +2,7 @@
 
 import { SidebarProvider, SidebarInset, SidebarRail } from '@/components/ui/sidebar';
 import { AppSidebar, Header, DashboardAccueil, FinanceModule, GovernanceModule, OperationalModule, RHModule, RisqueModule, PTAModule } from '@/components/cockpit';
-import { AdminLayout, AdminDashboard, AdminUsers, AdminRoles, AdminDataSources, AdminLogs, AdminSettings } from '@/components/admin';
+import { AdminLayout, AdminDashboard, AdminUsers, AdminRoles, AdminDataSources, AdminLogs, AdminSettings, AdminKPI, AdminSync, AdminDocuments, AdminAlerts, AdminNotifications, AdminSecurity } from '@/components/admin';
 import { useAppStore, type AdminViewKey } from '@/lib/store';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -23,6 +23,12 @@ const ADMIN_SUB_VIEWS: Record<string, React.ComponentType> = {
   admin_datasources: AdminDataSources,
   admin_logs: AdminLogs,
   admin_settings: AdminSettings,
+  admin_indicators: AdminKPI,
+  admin_sync: AdminSync,
+  admin_documents: AdminDocuments,
+  admin_alerts: AdminAlerts,
+  admin_notifications: AdminNotifications,
+  admin_security: AdminSecurity,
 };
 
 export default function CockpitPage() {

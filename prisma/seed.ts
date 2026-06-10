@@ -352,8 +352,87 @@ async function seed() {
     ],
   });
 
+  // ─── Sync Logs ───────────────────────────────────────────────
+  const now = new Date();
+  const dsDynamics = await db.dataSource.findFirst({ where: { name: 'Microsoft Dynamics 365' } });
+  const dsSigRHS = await db.dataSource.findFirst({ where: { name: 'Sig RHS — Base de données' } });
+  const dsJira = await db.dataSource.findFirst({ where: { name: 'Jira — Suivi Projets' } });
+  const dsSharePoint = await db.dataSource.findFirst({ where: { name: 'SharePoint — Documents Projets' } });
+  const dsNagios = await db.dataSource.findFirst({ where: { name: 'Nagios — Monitoring Réseau' } });
+  const dsSigGov = await db.dataSource.findFirst({ where: { name: 'Sig Gouvernance' } });
+  const dsBudgetExcel = await db.dataSource.findFirst({ where: { name: 'Budget Prévisionnel — Excel' } });
+  const dsSFTP = await db.dataSource.findFirst({ where: { name: 'SFTP — Sauvegardes' } });
+  const dsSIRH = await db.dataSource.findFirst({ where: { name: 'SIRH — Gestion RH' } });
+  const dsPointage = await db.dataSource.findFirst({ where: { name: 'Pointage — Import CSV' } });
+  const dsRisque = await db.dataSource.findFirst({ where: { name: 'Registre des Risques' } });
+  const dsSIEM = await db.dataSource.findFirst({ where: { name: 'SIEM — Sécurité' } });
+  const dsMSProject = await db.dataSource.findFirst({ where: { name: 'MS Project — Planning PTA' } });
+  const dsEtatsCSV = await db.dataSource.findFirst({ where: { name: 'États Financiers — CSV' } });
+  const dsMarches = await db.dataSource.findFirst({ where: { name: 'Module Marchés Publics' } });
+  const dsPTATracking = await db.dataSource.findFirst({ where: { name: 'Tableau de bord PTA' } });
+
+  const syncLogs = [
+    { dataSourceId: dsDynamics!.id, status: 'success', recordsSynced: 150, duration: 3200, errorMessage: null, startedAt: new Date(now.getTime() - 1 * 60 * 60 * 1000), completedAt: new Date(now.getTime() - 1 * 60 * 60 * 1000 + 3200) },
+    { dataSourceId: dsDynamics!.id, status: 'success', recordsSynced: 148, duration: 3100, errorMessage: null, startedAt: new Date(now.getTime() - 25 * 60 * 60 * 1000), completedAt: new Date(now.getTime() - 25 * 60 * 60 * 1000 + 3100) },
+    { dataSourceId: dsSigRHS!.id, status: 'warning', recordsSynced: 85, duration: 5400, errorMessage: '3 enregistrements ignorés (format invalide)', startedAt: new Date(now.getTime() - 2 * 60 * 60 * 1000), completedAt: new Date(now.getTime() - 2 * 60 * 60 * 1000 + 5400) },
+    { dataSourceId: dsJira!.id, status: 'error', recordsSynced: 0, duration: 12000, errorMessage: 'Connection refused: timeout après 12s', startedAt: new Date(now.getTime() - 3 * 60 * 60 * 1000), completedAt: new Date(now.getTime() - 3 * 60 * 60 * 1000 + 12000) },
+    { dataSourceId: dsSharePoint!.id, status: 'success', recordsSynced: 12, duration: 800, errorMessage: null, startedAt: new Date(now.getTime() - 4 * 60 * 60 * 1000), completedAt: new Date(now.getTime() - 4 * 60 * 60 * 1000 + 800) },
+    { dataSourceId: dsNagios!.id, status: 'success', recordsSynced: 45, duration: 1200, errorMessage: null, startedAt: new Date(now.getTime() - 5 * 60 * 60 * 1000), completedAt: new Date(now.getTime() - 5 * 60 * 60 * 1000 + 1200) },
+    { dataSourceId: dsSigGov!.id, status: 'success', recordsSynced: 22, duration: 1800, errorMessage: null, startedAt: new Date(now.getTime() - 6 * 60 * 60 * 1000), completedAt: new Date(now.getTime() - 6 * 60 * 60 * 1000 + 1800) },
+    { dataSourceId: dsBudgetExcel!.id, status: 'warning', recordsSynced: 5, duration: 4200, errorMessage: '1 fichier corrompu ignoré', startedAt: new Date(now.getTime() - 26 * 60 * 60 * 1000), completedAt: new Date(now.getTime() - 26 * 60 * 60 * 1000 + 4200) },
+    { dataSourceId: dsSFTP!.id, status: 'success', recordsSynced: 30, duration: 6500, errorMessage: null, startedAt: new Date(now.getTime() - 7 * 60 * 60 * 1000), completedAt: new Date(now.getTime() - 7 * 60 * 60 * 1000 + 6500) },
+    { dataSourceId: dsSIRH!.id, status: 'success', recordsSynced: 250, duration: 2800, errorMessage: null, startedAt: new Date(now.getTime() - 27 * 60 * 60 * 1000), completedAt: new Date(now.getTime() - 27 * 60 * 60 * 1000 + 2800) },
+    { dataSourceId: dsPointage!.id, status: 'success', recordsSynced: 200, duration: 1500, errorMessage: null, startedAt: new Date(now.getTime() - 48 * 60 * 60 * 1000), completedAt: new Date(now.getTime() - 48 * 60 * 60 * 1000 + 1500) },
+    { dataSourceId: dsRisque!.id, status: 'success', recordsSynced: 8, duration: 900, errorMessage: null, startedAt: new Date(now.getTime() - 72 * 60 * 60 * 1000), completedAt: new Date(now.getTime() - 72 * 60 * 60 * 1000 + 900) },
+    { dataSourceId: dsSIEM!.id, status: 'warning', recordsSynced: 18, duration: 3500, errorMessage: '2 événements non parsés', startedAt: new Date(now.getTime() - 8 * 60 * 60 * 1000), completedAt: new Date(now.getTime() - 8 * 60 * 60 * 1000 + 3500) },
+    { dataSourceId: dsMSProject!.id, status: 'success', recordsSynced: 40, duration: 2200, errorMessage: null, startedAt: new Date(now.getTime() - 50 * 60 * 60 * 1000), completedAt: new Date(now.getTime() - 50 * 60 * 60 * 1000 + 2200) },
+    { dataSourceId: dsEtatsCSV!.id, status: 'success', recordsSynced: 15, duration: 1100, errorMessage: null, startedAt: new Date(now.getTime() - 73 * 60 * 60 * 1000), completedAt: new Date(now.getTime() - 73 * 60 * 60 * 1000 + 1100) },
+  ];
+  await db.syncLog.createMany({ data: syncLogs as any });
+
+  // ─── Documents ───────────────────────────────────────────────
+  await db.document.createMany({
+    data: [
+      { name: 'Rapports Financiers T2 2025', url: 'https://ansut.sharepoint.com/finance/rapports', type: 'sharepoint', module: 'finance', description: 'Rapports financiers trimestriels', visibility: 'DG,DFC' },
+      { name: 'Budget Prévisionnel 2025', url: 'https://ansut.sharepoint.com/finance/budget', type: 'sharepoint', module: 'finance', description: 'Budget annuel prévisionnel', visibility: 'DG,DFC,PMO' },
+      { name: 'PV Conseil Administration', url: 'https://ansut.sharepoint.com/gouvernance/pv', type: 'sharepoint', module: 'governance', description: 'Procès-verbaux du CA', visibility: 'DG' },
+      { name: 'Organigramme ANSUT', url: 'https://ansut.sharepoint.com/rh/org', type: 'sharepoint', module: 'rh', description: 'Organigramme officiel', visibility: 'all' },
+      { name: 'Planning PTA 2025', url: '\\\\srv-partage\\pmo\\planning\\pta-2025.xlsx', type: 'lien', module: 'pta', description: 'Planning détaillé du PTA', visibility: 'DG,PMO' },
+      { name: 'Politique Sécurité SI', url: 'https://ansut.sharepoint.com/it/securite', type: 'sharepoint', module: 'operational', description: 'Politique de sécurité informatique', visibility: 'DG,DT' },
+      { name: 'Réglementation Télécoms RDC', url: 'https://reglementation.ansut.cd', type: 'lien', module: 'governance', description: 'Liens vers les textes réglementaires', visibility: 'all' },
+      { name: 'Contrats Fournisseurs', url: 'https://ansut.sharepoint.com/achats/contrats', type: 'sharepoint', module: 'governance', description: 'Contrats et conventions fournisseurs', visibility: 'DG,DMP' },
+    ],
+  });
+
+  // ─── Alerts ─────────────────────────────────────────────────
+  await db.alert.createMany({
+    data: [
+      { type: 'kpi', severity: 'critical', title: "Taux d'exécution budgétaire sous seuil critique", message: 'Le taux est passé à 45% (seuil critique: 50%)', source: 'FIN-001', isRead: false, isResolved: false },
+      { type: 'technique', severity: 'warning', title: 'Synchronisation Jira échouée', message: 'Connection timeout après 12s — 3 tentatives', source: 'Jira — Suivi Projets', isRead: false, isResolved: false },
+      { type: 'securite', severity: 'warning', title: 'Tentative de connexion suspecte', message: '3 échecs consécutifs pour admin@ansut.ci depuis 192.168.1.150', source: 'admin@ansut.ci', isRead: true, isResolved: false },
+      { type: 'kpi', severity: 'warning', title: 'SLA réseau en dessous de 95%', message: 'SLA actuel: 93.2% — objectif: 95%', source: 'OPS-006', isRead: false, isResolved: false },
+      { type: 'technique', severity: 'error', title: 'Source SFTP indisponible', message: 'Le serveur SFTP 192.168.1.200 ne répond pas', source: 'SFTP — Sauvegardes', isRead: false, isResolved: false },
+      { type: 'kpi', severity: 'info', title: 'Rapport mensuel RH disponible', message: 'Les données de masse salariale de mai sont prêtes', source: 'RH-002', isRead: true, isResolved: true },
+      { type: 'technique', severity: 'warning', title: 'SharePoint: 3 fichiers non synchronisés', message: 'Documents du module Opérationnel en attente', source: 'SharePoint — Documents Projets', isRead: false, isResolved: false },
+      { type: 'securite', severity: 'info', title: 'Nouveau connecté depuis nouvelle adresse IP', message: 'admin@ansut.ci connecté depuis 10.0.1.55 (première fois)', source: 'admin@ansut.ci', isRead: true, isResolved: true },
+      { type: 'kpi', severity: 'critical', title: 'Indice de risque global > 3', message: 'Score actuel: 3.5 — seuil critique: 3.0', source: 'RSK-001', isRead: false, isResolved: false },
+      { type: 'technique', severity: 'info', title: 'Synchronisation Dynamics réussie', message: '150 enregistrements mis à jour en 3.2s', source: 'Microsoft Dynamics 365', isRead: true, isResolved: true },
+    ],
+  });
+
+  // ─── Notification Configs ────────────────────────────────────
+  await db.notificationConfig.createMany({
+    data: [
+      { type: 'kpi_critique', label: 'KPI critique dépassé', enabled: true, channel: 'both', recipients: '["dg@ansut.ci","admin@ansut.ci"]' },
+      { type: 'rapport_genere', label: 'Rapport généré', enabled: true, channel: 'email', recipients: '["dg@ansut.ci","dfc@ansut.ci"]' },
+      { type: 'sync_echouee', label: 'Échec de synchronisation', enabled: true, channel: 'both', recipients: '["admin@ansut.ci","dt@ansut.ci"]' },
+      { type: 'utilisateur_cree', label: 'Nouvel utilisateur créé', enabled: false, channel: 'in_app', recipients: '["admin@ansut.ci"]' },
+      { type: 'connexion_suspecte', label: 'Tentative de connexion suspecte', enabled: true, channel: 'both', recipients: '["admin@ansut.ci"]', smtpHost: 'smtp.ansut.ci', smtpPort: 587, smtpEncryption: 'TLS' },
+    ],
+  });
+
   const dataSourcesCount = 17;
-  console.log(`✅ Seed complete! ${roles.length} roles, ${users.length} users, ${indicators.length} indicators, ${valueData.length} values, ${projects.length} projects, ${dataSourcesCount} data sources`);
+  console.log(`✅ Seed complete! ${roles.length} roles, ${users.length} users, ${indicators.length} indicators, ${valueData.length} values, ${projects.length} projects, ${dataSourcesCount} data sources, ${syncLogs.length} sync logs, 8 documents, 10 alerts, 5 notification configs`);
 }
 
 seed().catch(console.error).finally(() => process.exit(0));

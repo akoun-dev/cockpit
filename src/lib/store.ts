@@ -1,7 +1,20 @@
 import { create } from 'zustand';
 
 export type ModuleKey = 'accueil' | 'governance' | 'finance' | 'operational' | 'rh' | 'risque' | 'pta';
-export type AdminViewKey = 'admin_dashboard' | 'admin_users' | 'admin_roles' | 'admin_datasources' | 'admin_logs' | 'admin_settings';
+
+export type AdminViewKey =
+  | 'admin_dashboard'
+  | 'admin_users'
+  | 'admin_roles'
+  | 'admin_indicators'
+  | 'admin_datasources'
+  | 'admin_sync'
+  | 'admin_documents'
+  | 'admin_alerts'
+  | 'admin_logs'
+  | 'admin_notifications'
+  | 'admin_settings'
+  | 'admin_security';
 
 export type AppViewKey = ModuleKey | 'admin';
 

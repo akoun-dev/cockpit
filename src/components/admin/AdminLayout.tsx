@@ -1,18 +1,61 @@
 'use client';
 
 import React from 'react';
-import { LayoutDashboard, Users, Shield, Database, ScrollText, Settings } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Users,
+  Shield,
+  BarChart3,
+  Database,
+  RefreshCw,
+  FolderOpen,
+  Bell,
+  ScrollText,
+  Mail,
+  Settings,
+  Lock,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore, type AdminViewKey } from '@/lib/store';
 
-const NAV_ITEMS: { key: AdminViewKey; label: string; icon: React.ElementType }[] = [
-  { key: 'admin_dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-  { key: 'admin_users', label: 'Utilisateurs', icon: Users },
-  { key: 'admin_roles', label: 'Rôles & Permissions', icon: Shield },
-  { key: 'admin_datasources', label: 'Sources de Données', icon: Database },
-  { key: 'admin_logs', label: "Journal d'audit", icon: ScrollText },
-  { key: 'admin_settings', label: 'Paramètres', icon: Settings },
+interface NavItem {
+  key: AdminViewKey;
+  label: string;
+  icon: React.ElementType;
+}
+
+interface NavGroup {
+  title: string;
+  items: NavItem[];
+}
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    title: 'Principal',
+    items: [
+      { key: 'admin_dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
+      { key: 'admin_users', label: 'Utilisateurs', icon: Users },
+      { key: 'admin_roles', label: 'Rôles & Permissions', icon: Shield },
+      { key: 'admin_indicators', label: 'Indicateurs KPI', icon: BarChart3 },
+      { key: 'admin_datasources', label: 'Sources de données', icon: Database },
+    ],
+  },
+  {
+    title: 'Système',
+    items: [
+      { key: 'admin_sync', label: 'Synchronisations', icon: RefreshCw },
+      { key: 'admin_documents', label: 'Documents', icon: FolderOpen },
+      { key: 'admin_alertes', label: 'Alertes', icon: Bell },
+      { key: 'admin_logs', label: 'Journal d\'audit', icon: ScrollText },
+      { key: 'admin_notifications', label: 'Notifications', icon: Mail },
+      { key: 'admin_settings', label: 'Paramètres', icon: Settings },
+      { key: 'admin_security', label: 'Sécurité', icon: Lock },
+    ],
+  },
 ];
+
+// Flatten for mobile horizontal scroll
+const ALL_NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
 
 interface AdminLayoutProps {
   activeView: AdminViewKey;
@@ -28,8 +71,8 @@ export function AdminLayout({ activeView, onViewChange, children }: AdminLayoutP
 
   return (
     <div className="flex min-h-0 flex-1 gap-0">
-      {/* Left navigation panel */}
-      <aside className="hidden w-52 shrink-0 flex-col border-r border-border bg-muted/30 lg:flex">
+      {/* Left navigation panel — desktop only */}
+      <aside className="hidden w-56 shrink-0 flex-col border-r border-border bg-muted/30 lg:flex">
         {/* Admin header */}
         <div className="border-b border-border px-4 py-4">
           <div className="flex items-center gap-3">
@@ -40,27 +83,38 @@ export function AdminLayout({ activeView, onViewChange, children }: AdminLayoutP
           </div>
         </div>
 
-        {/* Navigation items */}
-        <nav className="flex flex-col gap-1 p-2" aria-label="Navigation admin">
-          {NAV_ITEMS.map(({ key, label, icon: Icon }) => {
-            const isActive = currentView === key;
-            return (
-              <button
-                key={key}
-                onClick={() => setAdminSubView(key)}
-                className={cn(
-                  'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors text-left',
-                  isActive
-                    ? 'bg-fun-blue text-white shadow-sm'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                )}
-                aria-current={isActive ? 'page' : undefined}
-              >
-                <Icon className="size-4.5 shrink-0" />
-                <span className="truncate">{label}</span>
-              </button>
-            );
-          })}
+        {/* Navigation groups */}
+        <nav className="flex flex-1 flex-col gap-4 overflow-y-auto p-2" aria-label="Navigation admin">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.title}>
+              {/* Group label */}
+              <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+                {group.title}
+              </p>
+              <ul className="flex flex-col gap-0.5">
+                {group.items.map(({ key, label, icon: Icon }) => {
+                  const isActive = currentView === key;
+                  return (
+                    <li key={key}>
+                      <button
+                        onClick={() => setAdminSubView(key)}
+                        className={cn(
+                          'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors text-left',
+                          isActive
+                            ? 'bg-fun-blue text-white shadow-sm'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                        )}
+                        aria-current={isActive ? 'page' : undefined}
+                      >
+                        <Icon className="size-4.5 shrink-0" />
+                        <span className="truncate">{label}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
         </nav>
 
         {/* Bottom branding */}
@@ -76,8 +130,8 @@ export function AdminLayout({ activeView, onViewChange, children }: AdminLayoutP
 
       {/* Mobile tabs for admin sub-navigation */}
       <div className="flex w-full flex-col lg:hidden">
-        <div className="flex gap-1 overflow-x-auto border-b border-border bg-muted/30 p-2">
-          {NAV_ITEMS.map(({ key, label, icon: Icon }) => {
+        <div className="flex gap-1 overflow-x-auto border-b border-border bg-muted/30 px-2 py-2 scrollbar-none">
+          {ALL_NAV_ITEMS.map(({ key, label, icon: Icon }) => {
             const isActive = currentView === key;
             return (
               <button

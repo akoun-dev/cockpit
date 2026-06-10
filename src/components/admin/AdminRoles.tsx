@@ -12,6 +12,7 @@ import {
   Users,
   Save,
   Copy,
+  Settings2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -54,6 +56,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
@@ -103,6 +106,22 @@ const LEVEL_LABELS: Record<number, string> = {
   4: 'Super Admin',
 };
 
+// Granular permissions map: key -> description
+const GRANULAR_PERMISSIONS: Record<string, string> = {
+  'dashboard.view': 'Vue du tableau de bord',
+  'dashboard.export': 'Export des données',
+  'users.create': 'Créer des utilisateurs',
+  'users.edit': 'Modifier des utilisateurs',
+  'users.delete': 'Supprimer des utilisateurs',
+  'kpi.create': 'Créer des KPI',
+  'kpi.edit': 'Modifier des KPI',
+  'kpi.delete': 'Supprimer des KPI',
+  'reports.generate': 'Générer des rapports',
+  'admin.settings': 'Paramètres système',
+};
+
+const GRANULAR_PERMISSION_KEYS = Object.keys(GRANULAR_PERMISSIONS);
+
 // --- Types ---
 
 interface Role {
@@ -113,6 +132,7 @@ interface Role {
   level: number;
   color: string;
   isSystem: boolean;
+  permissionsJson?: string | null;
   _count?: { users: number };
   userCount?: number;
 }
@@ -151,6 +171,11 @@ export function AdminRoles() {
   const [permissionsModified, setPermissionsModified] = useState(false);
   const [savingPermissions, setSavingPermissions] = useState(false);
 
+  // Granular permissions state
+  const [granularPermissions, setGranularPermissions] = useState<Record<string, boolean>>({});
+  const [granularModified, setGranularModified] = useState(false);
+  const [savingGranular, setSavingGranular] = useState(false);
+
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
@@ -168,6 +193,7 @@ export function AdminRoles() {
   const totalRoles = roles.length;
   const systemRolesCount = roles.filter((r) => r.isSystem).length;
   const totalPermissionsCount = MODULE_KEYS.length * totalRoles;
+  const granularCount = GRANULAR_PERMISSION_KEYS.filter((k) => granularPermissions[k]).length;
 
   // --- Data fetching ---
 
@@ -192,6 +218,7 @@ export function AdminRoles() {
             color: '#ef4444',
             isSystem: true,
             userCount: 1,
+            permissionsJson: null,
           },
           {
             id: 'admin',
@@ -202,6 +229,7 @@ export function AdminRoles() {
             color: '#f18120',
             isSystem: true,
             userCount: 2,
+            permissionsJson: null,
           },
           {
             id: 'manager',
@@ -212,6 +240,7 @@ export function AdminRoles() {
             color: '#205eb3',
             isSystem: false,
             userCount: 5,
+            permissionsJson: null,
           },
           {
             id: 'analyst',
@@ -222,6 +251,7 @@ export function AdminRoles() {
             color: '#22c55e',
             isSystem: false,
             userCount: 8,
+            permissionsJson: null,
           },
           {
             id: 'viewer',
@@ -232,6 +262,7 @@ export function AdminRoles() {
             color: '#64748b',
             isSystem: false,
             userCount: 8,
+            permissionsJson: null,
           },
         ]);
       }
@@ -261,6 +292,25 @@ export function AdminRoles() {
         }
         setPermissions(permMap);
         setPermissionsModified(false);
+
+        // Load granular permissions from role's permissionsJson
+        const rawJson = roleData?.permissionsJson || data?.permissionsJson || '{}';
+        try {
+          const parsed = typeof rawJson === 'string' ? JSON.parse(rawJson) : rawJson;
+          const granMap: Record<string, boolean> = {};
+          for (const key of GRANULAR_PERMISSION_KEYS) {
+            granMap[key] = !!parsed[key];
+          }
+          setGranularPermissions(granMap);
+        } catch {
+          // If JSON parse fails, default all to false
+          const granMap: Record<string, boolean> = {};
+          for (const key of GRANULAR_PERMISSION_KEYS) {
+            granMap[key] = false;
+          }
+          setGranularPermissions(granMap);
+        }
+        setGranularModified(false);
       } else {
         // Fallback permissions
         const level = roles.find((r) => r.id === roleId)?.level ?? 0;
@@ -273,6 +323,13 @@ export function AdminRoles() {
         }
         setPermissions(fallback);
         setPermissionsModified(false);
+
+        const granMap: Record<string, boolean> = {};
+        for (const key of GRANULAR_PERMISSION_KEYS) {
+          granMap[key] = false;
+        }
+        setGranularPermissions(granMap);
+        setGranularModified(false);
       }
     } catch {
       // silent
@@ -298,6 +355,11 @@ export function AdminRoles() {
   function handlePermissionChange(moduleId: string, access: string) {
     setPermissions((prev) => ({ ...prev, [moduleId]: access }));
     setPermissionsModified(true);
+  }
+
+  function handleGranularToggle(key: string, checked: boolean) {
+    setGranularPermissions((prev) => ({ ...prev, [key]: checked }));
+    setGranularModified(true);
   }
 
   async function handleSavePermissions() {
@@ -327,6 +389,37 @@ export function AdminRoles() {
       setError('Erreur réseau lors de la sauvegarde');
     } finally {
       setSavingPermissions(false);
+    }
+  }
+
+  async function handleSaveGranularPermissions() {
+    if (!selectedRoleId) return;
+    setSavingGranular(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/roles/${selectedRoleId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          permissionsJson: JSON.stringify(granularPermissions),
+        }),
+      });
+      if (res.ok) {
+        setGranularModified(false);
+        // Refresh to sync
+        await fetchRoles();
+        toast({
+          title: 'Permissions avancées sauvegardées',
+          description: `Les permissions granulaires du rôle "${selectedRole?.label}" ont été mises à jour.`,
+        });
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || 'Erreur lors de la sauvegarde des permissions avancées');
+      }
+    } catch {
+      setError('Erreur réseau lors de la sauvegarde');
+    } finally {
+      setSavingGranular(false);
     }
   }
 
@@ -435,6 +528,7 @@ export function AdminRoles() {
         if (selectedRoleId === deletingRole.id) {
           setSelectedRoleId(null);
           setPermissions({});
+          setGranularPermissions({});
         }
         await fetchRoles();
         toast({
@@ -617,27 +711,47 @@ export function AdminRoles() {
           )}
         </div>
 
-        {/* Right: Permissions matrix */}
+        {/* Right: Permissions matrix + Granular permissions */}
         <div className="space-y-3">
+          {/* Module access section */}
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
               <Shield className="mr-1.5 inline-block size-4" />
               Matrice de permissions
             </h2>
-            {selectedRole && permissionsModified && (
-              <Button
-                size="sm"
-                onClick={handleSavePermissions}
-                disabled={savingPermissions}
-                className="gap-2 bg-tango text-white hover:bg-tango/90"
-              >
-                {savingPermissions ? (
-                  <Loader2 className="size-3.5 animate-spin" />
-                ) : (
-                  <Save className="size-3.5" />
+            {selectedRole && (permissionsModified || granularModified) && (
+              <div className="flex items-center gap-2">
+                {permissionsModified && (
+                  <Button
+                    size="sm"
+                    onClick={handleSavePermissions}
+                    disabled={savingPermissions}
+                    className="gap-2 bg-tango text-white hover:bg-tango/90"
+                  >
+                    {savingPermissions ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Save className="size-3.5" />
+                    )}
+                    Sauvegarder modules
+                  </Button>
                 )}
-                Sauvegarder
-              </Button>
+                {granularModified && (
+                  <Button
+                    size="sm"
+                    onClick={handleSaveGranularPermissions}
+                    disabled={savingGranular}
+                    className="gap-2 bg-fun-blue text-white hover:bg-fun-blue-dark"
+                  >
+                    {savingGranular ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Save className="size-3.5" />
+                    )}
+                    Sauvegarder avancées
+                  </Button>
+                )}
+              </div>
             )}
           </div>
 
@@ -741,6 +855,57 @@ export function AdminRoles() {
                         </div>
                       );
                     })}
+                  </div>
+                </div>
+
+                {/* ── Granular Permissions Section ── */}
+                <Separator className="my-6" />
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Settings2 className="size-4 text-fun-blue" />
+                      <h3 className="text-sm font-semibold">
+                        Permissions Avancées
+                      </h3>
+                    </div>
+                    <Badge variant="secondary" className="text-xs">
+                      {granularCount} / {GRANULAR_PERMISSION_KEYS.length}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Configurez les permissions granulaires pour un contrôle plus fin des accès.
+                    Ces permissions sont enregistrées dans le rôle et s&apos;appliquent en complément de la matrice de modules.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {GRANULAR_PERMISSION_KEYS.map((key) => (
+                      <label
+                        key={key}
+                        className={cn(
+                          'flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-colors',
+                          granularPermissions[key]
+                            ? 'border-fun-blue/30 bg-fun-blue/5'
+                            : 'border-border hover:bg-muted/50'
+                        )}
+                      >
+                        <Checkbox
+                          checked={granularPermissions[key] || false}
+                          onCheckedChange={(checked) =>
+                            handleGranularToggle(key, !!checked)
+                          }
+                          aria-label={GRANULAR_PERMISSIONS[key]}
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium leading-tight">
+                            {GRANULAR_PERMISSIONS[key]}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground font-mono">
+                            {key}
+                          </p>
+                        </div>
+                      </label>
+                    ))}
                   </div>
                 </div>
               </CardContent>

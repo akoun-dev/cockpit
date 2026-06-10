@@ -17,6 +17,13 @@ import {
   Lock,
   HardDrive,
   Loader2,
+  FileText,
+  FileSpreadsheet,
+  Presentation,
+  ImageIcon as ImageLucide,
+  CalendarDays,
+  Hash,
+  Languages,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -50,11 +57,15 @@ interface SettingsState {
   logoUrl: string;
   version: string;
   defaultLanguage: string;
+  timezone: string;
+  dateFormat: string;
   // Affichage
   theme: string;
   referenceDate: string;
   currencyFormat: string;
   decimalSeparator: string;
+  decimalPlaces: string;
+  numberFormat: string;
   // Notifications
   emailAlerts: boolean;
   reportFrequency: string;
@@ -63,6 +74,13 @@ interface SettingsState {
   passwordPolicy: string;
   sessionExpiration: string;
   ipLogging: boolean;
+  // Export & Rapports
+  pdfTemplate: string;
+  pptTemplate: string;
+  excelTemplate: string;
+  defaultExportFormat: string;
+  includeLogo: boolean;
+  includeGenerationDate: boolean;
 }
 
 const DEFAULT_SETTINGS: SettingsState = {
@@ -70,16 +88,26 @@ const DEFAULT_SETTINGS: SettingsState = {
   logoUrl: '/logo-ansut.png',
   version: '1.0.0',
   defaultLanguage: 'fr',
+  timezone: 'Africa/Kinshasa',
+  dateFormat: 'DD/MM/YYYY',
   theme: 'system',
   referenceDate: new Date().toISOString().split('T')[0],
   currencyFormat: 'FCFA',
   decimalSeparator: 'comma',
+  decimalPlaces: '2',
+  numberFormat: '1 234,56',
   emailAlerts: true,
   reportFrequency: 'weekly',
   recipientEmail: 'admin@ansut.sn',
   passwordPolicy: 'standard',
   sessionExpiration: '4h',
   ipLogging: true,
+  pdfTemplate: 'standard',
+  pptTemplate: 'standard',
+  excelTemplate: 'standard',
+  defaultExportFormat: 'pdf',
+  includeLogo: true,
+  includeGenerationDate: true,
 };
 
 // ---------- Component ----------
@@ -175,7 +203,7 @@ export function AdminSettings() {
           <Skeleton className="mt-2 h-4 w-96" />
         </div>
         <div className="grid gap-6 md:grid-cols-2">
-          {Array.from({ length: 5 }).map((_, i) => (
+          {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-72 rounded-xl" />
           ))}
         </div>
@@ -268,7 +296,8 @@ export function AdminSettings() {
 
             {/* Langue par défaut */}
             <div className="space-y-1.5">
-              <Label htmlFor="defaultLanguage" className="text-sm font-medium">
+              <Label htmlFor="defaultLanguage" className="text-sm font-medium flex items-center gap-1.5">
+                <Languages className="size-3.5 text-muted-foreground" />
                 Langue par défaut
               </Label>
               <Select
@@ -281,6 +310,49 @@ export function AdminSettings() {
                 <SelectContent>
                   <SelectItem value="fr">🇫🇷 Français</SelectItem>
                   <SelectItem value="en">🇬🇧 Anglais</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Fuseau horaire */}
+            <div className="space-y-1.5">
+              <Label htmlFor="timezone" className="text-sm font-medium flex items-center gap-1.5">
+                <Clock className="size-3.5 text-muted-foreground" />
+                Fuseau horaire
+              </Label>
+              <Select
+                value={settings.timezone}
+                onValueChange={(v) => handleChange('timezone', v)}
+              >
+                <SelectTrigger id="timezone" className="h-9 w-full">
+                  <SelectValue placeholder="Sélectionner un fuseau horaire" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Africa/Kinshasa">Africa/Kinshasa (UTC+1)</SelectItem>
+                  <SelectItem value="Africa/Abidjan">Africa/Abidjan (UTC+0)</SelectItem>
+                  <SelectItem value="UTC">UTC (UTC+0)</SelectItem>
+                  <SelectItem value="Europe/Paris">Europe/Paris (UTC+1/+2)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Format de date */}
+            <div className="space-y-1.5">
+              <Label htmlFor="dateFormat" className="text-sm font-medium flex items-center gap-1.5">
+                <CalendarDays className="size-3.5 text-muted-foreground" />
+                Format de date
+              </Label>
+              <Select
+                value={settings.dateFormat}
+                onValueChange={(v) => handleChange('dateFormat', v)}
+              >
+                <SelectTrigger id="dateFormat" className="h-9 w-full">
+                  <SelectValue placeholder="Sélectionner un format" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DD/MM/YYYY">DD/MM/YYYY (31/12/2025)</SelectItem>
+                  <SelectItem value="MM/DD/YYYY">MM/DD/YYYY (12/31/2025)</SelectItem>
+                  <SelectItem value="YYYY-MM-DD">YYYY-MM-DD (2025-12-31)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -372,10 +444,191 @@ export function AdminSettings() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Nombre de décimales */}
+            <div className="space-y-1.5">
+              <Label htmlFor="decimalPlaces" className="text-sm font-medium flex items-center gap-1.5">
+                <Hash className="size-3.5 text-muted-foreground" />
+                Nombre de décimales
+              </Label>
+              <Select
+                value={settings.decimalPlaces}
+                onValueChange={(v) => handleChange('decimalPlaces', v)}
+              >
+                <SelectTrigger id="decimalPlaces" className="h-9 w-full">
+                  <SelectValue placeholder="Sélectionner" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">0 (entier)</SelectItem>
+                  <SelectItem value="1">1 décimale</SelectItem>
+                  <SelectItem value="2">2 décimales</SelectItem>
+                  <SelectItem value="3">3 décimales</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Format des nombres */}
+            <div className="space-y-1.5">
+              <Label htmlFor="numberFormat" className="text-sm font-medium flex items-center gap-1.5">
+                <Hash className="size-3.5 text-muted-foreground" />
+                Format des nombres
+              </Label>
+              <Select
+                value={settings.numberFormat}
+                onValueChange={(v) => handleChange('numberFormat', v)}
+              >
+                <SelectTrigger id="numberFormat" className="h-9 w-full">
+                  <SelectValue placeholder="Sélectionner un format" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1 234,56">1 234,56 (espace + virgule)</SelectItem>
+                  <SelectItem value="1234.56">1234.56 (pas de séparateur)</SelectItem>
+                  <SelectItem value="1.234,56">1.234,56 (point + virgule)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardContent>
         </Card>
 
-        {/* ====== 3. Notifications ====== */}
+        {/* ====== 3. Export & Rapports ====== */}
+        <Card className="transition-shadow hover:shadow-md">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="rounded-md bg-emerald-100 p-1.5 dark:bg-emerald-900/30">
+                <FileText className="size-4 text-emerald-700 dark:text-emerald-400" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Export & Rapports</CardTitle>
+                <CardDescription className="mt-0.5 text-xs">
+                  Configurer les templates et options d&apos;export
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Template PDF */}
+            <div className="space-y-1.5">
+              <Label htmlFor="pdfTemplate" className="text-sm font-medium flex items-center gap-1.5">
+                <FileText className="size-3.5 text-muted-foreground" />
+                Template PDF
+              </Label>
+              <Select
+                value={settings.pdfTemplate}
+                onValueChange={(v) => handleChange('pdfTemplate', v)}
+              >
+                <SelectTrigger id="pdfTemplate" className="h-9 w-full">
+                  <SelectValue placeholder="Sélectionner un template" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="standard">Standard</SelectItem>
+                  <SelectItem value="custom">Personnalisé</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Template PPT */}
+            <div className="space-y-1.5">
+              <Label htmlFor="pptTemplate" className="text-sm font-medium flex items-center gap-1.5">
+                <Presentation className="size-3.5 text-muted-foreground" />
+                Template PPT
+              </Label>
+              <Select
+                value={settings.pptTemplate}
+                onValueChange={(v) => handleChange('pptTemplate', v)}
+              >
+                <SelectTrigger id="pptTemplate" className="h-9 w-full">
+                  <SelectValue placeholder="Sélectionner un template" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="standard">Standard</SelectItem>
+                  <SelectItem value="custom">Personnalisé</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Template Excel */}
+            <div className="space-y-1.5">
+              <Label htmlFor="excelTemplate" className="text-sm font-medium flex items-center gap-1.5">
+                <FileSpreadsheet className="size-3.5 text-muted-foreground" />
+                Template Excel
+              </Label>
+              <Select
+                value={settings.excelTemplate}
+                onValueChange={(v) => handleChange('excelTemplate', v)}
+              >
+                <SelectTrigger id="excelTemplate" className="h-9 w-full">
+                  <SelectValue placeholder="Sélectionner un template" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="standard">Standard</SelectItem>
+                  <SelectItem value="custom">Personnalisé</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Format par défaut */}
+            <div className="space-y-1.5">
+              <Label htmlFor="defaultExportFormat" className="text-sm font-medium">
+                Format par défaut
+              </Label>
+              <Select
+                value={settings.defaultExportFormat}
+                onValueChange={(v) => handleChange('defaultExportFormat', v)}
+              >
+                <SelectTrigger id="defaultExportFormat" className="h-9 w-full">
+                  <SelectValue placeholder="Sélectionner un format" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pdf">PDF</SelectItem>
+                  <SelectItem value="excel">Excel</SelectItem>
+                  <SelectItem value="powerpoint">PowerPoint</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Separator />
+
+            {/* Include Logo ANSUT */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-0.5">
+                <Label htmlFor="includeLogo" className="text-sm font-medium flex items-center gap-1.5">
+                  <ImageLucide className="size-3.5 text-muted-foreground" />
+                  Inclure le logo ANSUT
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Afficher le logo sur les exports et rapports
+                </p>
+              </div>
+              <Switch
+                id="includeLogo"
+                checked={settings.includeLogo}
+                onCheckedChange={(v) => handleChange('includeLogo', v)}
+              />
+            </div>
+
+            <Separator />
+
+            {/* Include generation date */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-0.5">
+                <Label htmlFor="includeGenerationDate" className="text-sm font-medium flex items-center gap-1.5">
+                  <CalendarDays className="size-3.5 text-muted-foreground" />
+                  Inclure la date de génération
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Ajouter la date et l&apos;heure sur les documents exportés
+                </p>
+              </div>
+              <Switch
+                id="includeGenerationDate"
+                checked={settings.includeGenerationDate}
+                onCheckedChange={(v) => handleChange('includeGenerationDate', v)}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ====== 4. Notifications ====== */}
         <Card className="transition-shadow hover:shadow-md">
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2.5">
@@ -448,8 +701,8 @@ export function AdminSettings() {
           </CardContent>
         </Card>
 
-        {/* ====== 4. Sécurité ====== */}
-        <Card className="transition-shadow hover:shadow-md">
+        {/* ====== 5. Sécurité ====== */}
+        <Card className="transition-shadow hover:shadow-md lg:col-span-2">
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2.5">
               <div className="rounded-md bg-purple-100 p-1.5 dark:bg-purple-900/30">
@@ -463,78 +716,78 @@ export function AdminSettings() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Politique de mot de passe */}
-            <div className="space-y-1.5">
-              <Label htmlFor="passwordPolicy" className="text-sm font-medium flex items-center gap-1.5">
-                <Lock className="size-3.5 text-muted-foreground" />
-                Politique de mot de passe
-              </Label>
-              <Select
-                value={settings.passwordPolicy}
-                onValueChange={(v) => handleChange('passwordPolicy', v)}
-              >
-                <SelectTrigger id="passwordPolicy" className="h-9 w-full">
-                  <SelectValue placeholder="Sélectionner une politique" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="standard">Standard</SelectItem>
-                  <SelectItem value="enhanced">Renforcé</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] text-muted-foreground">
-                {settings.passwordPolicy === 'standard'
-                  ? 'Minimum 8 caractères, lettres et chiffres.'
-                  : 'Minimum 12 caractères, majuscules, minuscules, chiffres et symboles.'}
-              </p>
-            </div>
-
-            {/* Expiration session */}
-            <div className="space-y-1.5">
-              <Label htmlFor="sessionExpiration" className="text-sm font-medium flex items-center gap-1.5">
-                <Clock className="size-3.5 text-muted-foreground" />
-                Expiration de session
-              </Label>
-              <Select
-                value={settings.sessionExpiration}
-                onValueChange={(v) => handleChange('sessionExpiration', v)}
-              >
-                <SelectTrigger id="sessionExpiration" className="h-9 w-full">
-                  <SelectValue placeholder="Sélectionner une durée" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="30min">30 minutes</SelectItem>
-                  <SelectItem value="1h">1 heure</SelectItem>
-                  <SelectItem value="4h">4 heures</SelectItem>
-                  <SelectItem value="8h">8 heures</SelectItem>
-                  <SelectItem value="24h">24 heures</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Separator />
-
-            {/* Journalisation IP */}
-            <div className="flex items-center justify-between gap-4">
-              <div className="space-y-0.5">
-                <Label htmlFor="ipLogging" className="text-sm font-medium">
-                  Journalisation IP
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {/* Politique de mot de passe */}
+              <div className="space-y-1.5">
+                <Label htmlFor="passwordPolicy" className="text-sm font-medium flex items-center gap-1.5">
+                  <Lock className="size-3.5 text-muted-foreground" />
+                  Politique de mot de passe
                 </Label>
-                <p className="text-xs text-muted-foreground">
-                  Enregistrer les adresses IP dans le journal d&apos;audit
+                <Select
+                  value={settings.passwordPolicy}
+                  onValueChange={(v) => handleChange('passwordPolicy', v)}
+                >
+                  <SelectTrigger id="passwordPolicy" className="h-9 w-full">
+                    <SelectValue placeholder="Sélectionner une politique" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="standard">Standard</SelectItem>
+                    <SelectItem value="enhanced">Renforcé</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  {settings.passwordPolicy === 'standard'
+                    ? 'Minimum 8 caractères, lettres et chiffres.'
+                    : 'Minimum 12 caractères, majuscules, minuscules, chiffres et symboles.'}
                 </p>
               </div>
-              <Switch
-                id="ipLogging"
-                checked={settings.ipLogging}
-                onCheckedChange={(v) => handleChange('ipLogging', v)}
-              />
+
+              {/* Expiration session */}
+              <div className="space-y-1.5">
+                <Label htmlFor="sessionExpiration" className="text-sm font-medium flex items-center gap-1.5">
+                  <Clock className="size-3.5 text-muted-foreground" />
+                  Expiration de session
+                </Label>
+                <Select
+                  value={settings.sessionExpiration}
+                  onValueChange={(v) => handleChange('sessionExpiration', v)}
+                >
+                  <SelectTrigger id="sessionExpiration" className="h-9 w-full">
+                    <SelectValue placeholder="Sélectionner une durée" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="30min">30 minutes</SelectItem>
+                    <SelectItem value="1h">1 heure</SelectItem>
+                    <SelectItem value="4h">4 heures</SelectItem>
+                    <SelectItem value="8h">8 heures</SelectItem>
+                    <SelectItem value="24h">24 heures</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Journalisation IP */}
+              <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/20 p-3 dark:bg-muted/40">
+                <div className="space-y-0.5">
+                  <Label htmlFor="ipLogging" className="text-sm font-medium">
+                    Journalisation IP
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Enregistrer les adresses IP dans le journal d&apos;audit
+                  </p>
+                </div>
+                <Switch
+                  id="ipLogging"
+                  checked={settings.ipLogging}
+                  onCheckedChange={(v) => handleChange('ipLogging', v)}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* ====== 5. Informations Système (full-width) ====== */}
+      {/* ====== 6. Informations Système (full-width) ====== */}
       <Card className="transition-shadow hover:shadow-md">
         <CardHeader className="pb-4">
           <div className="flex items-center gap-2.5">

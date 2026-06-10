@@ -11,6 +11,12 @@ import {
   UserCheck,
   UserX,
   UserPlus,
+  MoreHorizontal,
+  KeyRound,
+  Lock,
+  Unlock,
+  ShieldCheck,
+  Power,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -53,6 +59,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 
 interface Role {
@@ -71,12 +84,16 @@ interface User {
   id: string;
   name: string;
   email: string;
+  matricule?: string | null;
+  fonction?: string | null;
   roleId: string;
   roleName: string;
   roleColor?: string;
   departmentId: string;
   departmentName: string;
   isActive: boolean;
+  mustChangePassword?: boolean;
+  isLocked?: boolean;
   lastLogin: string | null;
   avatarUrl?: string;
 }
@@ -85,6 +102,8 @@ interface UserFormData {
   name: string;
   email: string;
   password: string;
+  matricule: string;
+  fonction: string;
   roleId: string;
   departmentId: string;
   isActive: boolean;
@@ -94,6 +113,8 @@ const EMPTY_FORM: UserFormData = {
   name: '',
   email: '',
   password: '',
+  matricule: '',
+  fonction: '',
   roleId: '',
   departmentId: '',
   isActive: true,
@@ -141,6 +162,8 @@ export function AdminUsers() {
 
   // Toggle state
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  // Action loading state for dropdown actions
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   // ---------- Statistics ----------
   const totalUsers = users.length;
@@ -171,60 +194,80 @@ export function AdminUsers() {
             id: '1',
             name: 'Admin Principal',
             email: 'admin@ansut.cd',
+            matricule: 'ANSUT-001',
+            fonction: 'Directeur Général',
             roleId: 'admin',
             roleName: 'Administrateur',
             roleColor: '#ef4444',
             departmentId: 'direction',
             departmentName: 'Direction Générale',
             isActive: true,
+            mustChangePassword: false,
+            isLocked: false,
             lastLogin: new Date().toISOString(),
           },
           {
             id: '2',
             name: 'Marie Dupont',
             email: 'marie.dupont@ansut.cd',
+            matricule: 'ANSUT-002',
+            fonction: 'Chef de Département Finance',
             roleId: 'analyst',
             roleName: 'Analyste',
             roleColor: '#3b82f6',
             departmentId: 'finance',
             departmentName: 'Finance & Comptabilité',
             isActive: true,
+            mustChangePassword: true,
+            isLocked: false,
             lastLogin: new Date(Date.now() - 86400000).toISOString(),
           },
           {
             id: '3',
             name: 'Jean Martin',
             email: 'jean.martin@ansut.cd',
+            matricule: 'ANSUT-003',
+            fonction: 'Responsable RH',
             roleId: 'viewer',
             roleName: 'Observateur',
             roleColor: '#64748b',
             departmentId: 'rh',
             departmentName: 'Ressources Humaines',
             isActive: false,
+            mustChangePassword: false,
+            isLocked: true,
             lastLogin: new Date(Date.now() - 604800000).toISOString(),
           },
           {
             id: '4',
             name: 'Pierre Leroy',
             email: 'pierre.leroy@ansut.cd',
+            matricule: 'ANSUT-004',
+            fonction: 'Chef de Département Opérations',
             roleId: 'manager',
             roleName: 'Gestionnaire',
             roleColor: '#f18120',
             departmentId: 'ops',
             departmentName: 'Opérations',
             isActive: true,
+            mustChangePassword: false,
+            isLocked: false,
             lastLogin: new Date(Date.now() - 172800000).toISOString(),
           },
           {
             id: '5',
             name: 'Sophie Bernard',
             email: 'sophie.bernard@ansut.cd',
+            matricule: 'ANSUT-005',
+            fonction: 'Chargée de Gouvernance',
             roleId: 'analyst',
             roleName: 'Analyste',
             roleColor: '#3b82f6',
             departmentId: 'governance',
             departmentName: 'Gouvernance',
             isActive: true,
+            mustChangePassword: false,
+            isLocked: false,
             lastLogin: new Date(Date.now() - 259200000).toISOString(),
           },
         ]);
@@ -289,6 +332,8 @@ export function AdminUsers() {
     return (
       u.name.toLowerCase().includes(q) ||
       u.email.toLowerCase().includes(q) ||
+      (u.matricule?.toLowerCase().includes(q) ?? false) ||
+      (u.fonction?.toLowerCase().includes(q) ?? false) ||
       u.roleName.toLowerCase().includes(q) ||
       u.departmentName.toLowerCase().includes(q)
     );
@@ -326,6 +371,8 @@ export function AdminUsers() {
       name: user.name,
       email: user.email,
       password: '',
+      matricule: user.matricule || '',
+      fonction: user.fonction || '',
       roleId: user.roleId,
       departmentId: user.departmentId,
       isActive: user.isActive,
@@ -350,6 +397,8 @@ export function AdminUsers() {
         ? {
             name: formData.name,
             email: formData.email,
+            matricule: formData.matricule || null,
+            fonction: formData.fonction || null,
             roleId: formData.roleId,
             departmentId: formData.departmentId,
             isActive: formData.isActive,
@@ -442,10 +491,188 @@ export function AdminUsers() {
     }
   }
 
+  // Reset password (simulated)
+  async function handleResetPassword(user: User) {
+    setActionLoadingId(user.id);
+    try {
+      await fetch(`/api/admin/users/${user.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: 'ansut2025' }),
+      });
+      toast({
+        title: 'Mot de passe réinitialisé',
+        description: `Mot de passe réinitialisé pour ${user.name}`,
+      });
+    } catch {
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de réinitialiser le mot de passe.',
+        variant: 'destructive',
+      });
+    } finally {
+      setActionLoadingId(null);
+    }
+  }
+
+  // Toggle mustChangePassword
+  async function handleToggleMustChangePassword(user: User) {
+    setActionLoadingId(user.id);
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mustChangePassword: !user.mustChangePassword }),
+      });
+      if (res.ok) {
+        await fetchUsers();
+        toast({
+          title: user.mustChangePassword ? 'Changement mdp non forcé' : 'Changement mdp forcé',
+          description: user.mustChangePassword
+            ? `${user.name} ne sera plus obligé de changer son mot de passe.`
+            : `${user.name} devra changer son mot de passe à la prochaine connexion.`,
+        });
+      }
+    } catch {
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de modifier le paramètre.',
+        variant: 'destructive',
+      });
+    } finally {
+      setActionLoadingId(null);
+    }
+  }
+
+  // Toggle isLocked
+  async function handleToggleLock(user: User) {
+    setActionLoadingId(user.id);
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isLocked: !user.isLocked }),
+      });
+      if (res.ok) {
+        await fetchUsers();
+        toast({
+          title: user.isLocked ? 'Compte déverrouillé' : 'Compte verrouillé',
+          description: user.isLocked
+            ? `Le compte de ${user.name} a été déverrouillé.`
+            : `Le compte de ${user.name} a été verrouillé.`,
+        });
+      }
+    } catch {
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de modifier le statut de verrouillage.',
+        variant: 'destructive',
+      });
+    } finally {
+      setActionLoadingId(null);
+    }
+  }
+
   // Open delete confirmation
   function handleDeleteClick(user: User) {
     setDeletingUser(user);
     setDeleteDialogOpen(true);
+  }
+
+  // Dropdown menu renderer
+  function UserActionMenu({ user }: { user: User }) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8 hover:bg-muted"
+            aria-label={`Actions pour ${user.name}`}
+            disabled={actionLoadingId === user.id}
+          >
+            {actionLoadingId === user.id ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <MoreHorizontal className="size-4" />
+            )}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          {/* Modifier */}
+          <DropdownMenuItem onClick={() => handleEdit(user)}>
+            <Pencil className="mr-2 size-4" />
+            Modifier
+          </DropdownMenuItem>
+
+          {/* Désactiver / Activer */}
+          <DropdownMenuItem onClick={() => handleToggleActive(user)}>
+            <Power className="mr-2 size-4" />
+            {user.isActive ? 'Désactiver' : 'Activer'}
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          {/* Réinitialiser mot de passe */}
+          <DropdownMenuItem onClick={() => handleResetPassword(user)}>
+            <KeyRound className="mr-2 size-4" />
+            Réinitialiser mot de passe
+          </DropdownMenuItem>
+
+          {/* Forcer changement mdp */}
+          <DropdownMenuItem onClick={() => handleToggleMustChangePassword(user)}>
+            <ShieldCheck className="mr-2 size-4" />
+            {user.mustChangePassword ? 'Annuler forçage mdp' : 'Forcer changement mdp'}
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          {/* Verrouiller / Déverrouiller */}
+          {user.isLocked ? (
+            <DropdownMenuItem onClick={() => handleToggleLock(user)}>
+              <Unlock className="mr-2 size-4" />
+              Déverrouiller compte
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem onClick={() => handleToggleLock(user)}>
+              <Lock className="mr-2 size-4" />
+              Verrouiller compte
+            </DropdownMenuItem>
+          )}
+
+          <DropdownMenuSeparator />
+
+          {/* Supprimer */}
+          <DropdownMenuItem
+            onClick={() => handleDeleteClick(user)}
+            className="text-destructive focus:text-destructive"
+          >
+            <Trash2 className="mr-2 size-4" />
+            Supprimer
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
+  // Status badges for user
+  function UserStatusBadges({ user }: { user: User }) {
+    return (
+      <div className="flex flex-wrap gap-1">
+        {user.isLocked && (
+          <Badge variant="destructive" className="text-[10px] px-1.5 py-0 gap-1">
+            <Lock className="size-2.5" />
+            Verrouillé
+          </Badge>
+        )}
+        {user.mustChangePassword && (
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-1 border-amber-400 text-amber-600">
+            <ShieldCheck className="size-2.5" />
+            Changer mdp
+          </Badge>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -529,7 +756,7 @@ export function AdminUsers() {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Rechercher par nom, email, rôle, département..."
+          placeholder="Rechercher par nom, email, matricule, fonction, rôle, département..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full pl-9 sm:max-w-sm"
@@ -570,7 +797,7 @@ export function AdminUsers() {
               <div className="md:hidden divide-y">
                 {filteredUsers.map((user) => (
                   <div key={user.id} className="p-4 space-y-3">
-                    {/* Top row: Avatar + Name + Status */}
+                    {/* Top row: Avatar + Name + Status + Actions */}
                     <div className="flex items-center gap-3">
                       <Avatar className="size-10">
                         <AvatarFallback className="bg-fun-blue/10 text-xs text-fun-blue">
@@ -583,15 +810,22 @@ export function AdminUsers() {
                           {user.email}
                         </p>
                       </div>
-                      <Switch
-                        checked={user.isActive}
-                        disabled={togglingId === user.id}
-                        onCheckedChange={() => handleToggleActive(user)}
-                        aria-label={`Statut de ${user.name}`}
-                      />
+                      <UserActionMenu user={user} />
                     </div>
 
-                    {/* Details row: Role + Department */}
+                    {/* Matricule + Fonction */}
+                    <div className="flex flex-wrap items-center gap-2 pl-[52px]">
+                      {user.matricule && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-mono">
+                          {user.matricule}
+                        </Badge>
+                      )}
+                      {user.fonction && (
+                        <span className="text-xs text-muted-foreground">{user.fonction}</span>
+                      )}
+                    </div>
+
+                    {/* Details row: Role + Department + Status badges */}
                     <div className="flex flex-wrap items-center gap-2 pl-[52px]">
                       <Badge
                         variant="secondary"
@@ -608,31 +842,20 @@ export function AdminUsers() {
                       </span>
                     </div>
 
-                    {/* Last login + Actions */}
+                    {/* Status badges + Active toggle + Last login */}
                     <div className="flex items-center justify-between pl-[52px]">
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={user.isActive}
+                          disabled={togglingId === user.id}
+                          onCheckedChange={() => handleToggleActive(user)}
+                          aria-label={`Statut de ${user.name}`}
+                        />
+                        <UserStatusBadges user={user} />
+                      </div>
                       <span className="text-xs text-muted-foreground">
                         {formatFrenchDate(user.lastLogin)}
                       </span>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 hover:bg-muted"
-                          onClick={() => handleEdit(user)}
-                          aria-label={`Modifier ${user.name}`}
-                        >
-                          <Pencil className="size-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          onClick={() => handleDeleteClick(user)}
-                          aria-label={`Supprimer ${user.name}`}
-                        >
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      </div>
                     </div>
                   </div>
                 ))}
@@ -644,10 +867,12 @@ export function AdminUsers() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Utilisateur</TableHead>
+                      <TableHead className="w-[110px]">Matricule</TableHead>
+                      <TableHead className="w-[170px]">Fonction</TableHead>
                       <TableHead className="w-[120px]">Rôle</TableHead>
-                      <TableHead className="hidden w-[160px] md:table-cell">Département</TableHead>
+                      <TableHead className="hidden w-[160px] lg:table-cell">Département</TableHead>
                       <TableHead className="w-[90px] text-center">Statut</TableHead>
-                      <TableHead className="hidden w-[160px] lg:table-cell">Dernière connexion</TableHead>
+                      <TableHead className="hidden w-[160px] xl:table-cell">Dernière connexion</TableHead>
                       <TableHead className="w-[60px] text-center">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -663,10 +888,24 @@ export function AdminUsers() {
                               </AvatarFallback>
                             </Avatar>
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-medium">{user.name}</p>
+                              <div className="flex items-center gap-1.5">
+                                <p className="truncate text-sm font-medium">{user.name}</p>
+                                {user.isLocked && (
+                                  <Lock className="size-3 text-destructive shrink-0" />
+                                )}
+                              </div>
                               <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+                              <UserStatusBadges user={user} />
                             </div>
                           </div>
+                        </TableCell>
+                        {/* Matricule */}
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {user.matricule || '—'}
+                        </TableCell>
+                        {/* Fonction */}
+                        <TableCell className="text-sm">
+                          {user.fonction || '—'}
                         </TableCell>
                         {/* Role badge */}
                         <TableCell>
@@ -682,7 +921,7 @@ export function AdminUsers() {
                           </Badge>
                         </TableCell>
                         {/* Department */}
-                        <TableCell className="hidden text-sm md:table-cell">
+                        <TableCell className="hidden text-sm lg:table-cell">
                           {user.departmentName}
                         </TableCell>
                         {/* Active switch */}
@@ -696,30 +935,13 @@ export function AdminUsers() {
                           </div>
                         </TableCell>
                         {/* Last login */}
-                        <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
+                        <TableCell className="hidden text-xs text-muted-foreground xl:table-cell">
                           {formatFrenchDate(user.lastLogin)}
                         </TableCell>
                         {/* Actions */}
                         <TableCell>
                           <div className="flex justify-center">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="size-8 hover:bg-muted"
-                              onClick={() => handleEdit(user)}
-                              aria-label={`Modifier ${user.name}`}
-                            >
-                              <Pencil className="size-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                              onClick={() => handleDeleteClick(user)}
-                              aria-label={`Supprimer ${user.name}`}
-                            >
-                              <Trash2 className="size-3.5" />
-                            </Button>
+                            <UserActionMenu user={user} />
                           </div>
                         </TableCell>
                       </TableRow>
@@ -734,7 +956,7 @@ export function AdminUsers() {
 
       {/* Create / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingUser ? 'Modifier l\'utilisateur' : 'Ajouter un utilisateur'}
@@ -773,6 +995,34 @@ export function AdminUsers() {
               />
               {formErrors.email && (
                 <p className="text-xs text-destructive">{formErrors.email}</p>
+              )}
+            </div>
+
+            {/* Matricule */}
+            <div className="space-y-2">
+              <Label htmlFor="user-matricule">Matricule</Label>
+              <Input
+                id="user-matricule"
+                placeholder="ANSUT-001"
+                value={formData.matricule}
+                onChange={(e) => setFormData({ ...formData, matricule: e.target.value })}
+              />
+              {formErrors.matricule && (
+                <p className="text-xs text-destructive">{formErrors.matricule}</p>
+              )}
+            </div>
+
+            {/* Fonction */}
+            <div className="space-y-2">
+              <Label htmlFor="user-fonction">Fonction</Label>
+              <Input
+                id="user-fonction"
+                placeholder="Directeur Général, Chef de Département..."
+                value={formData.fonction}
+                onChange={(e) => setFormData({ ...formData, fonction: e.target.value })}
+              />
+              {formErrors.fonction && (
+                <p className="text-xs text-destructive">{formErrors.fonction}</p>
               )}
             </div>
 

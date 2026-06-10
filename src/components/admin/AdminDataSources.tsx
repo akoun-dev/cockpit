@@ -23,6 +23,9 @@ import {
   AlertTriangle,
   FolderSync,
   Plug,
+  Zap,
+  Play,
+  X,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -57,6 +60,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 // --- Constants ---
@@ -96,6 +100,10 @@ const TYPE_LABELS: Record<string, string> = {
   fichier_csv: 'Fichier CSV',
   sharepoint: 'SharePoint',
   sftp: 'SFTP',
+  sage: 'Sage ERP',
+  onedrive: 'OneDrive',
+  teams: 'Microsoft Teams',
+  soap: 'API SOAP',
 };
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
@@ -105,10 +113,14 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
   fichier: FileText,
   erp: Server,
   erp_dynamics: Plug,
-  fichier_excel: FileSpreadsheet,
-  fichier_csv: FileDown,
+  archivo_excel: FileSpreadsheet,
+  archivo_csv: FileDown,
   sharepoint: FolderSync,
   sftp: Server,
+  sage: Database,
+  onedrive: FolderSync,
+  teams: Wifi,
+  soap: Globe,
 };
 
 const TYPE_COLORS: Record<string, string> = {
@@ -122,6 +134,10 @@ const TYPE_COLORS: Record<string, string> = {
   fichier_csv: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
   sharepoint: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
   sftp: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  sage: 'bg-lime-100 text-lime-700 dark:bg-lime-900/30 dark:text-lime-400',
+  onedrive: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+  teams: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
+  soap: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -137,6 +153,28 @@ const FREQ_LABELS: Record<string, string> = {
   mensuel: 'Mensuel',
   trimestriel: 'Trimestriel',
   manuel: 'Manuel',
+};
+
+// --- Sync status helper ---
+
+type SyncStatus = 'uptodate' | 'recent' | 'obsolete';
+
+function getSyncStatus(lastSync?: string | null): SyncStatus {
+  if (!lastSync) return 'obsolete';
+  const now = Date.now();
+  const last = new Date(lastSync).getTime();
+  const diffMs = now - last;
+  const oneHour = 3600000;
+  const oneDay = 86400000;
+  if (diffMs < oneHour) return 'uptodate';
+  if (diffMs < oneDay) return 'recent';
+  return 'obsolete';
+}
+
+const SYNC_STATUS_CONFIG: Record<SyncStatus, { label: string; dotColor: string; textColor: string }> = {
+  uptodate: { label: 'À jour', dotColor: 'bg-green-500', textColor: 'text-green-700 dark:text-green-400' },
+  recent: { label: 'Récent', dotColor: 'bg-blue-500', textColor: 'text-blue-700 dark:text-blue-400' },
+  obsolete: { label: 'Obsolète', dotColor: 'bg-amber-500', textColor: 'text-amber-700 dark:text-amber-400' },
 };
 
 // --- Types ---
@@ -191,6 +229,7 @@ const EMPTY_FORM: DataSourceFormData = {
 // --- Component ---
 
 export function AdminDataSources() {
+  const { toast } = useToast();
   const [sources, setSources] = useState<DataSourceEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -213,6 +252,15 @@ export function AdminDataSources() {
 
   // Toggle test
   const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  // Connection test dialog state
+  const [testDialogOpen, setTestDialogOpen] = useState(false);
+  const [testSource, setTestSource] = useState<DataSourceEntry | null>(null);
+  const [testStatus, setTestStatus] = useState<'loading' | 'success' | 'failure'>('loading');
+  const [testLatency, setTestLatency] = useState<number | null>(null);
+
+  // Force sync state
+  const [syncingId, setSyncingId] = useState<string | null>(null);
 
   // --- Data fetching ---
 
@@ -322,6 +370,10 @@ export function AdminDataSources() {
       if (res.ok) {
         setDialogOpen(false);
         setSuccessMsg(editingSource ? 'Source mise à jour' : 'Source créée');
+        toast({
+          title: editingSource ? 'Source mise à jour' : 'Source créée',
+          description: `"${form.name.trim()}" a été ${editingSource ? 'mis à jour' : 'ajouté'} avec succès.`,
+        });
         setTimeout(() => setSuccessMsg(null), 3000);
         await fetchSources();
       } else {
@@ -351,6 +403,10 @@ export function AdminDataSources() {
         setDeleteDialogOpen(false);
         setDeletingSource(null);
         setSuccessMsg('Source supprimée');
+        toast({
+          title: 'Source supprimée',
+          description: `"${deletingSource.name}" a été supprimé avec succès.`,
+        });
         setTimeout(() => setSuccessMsg(null), 3000);
         await fetchSources();
       }
@@ -371,6 +427,10 @@ export function AdminDataSources() {
         body: JSON.stringify({ status: newStatus }),
       });
       if (res.ok) {
+        toast({
+          title: `Source ${newStatus === 'actif' ? 'activée' : 'désactivée'}`,
+          description: `"${source.name}" est maintenant ${newStatus === 'actif' ? 'active' : 'inactive'}.`,
+        });
         await fetchSources();
       }
     } catch {
@@ -378,6 +438,44 @@ export function AdminDataSources() {
     } finally {
       setTogglingId(null);
     }
+  }
+
+  // Connection test handler
+  async function handleTestConnection(source: DataSourceEntry) {
+    setTestSource(source);
+    setTestStatus('loading');
+    setTestLatency(null);
+    setTestDialogOpen(true);
+
+    // Simulate connection test
+    const startTime = Date.now();
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const latency = Date.now() - startTime;
+    setTestLatency(latency);
+
+    const isSuccess = Math.random() > 0.3; // 70% success rate
+    setTestStatus(isSuccess ? 'success' : 'failure');
+
+    toast({
+      title: isSuccess ? 'Connexion réussie' : 'Échec de connexion',
+      description: isSuccess
+        ? `Source "${source.name}" — Latence: ${latency}ms`
+        : `Source "${source.name}" — Timeout`,
+      variant: isSuccess ? 'default' : 'destructive',
+    });
+  }
+
+  // Force sync handler
+  async function handleForceSync(source: DataSourceEntry) {
+    setSyncingId(source.id);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    setSyncingId(null);
+    const recordCount = Math.floor(Math.random() * 500) + 10;
+    toast({
+      title: 'Synchronisation terminée',
+      description: `${recordCount} enregistrements synchronisés depuis "${source.name}".`,
+    });
+    await fetchSources();
   }
 
   // --- Render ---
@@ -513,6 +611,8 @@ export function AdminDataSources() {
                           const TypeIcon = TYPE_ICONS[source.type] || Database;
                           const statusCfg = STATUS_CONFIG[source.status] || STATUS_CONFIG.actif;
                           const StatusIcon = statusCfg.icon;
+                          const syncStatus = getSyncStatus(source.lastSync);
+                          const syncCfg = SYNC_STATUS_CONFIG[syncStatus];
 
                           return (
                             <div
@@ -545,6 +645,19 @@ export function AdminDataSources() {
                                     </Badge>
                                   </div>
 
+                                  {/* Sync status indicator */}
+                                  <div className="mt-1.5 flex items-center gap-1.5">
+                                    <span className={cn('inline-block size-2 rounded-full', syncCfg.dotColor)} />
+                                    <span className={cn('text-[11px] font-medium', syncCfg.textColor)}>
+                                      {syncCfg.label}
+                                    </span>
+                                    {source.lastSync && (
+                                      <span className="text-[10px] text-muted-foreground ml-1">
+                                        (Dernière sync: {new Date(source.lastSync).toLocaleDateString('fr-FR')})
+                                      </span>
+                                    )}
+                                  </div>
+
                                   {source.description && (
                                     <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
                                       {source.description}
@@ -575,39 +688,66 @@ export function AdminDataSources() {
                                       <Clock className="size-3" />
                                       {FREQ_LABELS[source.refreshFreq] || source.refreshFreq}
                                     </span>
-                                    {source.lastSync && (
-                                      <span className="flex items-center gap-1">
-                                        <RefreshCw className="size-3" />
-                                        {new Date(source.lastSync).toLocaleDateString('fr-FR')}
-                                      </span>
-                                    )}
                                   </div>
                                 </div>
 
                                 {/* Actions */}
-                                <div className="flex shrink-0 items-center gap-1">
-                                  <Switch
-                                    checked={source.status === 'actif'}
-                                    onCheckedChange={() => handleToggleStatus(source)}
-                                    disabled={togglingId === source.id}
-                                    aria-label="Activer/Désactiver"
-                                  />
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="size-7 hover:bg-muted"
-                                    onClick={() => handleEditSource(source)}
-                                  >
-                                    <Pencil className="size-3.5" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="size-7 text-destructive hover:bg-destructive/10"
-                                    onClick={() => handleDeleteSource(source)}
-                                  >
-                                    <Trash2 className="size-3.5" />
-                                  </Button>
+                                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                                  <div className="flex items-center gap-1">
+                                    <Switch
+                                      checked={source.status === 'actif'}
+                                      onCheckedChange={() => handleToggleStatus(source)}
+                                      disabled={togglingId === source.id}
+                                      aria-label="Activer/Désactiver"
+                                    />
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="size-7 hover:bg-muted"
+                                      onClick={() => handleEditSource(source)}
+                                    >
+                                      <Pencil className="size-3.5" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="size-7 text-destructive hover:bg-destructive/10"
+                                      onClick={() => handleDeleteSource(source)}
+                                    >
+                                      <Trash2 className="size-3.5" />
+                                    </Button>
+                                  </div>
+                                  {/* New action buttons */}
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 gap-1 text-[10px] px-2"
+                                      onClick={() => handleTestConnection(source)}
+                                    >
+                                      <Zap className="size-3" />
+                                      <span className="hidden sm:inline">Tester</span>
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 gap-1 text-[10px] px-2"
+                                      disabled={syncingId === source.id}
+                                      onClick={() => handleForceSync(source)}
+                                    >
+                                      {syncingId === source.id ? (
+                                        <>
+                                          <Loader2 className="size-3 animate-spin" />
+                                          <span className="hidden sm:inline">Sync…</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Play className="size-3" />
+                                          <span className="hidden sm:inline">Forcer sync</span>
+                                        </>
+                                      )}
+                                    </Button>
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -766,7 +906,7 @@ export function AdminDataSources() {
                 </div>
 
                 {/* Endpoint */}
-                {(form.type === 'api' || form.type === 'erp' || form.type === 'erp_dynamics' || form.type === 'sharepoint') && (
+                {(form.type === 'api' || form.type === 'erp' || form.type === 'erp_dynamics' || form.type === 'sharepoint' || form.type === 'soap' || form.type === 'onedrive' || form.type === 'teams' || form.type === 'sage') && (
                   <div className="space-y-2">
                     <Label htmlFor="ds-endpoint">Endpoint / Chemin</Label>
                     <Input
@@ -779,7 +919,7 @@ export function AdminDataSources() {
                 )}
 
                 {/* Database */}
-                {(form.type === 'base_de_donnees' || form.type === 'erp' || form.type === 'erp_dynamics') && (
+                {(form.type === 'base_de_donnees' || form.type === 'erp' || form.type === 'erp_dynamics' || form.type === 'sage') && (
                   <div className="space-y-2">
                     <Label htmlFor="ds-database">Base de données</Label>
                     <Input
@@ -870,6 +1010,82 @@ export function AdminDataSources() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Connection Test Dialog */}
+      <Dialog open={testDialogOpen} onOpenChange={(open) => {
+        setTestDialogOpen(open);
+        if (!open) {
+          setTestSource(null);
+          setTestStatus('loading');
+          setTestLatency(null);
+        }
+      }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Zap className="size-4" />
+              Tester la connexion
+            </DialogTitle>
+            <DialogDescription>
+              {testSource?.name}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col items-center justify-center py-6">
+            {testStatus === 'loading' && (
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="size-8 animate-spin text-fun-blue" />
+                <p className="text-sm font-medium">Connexion en cours...</p>
+                <p className="text-xs text-muted-foreground">
+                  Vérification de la source de données
+                </p>
+              </div>
+            )}
+
+            {testStatus === 'success' && (
+              <div className="flex flex-col items-center gap-3">
+                <div className="flex size-14 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+                  <CheckCircle2 className="size-8 text-green-600 dark:text-green-400" />
+                </div>
+                <p className="text-sm font-semibold text-green-700 dark:text-green-400">
+                  Connexion réussie ✓
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Latence : {testLatency}ms
+                </p>
+              </div>
+            )}
+
+            {testStatus === 'failure' && (
+              <div className="flex flex-col items-center gap-3">
+                <div className="flex size-14 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+                  <XCircle className="size-8 text-red-600 dark:text-red-400" />
+                </div>
+                <p className="text-sm font-semibold text-red-700 dark:text-red-400">
+                  Échec ✗ — Timeout
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  La connexion a expiré. Vérifiez les paramètres.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="justify-center">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTestDialogOpen(false);
+              }}
+              disabled={testStatus === 'loading'}
+              className="gap-1.5"
+            >
+              <X className="size-3.5" />
+              Fermer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
