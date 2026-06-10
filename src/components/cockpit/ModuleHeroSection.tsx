@@ -1,12 +1,31 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
@@ -33,6 +52,8 @@ import {
   TrendingDown,
   Minus,
   Target,
+  GripVertical,
+  RotateCcw,
 } from 'lucide-react';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -180,9 +201,9 @@ function computeStatus(
   }
 }
 
-// ─── Hero Card ──────────────────────────────────────────────────────────────
+// ─── Sortable Hero Card ──────────────────────────────────────────────────────
 
-function HeroCard({
+function SortableHeroCard({
   indicator,
   accentColor,
   accentLight,
@@ -191,6 +212,22 @@ function HeroCard({
   accentColor: string;
   accentLight: string;
 }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: indicator.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+    position: 'relative' as const,
+  };
+
   const value = getLatestValue(indicator);
   const prev = getPreviousValue(indicator);
   const status = computeStatus(value, indicator.targetValue, indicator.unit);
@@ -215,98 +252,257 @@ function HeroCard({
       : null;
 
   return (
-    <Card className="relative overflow-hidden border-l-4 hover:shadow-md transition-shadow" style={{ borderLeftColor: accentColor }}>
-      {/* Background accent */}
-      <div
-        className="absolute top-0 right-0 w-24 h-24 rounded-full opacity-[0.06] -translate-y-8 translate-x-8"
-        style={{ backgroundColor: accentColor }}
-      />
+    <div ref={setNodeRef} style={style} className={cn(isDragging && 'opacity-40')}>
+      <Card className="relative overflow-hidden border-l-4 hover:shadow-md transition-shadow" style={{ borderLeftColor: accentColor }}>
+        {/* Background accent */}
+        <div
+          className="absolute top-0 right-0 w-24 h-24 rounded-full opacity-[0.06] -translate-y-8 translate-x-8"
+          style={{ backgroundColor: accentColor }}
+        />
 
-      <CardContent className="p-4 relative">
-        {/* Indicator code + name */}
-        <div className="flex items-start justify-between mb-2">
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
-              {indicator.code}
-            </p>
-            <p className="text-xs font-medium text-foreground leading-tight mt-0.5 truncate">
-              {indicator.name}
-            </p>
-          </div>
-          {/* Trend */}
-          {trend && trendPct && (
-            <div
-              className={cn(
-                'flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold shrink-0',
-                trend === 'up' && !isLowerBetter(indicator.unit)
-                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
-                  : trend === 'down' && isLowerBetter(indicator.unit)
-                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
-                    : trend === 'up'
-                      ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
-                      : trend === 'down'
-                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
-                        : 'bg-gray-100 text-gray-600',
-              )}
-            >
-              {trend === 'up' ? (
-                <TrendingUp className="size-3" />
-              ) : trend === 'down' ? (
-                <TrendingDown className="size-3" />
-              ) : (
-                <Minus className="size-3" />
-              )}
-              {trendPct}%
+        <CardContent className="p-4 relative">
+          {/* Drag handle + Indicator code + name */}
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex items-start gap-1.5 min-w-0 flex-1">
+              <button
+                {...attributes}
+                {...listeners}
+                className="cursor-grab active:cursor-grabbing p-0.5 rounded-md hover:bg-muted/50 mt-0.5 shrink-0 touch-none"
+                aria-label={`Réordonner ${indicator.name}`}
+              >
+                <GripVertical className="size-3.5 text-muted-foreground/40 hover:text-muted-foreground transition-colors" />
+              </button>
+              <div className="min-w-0">
+                <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
+                  {indicator.code}
+                </p>
+                <p className="text-xs font-medium text-foreground leading-tight mt-0.5 truncate">
+                  {indicator.name}
+                </p>
+              </div>
             </div>
-          )}
-        </div>
-
-        {/* Value */}
-        <div className="flex items-baseline gap-1.5 mb-2">
-          <span className="text-2xl font-bold tracking-tight" style={{ color: accentColor }}>
-            {formatValue(value, indicator.unit)}
-          </span>
-          <span className="text-xs text-muted-foreground">{indicator.unit}</span>
-        </div>
-
-        {/* Progress toward target */}
-        {progressPercent !== null && (
-          <div className="space-y-1">
-            <div className="flex items-center justify-between text-[10px]">
-              <span className="text-muted-foreground flex items-center gap-0.5">
-                <Target className="size-2.5" />
-                Cible: {formatValue(indicator.targetValue, indicator.unit)}
-              </span>
-              <span
+            {/* Trend */}
+            {trend && trendPct && (
+              <div
                 className={cn(
-                  'font-semibold',
-                  status === 'atteint' && 'text-emerald-600',
-                  status === 'partiel' && 'text-amber-600',
-                  status === 'non_atteint' && 'text-red-600',
+                  'flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold shrink-0',
+                  trend === 'up' && !isLowerBetter(indicator.unit)
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
+                    : trend === 'down' && isLowerBetter(indicator.unit)
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
+                      : trend === 'up'
+                        ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
+                        : trend === 'down'
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
+                          : 'bg-gray-100 text-gray-600',
                 )}
               >
-                {Math.round(progressPercent)}%
-              </span>
-            </div>
-            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-700"
-                style={{
-                  width: `${progressPercent}%`,
-                  backgroundColor:
-                    status === 'atteint' ? '#22c55e' : status === 'partiel' ? '#f59e0b' : '#ef4444',
-                }}
-              />
-            </div>
+                {trend === 'up' ? (
+                  <TrendingUp className="size-3" />
+                ) : trend === 'down' ? (
+                  <TrendingDown className="size-3" />
+                ) : (
+                  <Minus className="size-3" />
+                )}
+                {trendPct}%
+              </div>
+            )}
           </div>
-        )}
 
-        {/* No target case */}
-        {progressPercent === null && value != null && (
-          <p className="text-[10px] text-muted-foreground italic">Pas de cible définie</p>
+          {/* Value */}
+          <div className="flex items-baseline gap-1.5 mb-2">
+            <span className="text-2xl font-bold tracking-tight" style={{ color: accentColor }}>
+              {formatValue(value, indicator.unit)}
+            </span>
+            <span className="text-xs text-muted-foreground">{indicator.unit}</span>
+          </div>
+
+          {/* Progress toward target */}
+          {progressPercent !== null && (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-muted-foreground flex items-center gap-0.5">
+                  <Target className="size-2.5" />
+                  Cible: {formatValue(indicator.targetValue, indicator.unit)}
+                </span>
+                <span
+                  className={cn(
+                    'font-semibold',
+                    status === 'atteint' && 'text-emerald-600',
+                    status === 'partiel' && 'text-amber-600',
+                    status === 'non_atteint' && 'text-red-600',
+                  )}
+                >
+                  {Math.round(progressPercent)}%
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{
+                    width: `${progressPercent}%`,
+                    backgroundColor:
+                      status === 'atteint' ? '#22c55e' : status === 'partiel' ? '#f59e0b' : '#ef4444',
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* No target case */}
+          {progressPercent === null && value != null && (
+            <p className="text-[10px] text-muted-foreground italic">Pas de cible définie</p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Drag Overlay for Hero Card ──────────────────────────────────────────────
+
+function HeroCardOverlay({
+  indicator,
+  accentColor,
+}: {
+  indicator: Indicator;
+  accentColor: string;
+}) {
+  const value = getLatestValue(indicator);
+  return (
+    <div className="rounded-lg border-2 bg-card p-4 shadow-xl opacity-90 w-[250px]" style={{ borderColor: accentColor }}>
+      <div className="flex items-center gap-2">
+        <GripVertical className="size-4 text-muted-foreground" />
+        <span className="font-mono text-[10px] text-muted-foreground">{indicator.code}</span>
+        <span className="text-sm font-medium flex-1 truncate">{indicator.name}</span>
+        <span className="text-lg font-bold" style={{ color: accentColor }}>
+          {formatValue(value, indicator.unit)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Draggable Hero Cards Grid ───────────────────────────────────────────────
+
+function DraggableHeroCards({
+  indicators,
+  accentColor,
+  accentLight,
+  domain,
+}: {
+  indicators: Indicator[];
+  accentColor: string;
+  accentLight: string;
+  domain: string;
+}) {
+  const { cardOrder, setCardOrder, resetCardOrder } = useAppStore();
+  const orderKey = `${domain}__hero`;
+  const savedOrder = cardOrder[orderKey];
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const orderedIndicators = useMemo(() => {
+    if (!savedOrder || savedOrder.length === 0) return indicators;
+    const orderMap = new Map(savedOrder.map((id, idx) => [id, idx]));
+    return [...indicators].sort((a, b) => {
+      const aIdx = orderMap.get(a.id) ?? Infinity;
+      const bIdx = orderMap.get(b.id) ?? Infinity;
+      return aIdx - bIdx;
+    });
+  }, [indicators, savedOrder]);
+
+  const itemIds = useMemo(
+    () => orderedIndicators.map((i) => i.id),
+    [orderedIndicators],
+  );
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  const activeIndicator = useMemo(
+    () => (activeId ? indicators.find((i) => i.id === activeId) : null),
+    [activeId, indicators],
+  );
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveId(String(event.active.id));
+  }, []);
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      setActiveId(null);
+      const { active, over } = event;
+      if (over && active.id !== over.id) {
+        const oldIndex = orderedIndicators.findIndex((i) => i.id === active.id);
+        const newIndex = orderedIndicators.findIndex((i) => i.id === over.id);
+        if (oldIndex !== -1 && newIndex !== -1) {
+          const newOrder = arrayMove(orderedIndicators, oldIndex, newIndex).map(
+            (i) => i.id,
+          );
+          setCardOrder(orderKey, newOrder);
+        }
+      }
+    },
+    [orderedIndicators, orderKey, setCardOrder],
+  );
+
+  const handleDragCancel = useCallback(() => {
+    setActiveId(null);
+  }, []);
+
+  const hasCustomOrder = savedOrder && savedOrder.length > 0;
+
+  return (
+    <div>
+      {/* Header with reset button */}
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs text-muted-foreground">
+          Indicateurs clés &middot; <span className="opacity-60">Glisser pour réordonner</span>
+        </p>
+        {hasCustomOrder && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 gap-1 text-[10px] text-muted-foreground hover:text-foreground px-2"
+            onClick={() => resetCardOrder(orderKey)}
+          >
+            <RotateCcw className="size-2.5" />
+            Réinitialiser
+          </Button>
         )}
-      </CardContent>
-    </Card>
+      </div>
+
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
+      >
+        <SortableContext items={itemIds}>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {orderedIndicators.map((ind) => (
+              <SortableHeroCard
+                key={ind.id}
+                indicator={ind}
+                accentColor={accentColor}
+                accentLight={accentLight}
+              />
+            ))}
+          </div>
+        </SortableContext>
+
+        <DragOverlay dropAnimation={null}>
+          {activeIndicator ? (
+            <HeroCardOverlay indicator={activeIndicator} accentColor={accentColor} />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+    </div>
   );
 }
 
@@ -601,18 +797,14 @@ export function ModuleHeroSection({ domain }: ModuleHeroSectionProps) {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* ── Hero KPI Cards ── */}
+      {/* ── Hero KPI Cards (draggable) ── */}
       {heroIndicators.length > 0 && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {heroIndicators.map((ind) => (
-            <HeroCard
-              key={ind.id}
-              indicator={ind}
-              accentColor={config.color}
-              accentLight={config.colorLight}
-            />
-          ))}
-        </div>
+        <DraggableHeroCards
+          indicators={heroIndicators}
+          accentColor={config.color}
+          accentLight={config.colorLight}
+          domain={domain}
+        />
       )}
 
       {/* ── Charts Row ── */}

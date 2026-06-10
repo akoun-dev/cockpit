@@ -265,56 +265,66 @@ export function Header() {
       {!isAdmin && (
         <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 shrink-0">
           {/* Desktop inline filters (md+) */}
-          <div className="hidden md:flex items-center gap-1.5 lg:gap-2">
+          <div className="hidden md:flex items-end gap-1.5 lg:gap-2">
             {/* Year */}
-            <Select
-              value={String(filters.year)}
-              onValueChange={(v) => setFilters({ year: Number(v) })}
-            >
-              <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[68px]')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {YEARS.map((y) => (
-                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-[9px] font-medium text-white/70 leading-none">Année</span>
+              <Select
+                value={String(filters.year)}
+                onValueChange={(v) => setFilters({ year: Number(v) })}
+              >
+                <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[68px]')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {YEARS.map((y) => (
+                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Quarter */}
-            <Select
-              value={filters.quarter ? String(filters.quarter) : 'all'}
-              onValueChange={(v) => setFilters({ quarter: v === 'all' ? null : Number(v) })}
-            >
-              <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[56px]')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous</SelectItem>
-                {QUARTERS.map((q) => (
-                  <SelectItem key={q.value} value={q.value}>{q.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-[9px] font-medium text-white/70 leading-none">Trimestre</span>
+              <Select
+                value={filters.quarter ? String(filters.quarter) : 'all'}
+                onValueChange={(v) => setFilters({ quarter: v === 'all' ? null : Number(v) })}
+              >
+                <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[56px]')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous</SelectItem>
+                  {QUARTERS.map((q) => (
+                    <SelectItem key={q.value} value={q.value}>{q.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Month */}
-            <Select
-              value={filters.month ? String(filters.month) : 'all'}
-              onValueChange={(v) => setFilters({ month: v === 'all' ? null : Number(v) })}
-            >
-              <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[60px]')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous</SelectItem>
-                {MONTHS_FR.map((m) => (
-                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-[9px] font-medium text-white/70 leading-none">Mois</span>
+              <Select
+                value={filters.month ? String(filters.month) : 'all'}
+                onValueChange={(v) => setFilters({ month: v === 'all' ? null : Number(v) })}
+              >
+                <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[60px]')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous</SelectItem>
+                  {MONTHS_FR.map((m) => (
+                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Day — visible on lg+ */}
-            <div className="hidden lg:block">
+            <div className="hidden lg:flex flex-col items-center gap-0.5">
+              <span className="text-[9px] font-medium text-white/70 leading-none">Jour</span>
               <Select
                 value={filters.day ? String(filters.day) : 'all'}
                 onValueChange={(v) => setFilters({ day: v === 'all' ? null : Number(v) })}
@@ -332,13 +342,14 @@ export function Header() {
             </div>
 
             {/* Department — visible on xl+ */}
-            <div className="hidden xl:block">
+            <div className="hidden xl:flex flex-col items-center gap-0.5">
+              <span className="text-[9px] font-medium text-white/70 leading-none">Département</span>
               <Select
                 value={filters.departmentId || 'all'}
                 onValueChange={(v) => setFilters({ departmentId: v === 'all' ? null : v })}
               >
                 <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[175px]')}>
-                  <SelectValue placeholder="Département" />
+                  <SelectValue placeholder="Tous" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tous les départements</SelectItem>
@@ -349,7 +360,10 @@ export function Header() {
               </Select>
             </div>
 
-            <ExportDropdown />
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-[9px] font-medium text-white/70 leading-none">&nbsp;</span>
+              <ExportDropdown />
+            </div>
           </div>
 
           {/* ── Mobile filter sheet button ── */}

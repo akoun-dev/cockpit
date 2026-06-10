@@ -135,3 +135,30 @@ Stage Summary:
 - Visual distinction: tango star badge "Lot 1", row highlight, priority-first sorting
 - Files created: prisma/seed-priority.ts
 - Files modified: prisma/schema.prisma, KpiModuleView.tsx, AdminKPI.tsx, api/admin/indicators/[id]/route.ts
+
+---
+Task ID: 6
+Agent: Main
+Task: Add filter titles in header + drag-and-drop on Hero KPI cards
+
+Work Log:
+- Analyzed uploaded screenshot to understand missing filter titles in header
+- Added visible text labels (Année, Trimestre, Mois, Jour, Département) above each inline filter Select in Header.tsx
+- Wrapped each filter Select in flex-col div with centered 9px label text in white/70 opacity
+- Changed parent flex from items-center to items-end so labels align above selects
+- Wrapped ExportDropdown to align with other labeled filters
+- Replaced HeroCard with SortableHeroCard using @dnd-kit/sortable in ModuleHeroSection.tsx
+- Added GripVertical drag handle to each hero card
+- Created DraggableHeroCards wrapper with DndContext, SortableContext, DragOverlay
+- Added localStorage persistence via store.cardOrder with key `${domain}__hero`
+- Added "Réinitialiser" reset button when custom order exists
+- Added HeroCardOverlay for drag overlay visual feedback
+- Verified with VLM on desktop: filter labels visible, drag handles on cards, "Indicateurs clés · Glisser pour réordonner" text
+- Verified on mobile (iPhone 14): 2-col grid with drag handles, charts visible below
+
+Stage Summary:
+- Header.tsx: All 5 inline filter selects now have visible labels (Année, Trimestre, Mois, Jour, Département) on md+ breakpoints
+- ModuleHeroSection.tsx: 4 hero KPI cards are now draggable with grip handles, DnD overlay, localStorage persistence, and reset button
+- Both changes work on desktop and mobile viewports
+- ESLint clean, no compilation errors
+- Files modified: Header.tsx, ModuleHeroSection.tsx
