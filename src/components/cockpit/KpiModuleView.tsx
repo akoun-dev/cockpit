@@ -23,12 +23,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 import {
   BarChart3,
   CheckCircle2,
   AlertTriangle,
   XCircle,
   LayoutDashboard,
+  Star,
 } from 'lucide-react';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -50,6 +52,7 @@ interface Indicator {
   targetValue: number | null;
   alertValue: number | null;
   criticalValue: number | null;
+  isPriority: boolean;
   values: PeriodValue[];
 }
 
@@ -202,16 +205,28 @@ function StatusBadge({ status }: { status: StatusType }) {
 
 // ─── Mobile Card for indicator ──────────────────────────────────────────────
 
+function PriorityBadge() {
+  return (
+    <span className="inline-flex items-center gap-0.5 rounded-full bg-tango/15 text-tango px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wider">
+      <Star className="size-2.5 fill-tango text-tango" />
+      Lot 1
+    </span>
+  );
+}
+
 function IndicatorMobileCard({ ind }: { ind: Indicator }) {
   const value = getLatestValue(ind);
   const status = computeStatus(value, ind.targetValue, ind.unit);
   const ecart = computeEcart(value, ind.targetValue, ind.unit);
 
   return (
-    <Card className="p-4">
+    <Card className={cn('p-4', ind.isPriority && 'border-l-4 border-l-tango')}>
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-mono text-muted-foreground">{ind.code}</p>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="text-[10px] font-mono text-muted-foreground">{ind.code}</p>
+            {ind.isPriority && <PriorityBadge />}
+          </div>
           <p className="text-sm font-medium leading-tight mt-0.5">{ind.name}</p>
         </div>
         <StatusBadge status={status} />
@@ -369,6 +384,7 @@ function SubDomainContent({ indicators }: { indicators: Indicator[] }) {
             <TableRow>
               <TableHead className="w-[100px]">Code</TableHead>
               <TableHead>Indicateur</TableHead>
+              <TableHead className="w-[60px] text-center">Priorité</TableHead>
               <TableHead className="w-[80px] text-center">Unité</TableHead>
               <TableHead className="w-[100px] text-right">Cible</TableHead>
               <TableHead className="w-[100px] text-right">Valeur</TableHead>
@@ -383,12 +399,15 @@ function SubDomainContent({ indicators }: { indicators: Indicator[] }) {
               const ecart = computeEcart(value, ind.targetValue, ind.unit);
 
               return (
-                <TableRow key={ind.id}>
+                <TableRow key={ind.id} className={cn(ind.isPriority && 'bg-tango/[0.03]')}>
                   <TableCell className="font-mono text-xs text-muted-foreground">
                     {ind.code}
                   </TableCell>
                   <TableCell className="font-medium text-sm">
                     {ind.name}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {ind.isPriority ? <PriorityBadge /> : <span className="text-muted-foreground/30">—</span>}
                   </TableCell>
                   <TableCell className="text-center text-xs text-muted-foreground">
                     {ind.unit}
@@ -457,7 +476,7 @@ export function KpiModuleView({ domain, year }: KpiModuleViewProps) {
     };
   }, [domain, year]);
 
-  // ── Group by sub-domain ──
+  // ── Group by sub-domain (priority KPIs first within each group) ──
   const subDomains = useMemo(() => {
     const map = new Map<string, Indicator[]>();
     indicators.forEach((ind) => {
@@ -465,6 +484,13 @@ export function KpiModuleView({ domain, year }: KpiModuleViewProps) {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(ind);
     });
+    // Sort: priority first, then by order
+    for (const arr of map.values()) {
+      arr.sort((a, b) => {
+        if (a.isPriority !== b.isPriority) return a.isPriority ? -1 : 1;
+        return a.order - b.order;
+      });
+    }
     return map;
   }, [indicators]);
 
@@ -475,8 +501,10 @@ export function KpiModuleView({ domain, year }: KpiModuleViewProps) {
     let atteint = 0;
     let partiel = 0;
     let non_atteint = 0;
+    let priority = 0;
 
     indicators.forEach((ind) => {
+      if (ind.isPriority) priority++;
       const value = getLatestValue(ind);
       const status = computeStatus(value, ind.targetValue, ind.unit);
       if (status === 'atteint') atteint++;
@@ -489,6 +517,7 @@ export function KpiModuleView({ domain, year }: KpiModuleViewProps) {
       atteint,
       partiel,
       non_atteint,
+      priority,
     };
   }, [indicators]);
 
@@ -526,13 +555,13 @@ export function KpiModuleView({ domain, year }: KpiModuleViewProps) {
             {DOMAIN_LABELS[domain] || domain}
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {summaryStats.total} indicateurs &middot; Année {year}
+            {summaryStats.total} indicateurs &middot; <span className="text-tango font-medium">{summaryStats.priority} Lot 1</span> &middot; Année {year}
           </p>
         </div>
       </div>
 
       {/* ── Summary KPI Cards ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         <SummaryCard
           label="Total KPI"
           value={summaryStats.total}
@@ -540,6 +569,14 @@ export function KpiModuleView({ domain, year }: KpiModuleViewProps) {
           colorClass="text-fun-blue"
           bgColorClass="bg-fun-blue/10"
           borderClass="border-l-fun-blue"
+        />
+        <SummaryCard
+          label="KPI Lot 1 (DG)"
+          value={summaryStats.priority}
+          icon={<Star className="size-5 text-tango fill-tango" />}
+          colorClass="text-tango"
+          bgColorClass="bg-tango/10"
+          borderClass="border-l-tango"
         />
         <SummaryCard
           label="KPI Atteint"
@@ -579,7 +616,7 @@ export function KpiModuleView({ domain, year }: KpiModuleViewProps) {
               >
                 {SUB_DOMAIN_LABELS[key] || key.replace(/_/g, ' ')}
                 <span className="ml-1.5 text-[10px] opacity-70">
-                  ({subDomains.get(key)!.length})
+                  ({subDomains.get(key)!.filter(i => i.isPriority).length}/{subDomains.get(key)!.length})
                 </span>
               </TabsTrigger>
             ))}

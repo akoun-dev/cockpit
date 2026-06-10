@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   AlertCircle,
   Hash,
+  Star,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -132,6 +133,7 @@ interface IndicatorEntry {
   department?: Department | null;
   order: number;
   isActive: boolean;
+  isPriority: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -245,13 +247,14 @@ export function AdminKPI() {
     const total = indicators.length;
     const actifs = indicators.filter((i) => i.isActive).length;
     const inactifs = total - actifs;
+    const prioritaires = indicators.filter((i) => i.isPriority).length;
 
     const byDomain: Record<string, number> = {};
     for (const ind of indicators) {
       byDomain[ind.domain] = (byDomain[ind.domain] || 0) + 1;
     }
 
-    return { total, actifs, inactifs, byDomain };
+    return { total, actifs, inactifs, prioritaires, byDomain };
   }, [indicators]);
 
   // --- Handlers ---
@@ -408,7 +411,7 @@ export function AdminKPI() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -418,6 +421,19 @@ export function AdminKPI() {
               <div>
                 <p className="text-xs font-medium text-muted-foreground">Total KPI</p>
                 <p className="text-xl font-bold text-fun-blue">{stats.total}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-tango/10">
+                <Star className="size-4 text-tango fill-tango" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Lot 1 (DG)</p>
+                <p className="text-xl font-bold text-tango">{stats.prioritaires}</p>
               </div>
             </div>
           </CardContent>
@@ -559,6 +575,7 @@ export function AdminKPI() {
                         <TableHead className="w-28">Fréquence</TableHead>
                         <TableHead className="w-28">Source</TableHead>
                         <TableHead className="w-20">Statut</TableHead>
+                        <TableHead className="w-16 text-center">Lot 1</TableHead>
                         <TableHead className="w-28 text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -567,7 +584,8 @@ export function AdminKPI() {
                         <TableRow
                           key={indicator.id}
                           className={cn(
-                            !indicator.isActive && 'opacity-50'
+                            !indicator.isActive && 'opacity-50',
+                            indicator.isPriority && 'bg-tango/[0.03]'
                           )}
                         >
                           <TableCell className="font-mono text-xs font-semibold">
@@ -613,6 +631,14 @@ export function AdminKPI() {
                               aria-label="Activer/Désactiver"
                             />
                           </TableCell>
+                          <TableCell className="text-center">
+                            {indicator.isPriority && (
+                              <Badge className="bg-tango/15 text-tango border-0 text-[9px] px-1.5 py-0 gap-0.5">
+                                <Star className="size-2.5 fill-tango" />
+                                Oui
+                              </Badge>
+                            )}
+                          </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
                               <Button
@@ -645,7 +671,7 @@ export function AdminKPI() {
           {/* Mobile card view */}
           <div className="flex flex-col gap-3 md:hidden">
             {indicators.map((indicator) => (
-              <Card key={indicator.id} className={!indicator.isActive ? 'opacity-50' : ''}>
+              <Card key={indicator.id} className={cn(!indicator.isActive ? 'opacity-50' : '', indicator.isPriority && 'border-l-4 border-l-tango')}>
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
@@ -653,6 +679,12 @@ export function AdminKPI() {
                         <span className="font-mono text-xs font-semibold text-muted-foreground">
                           {indicator.code}
                         </span>
+                        {indicator.isPriority && (
+                          <Badge className="bg-tango/15 text-tango border-0 text-[9px] px-1.5 py-0 gap-0.5">
+                            <Star className="size-2.5 fill-tango" />
+                            Lot 1
+                          </Badge>
+                        )}
                         <Badge
                           variant="secondary"
                           className={cn('text-[10px] px-1.5 py-0', DOMAIN_BADGE_COLORS[indicator.domain] || '')}

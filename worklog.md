@@ -96,3 +96,42 @@ Work Log:
 Stage Summary:
 - AdminKPI domain filter now works correctly for all 6 domains
 - Files modified: src/components/admin/AdminKPI.tsx (4 string replacements)
+
+---
+Task ID: 5
+Agent: Main
+Task: Marquer 43 KPIs Lot 1 (DG) comme prioritaires et les afficher sur les vues modules
+
+Work Log:
+- Added `isPriority Boolean @default(false)` to Indicator model in Prisma schema
+- Ran `db:push` to sync schema and regenerate Prisma Client
+- Created `prisma/seed-priority.ts` with 43 Lot 1 KPI codes from KPMG document:
+  - Gouvernance: 13 (GOV-001 to GOV-019 subset)
+  - Finance: 11 (all except FIN-003)
+  - Opérationnel: 6 (OP-001, OP-003 to OP-006, OP-008)
+  - RH: 5 (RH-006, RH-007, RH-008, RH-011, RH-012)
+  - Risque: 8 (RIS-002 to RIS-012 subset)
+  - PTA: 0 (none in Lot 1)
+- Ran seed: all 43/43 found and updated, 0 not found
+- Updated KpiModuleView.tsx:
+  - Added `isPriority` to Indicator interface
+  - Created `PriorityBadge` component (★ Lot 1 in tango color)
+  - Added "Priorité" column to desktop table
+  - Priority KPIs get: border-l-tango (mobile card), bg-tango/[0.03] highlight (desktop row), PriorityBadge in priority column
+  - Indicators sorted: priority first within each sub-domain
+  - Tab labels show "X/Y" priority count (e.g., "Reporting réglementaire (8/9)")
+  - Added 5th summary card "KPI Lot 1 (DG)" with Star icon
+  - Header subtitle shows "X Lot 1" in tango color
+- Updated AdminKPI.tsx:
+  - Added Star import, `isPriority` to IndicatorEntry interface
+  - Added 5th stat card "Lot 1 (DG)" showing priority count
+  - Added "Lot 1" column to desktop table with tango badge
+  - Mobile cards: border-l-tango for priority, Lot 1 badge next to code
+- Updated API `/api/admin/indicators/[id]` PUT handler to accept `isPriority`
+- Verified via Agent Browser: Gouvernance module shows correct counts (8/9, 1/5, 1/2, 3/3) and LOT 1 badges
+
+Stage Summary:
+- 43 KPIs Lot 1 marked as priority across 5 domains (PTA has none)
+- Visual distinction: tango star badge "Lot 1", row highlight, priority-first sorting
+- Files created: prisma/seed-priority.ts
+- Files modified: prisma/schema.prisma, KpiModuleView.tsx, AdminKPI.tsx, api/admin/indicators/[id]/route.ts

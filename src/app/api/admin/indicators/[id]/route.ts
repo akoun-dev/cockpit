@@ -55,6 +55,7 @@ export async function PUT(
       sourceSystem,
       departmentId,
       isActive,
+      isPriority,
       order,
     } = body
 
@@ -86,6 +87,7 @@ export async function PUT(
         ...(sourceSystem !== undefined ? { sourceSystem } : {}),
         ...(departmentId !== undefined ? { departmentId: departmentId || null } : {}),
         ...(isActive !== undefined ? { isActive } : {}),
+        ...(isPriority !== undefined ? { isPriority } : {}),
         ...(order !== undefined ? { order } : {}),
       },
       include: {
