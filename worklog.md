@@ -49,3 +49,32 @@ Stage Summary:
 - All accounts use password "ansut2025"
 - Files created: prisma/seed-actors.ts
 - Files modified: src/components/admin/AdminUsers.tsx (data mapping fix)
+
+---
+Task ID: 3
+Agent: Main
+Task: Configurer les 116 KPI du cahier des charges ANSUT par module et sous-module
+
+Work Log:
+- Analyzed existing indicator structure: 38 old indicators with mismatched subDomains
+- Created comprehensive seed script `prisma/seed-kpi.ts` with all 116 KPIs from the ANSUT cahier des charges
+- Each KPI includes: code, name, domain, subDomain, unit, targetValue, alertValue, criticalValue, description, frequency
+- Generated 1,392 monthly sample values for 2025 (Q1-Q4) with realistic variations
+- Deleted old indicators (38) and values (684), replaced with new structure
+- Created generic `KpiModuleView` component (600+ lines) with:
+  - 4 summary KPI cards (Total, Atteint, Partiel, Non atteint)
+  - Sub-domain tabs auto-generated from data
+  - Responsive data table (desktop) / card layout (mobile)
+  - Status logic: lower-is-better (jours, nb, h, ratio) vs higher-is-better (%, Mds FCFA)
+  - Écart column with color coding
+- Replaced all 6 module components with thin wrappers using KpiModuleView
+- Fixed API `/api/indicators/domain` year parsing for undefined values
+- Verified all 6 modules in browser with correct tab counts and KPI display
+
+Stage Summary:
+- 116 KPIs seeded across 6 modules, 24 sous-modules
+- Module breakdown: Gouvernance (19), Finance (12), Opérationnel (46), RH (12), Risque (14), PTA (13)
+- All modules display tabs per sous-module with KPI tables
+- Dashboard Accueil shows "116 indicateurs" with correct domain counts
+- Files created: prisma/seed-kpi.ts, src/components/cockpit/KpiModuleView.tsx
+- Files modified: 6 module wrappers (Governance, Finance, Operational, RH, Risque, PTA), api/indicators/domain/route.ts
