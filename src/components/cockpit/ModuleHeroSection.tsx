@@ -732,7 +732,8 @@ export function ModuleHeroSection({ domain }: ModuleHeroSectionProps) {
     const params = new URLSearchParams({ domain, year: String(filters.year || 2025) });
     if (filters.quarter) params.set('quarter', String(filters.quarter));
     if (filters.month) params.set('month', String(filters.month));
-    if (filters.period) params.set('period', filters.period);
+    if (filters.periodStart) params.set('periodStart', filters.periodStart);
+    if (filters.periodEnd) params.set('periodEnd', filters.periodEnd);
 
     fetch(`/api/indicators/domain?${params}`)
       .then((res) => res.json())
@@ -750,7 +751,7 @@ export function ModuleHeroSection({ domain }: ModuleHeroSectionProps) {
       });
 
     return () => { cancelled = true; };
-  }, [domain, filters.year, filters.quarter, filters.month, filters.period]);
+  }, [domain, filters.year, filters.quarter, filters.month, filters.periodStart, filters.periodEnd]);
 
   const config = DOMAIN_CONFIG[domain] || {
     heroCodes: [],

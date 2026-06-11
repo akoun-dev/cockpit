@@ -601,7 +601,8 @@ export function KpiModuleView({ domain }: KpiModuleViewProps) {
     const params = new URLSearchParams({ domain, year: String(filters.year || 2025) });
     if (filters.quarter) params.set('quarter', String(filters.quarter));
     if (filters.month) params.set('month', String(filters.month));
-    if (filters.period) params.set('period', filters.period);
+    if (filters.periodStart) params.set('periodStart', filters.periodStart);
+    if (filters.periodEnd) params.set('periodEnd', filters.periodEnd);
 
     fetch(`/api/indicators/domain?${params}`)
       .then((res) => res.json())
@@ -621,7 +622,7 @@ export function KpiModuleView({ domain }: KpiModuleViewProps) {
     return () => {
       cancelled = true;
     };
-  }, [domain, filters.year, filters.quarter, filters.month, filters.period]);
+  }, [domain, filters.year, filters.quarter, filters.month, filters.periodStart, filters.periodEnd]);
 
   // ── Group by sub-domain (priority KPIs first within each group) ──
   const subDomains = useMemo(() => {

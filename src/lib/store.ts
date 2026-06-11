@@ -23,7 +23,8 @@ export interface FilterState {
   year: number;
   quarter: number | null;
   month: number | null;
-  period: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
   departmentId: string | null;
 }
 
@@ -51,7 +52,8 @@ const initialState: FilterState = {
   year: 2025,
   quarter: 2,
   month: null,
-  period: null,
+  periodStart: null,
+  periodEnd: null,
   departmentId: null,
 };
 

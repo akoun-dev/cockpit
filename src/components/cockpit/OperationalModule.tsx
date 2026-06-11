@@ -6,7 +6,7 @@ import { KpiModuleView } from './KpiModuleView';
 
 export function OperationalModule() {
   const { filters } = useAppStore();
-  const key = `${filters.year}-${filters.quarter}-${filters.month}-${filters.period}`;
+  const key = `${filters.year}-${filters.quarter}-${filters.month}-${filters.periodStart}-${filters.periodEnd}`;
   return (
     <div key={key} className="space-y-6">
       <ModuleHeroSection domain="operational" />

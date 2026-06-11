@@ -24,6 +24,11 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -34,8 +39,7 @@ import {
   Sun,
   SlidersHorizontal,
   X,
-  Calendar,
-  Hash,
+  Calendar as CalendarIcon,
   Building2,
 } from 'lucide-react';
 import { useAppStore, type AppViewKey } from '@/lib/store';
@@ -79,11 +83,11 @@ const MONTHS_FR = [
   { value: '12', label: 'Déc', full: 'Décembre' },
 ];
 
-const PERIODS = [
-  { value: 'all', label: 'Tous', full: 'Toutes les périodes' },
-  { value: 'S1', label: 'S1', full: '1er Semestre (Jan–Jun)' },
-  { value: 'S2', label: 'S2', full: '2ème Semestre (Jul–Déc)' },
-];
+function formatDateShort(dateStr: string | null): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+}
 
 interface Department {
   id: string;
@@ -172,11 +176,12 @@ function ActiveFilterBadges() {
       onClear: () => setFilters({ month: null }),
     });
   }
-  if (filters.period) {
-    const p = PERIODS.find((p) => p.value === filters.period);
+  if (filters.periodStart || filters.periodEnd) {
+    const from = formatDateShort(filters.periodStart);
+    const to = formatDateShort(filters.periodEnd);
     badges.push({
-      label: p?.label || filters.period,
-      onClear: () => setFilters({ period: null }),
+      label: from && to ? `${from} → ${to}` : from || to,
+      onClear: () => setFilters({ periodStart: null, periodEnd: null }),
     });
   }
   if (filters.departmentId) {
@@ -236,7 +241,7 @@ export function Header() {
   const activeFilterCount = [
     filters.quarter,
     filters.month,
-    filters.period,
+    filters.periodStart || filters.periodEnd,
     filters.departmentId,
   ].filter(Boolean).length;
 
@@ -317,19 +322,61 @@ export function Header() {
 
             {/* Period — visible on lg+ */}
             <div className="hidden lg:block">
-              <Select
-                value={filters.period || 'all'}
-                onValueChange={(v) => setFilters({ period: v === 'all' ? null : v })}
-              >
-                <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[76px]')}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PERIODS.map((p) => (
-                    <SelectItem key={p.value} value={p.value}>{p.full}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    className={cn(
+                      HEADER_SELECT,
+                      'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs whitespace-nowrap cursor-pointer',
+                      (filters.periodStart || filters.periodEnd) && 'bg-white/20',
+                    )}
+                  >
+                    <CalendarIcon className="size-3.5 shrink-0" />
+                    {filters.periodStart && filters.periodEnd
+                      ? <span>{formatDateShort(filters.periodStart)} → {formatDateShort(filters.periodEnd)}</span>
+                      : filters.periodStart
+                        ? <span>Depuis {formatDateShort(filters.periodStart)}</span>
+                        : filters.periodEnd
+                          ? <span>Jusqu'au {formatDateShort(filters.periodEnd)}</span>
+                          : <span className="opacity-70">Période</span>
+                    }
+                    {(filters.periodStart || filters.periodEnd) && (
+                      <X
+                        className="size-3 shrink-0 opacity-60 hover:opacity-100"
+                        onClick={(e) => { e.stopPropagation(); setFilters({ periodStart: null, periodEnd: null }); }}
+                      />
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-3" align="end">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <CalendarIcon className="size-4 text-fun-blue" />
+                      Période personnalisée
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Date début</Label>
+                        <input
+                          type="date"
+                          value={filters.periodStart || ''}
+                          onChange={(e) => setFilters({ periodStart: e.target.value || null })}
+                          className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Date fin</Label>
+                        <input
+                          type="date"
+                          value={filters.periodEnd || ''}
+                          onChange={(e) => setFilters({ periodEnd: e.target.value || null })}
+                          className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Department — visible on xl+ */}
@@ -397,7 +444,7 @@ export function Header() {
                   <div className="grid grid-cols-3 gap-3">
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium flex items-center gap-1.5">
-                        <Calendar className="size-3" />
+                        <CalendarIcon className="size-3" />
                         Année
                       </Label>
                       <Select
@@ -466,26 +513,25 @@ export function Header() {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium flex items-center gap-1.5">
-                        <Hash className="size-3" />
+                        <CalendarIcon className="size-3" />
                         Période
                       </Label>
-                      <Select
-                        value={filters.period || 'all'}
-                        onValueChange={(v) =>
-                          setFilters({ period: v === 'all' ? null : v })
-                        }
-                      >
-                        <SelectTrigger size="sm" className="h-9 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PERIODS.map((p) => (
-                            <SelectItem key={p.value} value={p.value}>
-                              {p.full}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex flex-col gap-1.5">
+                        <input
+                          type="date"
+                          value={filters.periodStart || ''}
+                          onChange={(e) => setFilters({ periodStart: e.target.value || null })}
+                          placeholder="Début"
+                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        />
+                        <input
+                          type="date"
+                          value={filters.periodEnd || ''}
+                          onChange={(e) => setFilters({ periodEnd: e.target.value || null })}
+                          placeholder="Fin"
+                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        />
+                      </div>
                     </div>
 
                     <div className="space-y-1.5">
@@ -584,26 +630,25 @@ export function Header() {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium flex items-center gap-1.5">
-                        <Hash className="size-3" />
+                        <CalendarIcon className="size-3" />
                         Période
                       </Label>
-                      <Select
-                        value={filters.period || 'all'}
-                        onValueChange={(v) =>
-                          setFilters({ period: v === 'all' ? null : v })
-                        }
-                      >
-                        <SelectTrigger size="sm" className="h-9 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PERIODS.map((p) => (
-                            <SelectItem key={p.value} value={p.value}>
-                              {p.full}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex flex-col gap-1.5">
+                        <input
+                          type="date"
+                          value={filters.periodStart || ''}
+                          onChange={(e) => setFilters({ periodStart: e.target.value || null })}
+                          placeholder="Début"
+                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        />
+                        <input
+                          type="date"
+                          value={filters.periodEnd || ''}
+                          onChange={(e) => setFilters({ periodEnd: e.target.value || null })}
+                          placeholder="Fin"
+                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        />
+                      </div>
                     </div>
 
                     <div className="space-y-1.5">
