@@ -79,10 +79,11 @@ const MONTHS_FR = [
   { value: '12', label: 'Déc', full: 'Décembre' },
 ];
 
-const DAYS = Array.from({ length: 31 }, (_, i) => ({
-  value: String(i + 1),
-  label: String(i + 1),
-}));
+const PERIODS = [
+  { value: 'all', label: 'Tous', full: 'Toutes les périodes' },
+  { value: 'S1', label: 'S1', full: '1er Semestre (Jan–Jun)' },
+  { value: 'S2', label: 'S2', full: '2ème Semestre (Jul–Déc)' },
+];
 
 interface Department {
   id: string;
@@ -171,10 +172,11 @@ function ActiveFilterBadges() {
       onClear: () => setFilters({ month: null }),
     });
   }
-  if (filters.day) {
+  if (filters.period) {
+    const p = PERIODS.find((p) => p.value === filters.period);
     badges.push({
-      label: `J${filters.day}`,
-      onClear: () => setFilters({ day: null }),
+      label: p?.label || filters.period,
+      onClear: () => setFilters({ period: null }),
     });
   }
   if (filters.departmentId) {
@@ -234,7 +236,7 @@ export function Header() {
   const activeFilterCount = [
     filters.quarter,
     filters.month,
-    filters.day,
+    filters.period,
     filters.departmentId,
   ].filter(Boolean).length;
 
@@ -265,85 +267,73 @@ export function Header() {
       {!isAdmin && (
         <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 shrink-0">
           {/* Desktop inline filters (md+) */}
-          <div className="hidden md:flex items-end gap-1.5 lg:gap-2">
+          <div className="hidden md:flex items-center gap-1.5 lg:gap-2">
             {/* Year */}
-            <div className="flex flex-col items-center gap-0.5">
-              <span className="text-[9px] font-medium text-white/70 leading-none">Année</span>
-              <Select
-                value={String(filters.year)}
-                onValueChange={(v) => setFilters({ year: Number(v) })}
-              >
-                <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[82px]')}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {YEARS.map((y) => (
-                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Select
+              value={String(filters.year)}
+              onValueChange={(v) => setFilters({ year: Number(v) })}
+            >
+              <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[82px]')}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {YEARS.map((y) => (
+                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
             {/* Quarter */}
-            <div className="flex flex-col items-center gap-0.5">
-              <span className="text-[9px] font-medium text-white/70 leading-none">Trimestre</span>
+            <Select
+              value={filters.quarter ? String(filters.quarter) : 'all'}
+              onValueChange={(v) => setFilters({ quarter: v === 'all' ? null : Number(v) })}
+            >
+              <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[76px]')}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous</SelectItem>
+                {QUARTERS.map((q) => (
+                  <SelectItem key={q.value} value={q.value}>{q.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Month */}
+            <Select
+              value={filters.month ? String(filters.month) : 'all'}
+              onValueChange={(v) => setFilters({ month: v === 'all' ? null : Number(v) })}
+            >
+              <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[82px]')}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous</SelectItem>
+                {MONTHS_FR.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Period — visible on lg+ */}
+            <div className="hidden lg:block">
               <Select
-                value={filters.quarter ? String(filters.quarter) : 'all'}
-                onValueChange={(v) => setFilters({ quarter: v === 'all' ? null : Number(v) })}
+                value={filters.period || 'all'}
+                onValueChange={(v) => setFilters({ period: v === 'all' ? null : v })}
               >
                 <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[76px]')}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tous</SelectItem>
-                  {QUARTERS.map((q) => (
-                    <SelectItem key={q.value} value={q.value}>{q.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Month */}
-            <div className="flex flex-col items-center gap-0.5">
-              <span className="text-[9px] font-medium text-white/70 leading-none">Mois</span>
-              <Select
-                value={filters.month ? String(filters.month) : 'all'}
-                onValueChange={(v) => setFilters({ month: v === 'all' ? null : Number(v) })}
-              >
-                <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[82px]')}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous</SelectItem>
-                  {MONTHS_FR.map((m) => (
-                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Day — visible on lg+ */}
-            <div className="hidden lg:flex flex-col items-center gap-0.5">
-              <span className="text-[9px] font-medium text-white/70 leading-none">Jour</span>
-              <Select
-                value={filters.day ? String(filters.day) : 'all'}
-                onValueChange={(v) => setFilters({ day: v === 'all' ? null : Number(v) })}
-              >
-                <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[72px]')}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="max-h-64">
-                  <SelectItem value="all">Tous</SelectItem>
-                  {DAYS.map((d) => (
-                    <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                  {PERIODS.map((p) => (
+                    <SelectItem key={p.value} value={p.value}>{p.full}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
             {/* Department — visible on xl+ */}
-            <div className="hidden xl:flex flex-col items-center gap-0.5">
-              <span className="text-[9px] font-medium text-white/70 leading-none">Département</span>
+            <div className="hidden xl:block">
               <Select
                 value={filters.departmentId || 'all'}
                 onValueChange={(v) => setFilters({ departmentId: v === 'all' ? null : v })}
@@ -360,10 +350,7 @@ export function Header() {
               </Select>
             </div>
 
-            <div className="flex flex-col items-center gap-0.5">
-              <span className="text-[9px] font-medium text-white/70 leading-none">&nbsp;</span>
-              <ExportDropdown />
-            </div>
+            <ExportDropdown />
           </div>
 
           {/* ── Mobile filter sheet button ── */}
@@ -475,27 +462,26 @@ export function Header() {
                     </div>
                   </div>
 
-                  {/* Day + Department */}
+                  {/* Period + Department */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium flex items-center gap-1.5">
                         <Hash className="size-3" />
-                        Jour
+                        Période
                       </Label>
                       <Select
-                        value={filters.day ? String(filters.day) : 'all'}
+                        value={filters.period || 'all'}
                         onValueChange={(v) =>
-                          setFilters({ day: v === 'all' ? null : Number(v) })
+                          setFilters({ period: v === 'all' ? null : v })
                         }
                       >
                         <SelectTrigger size="sm" className="h-9 text-sm">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="max-h-56">
-                          <SelectItem value="all">Tous</SelectItem>
-                          {DAYS.map((d) => (
-                            <SelectItem key={d.value} value={d.value}>
-                              {d.label}
+                        <SelectContent>
+                          {PERIODS.map((p) => (
+                            <SelectItem key={p.value} value={p.value}>
+                              {p.full}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -590,7 +576,7 @@ export function Header() {
                 <SheetHeader className="pb-2 border-b border-border">
                   <SheetTitle className="text-base">Filtres avancés</SheetTitle>
                   <SheetDescription>
-                    Jour, Département et Export
+                    Période, Département et Export
                   </SheetDescription>
                 </SheetHeader>
 
@@ -599,22 +585,21 @@ export function Header() {
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium flex items-center gap-1.5">
                         <Hash className="size-3" />
-                        Jour
+                        Période
                       </Label>
                       <Select
-                        value={filters.day ? String(filters.day) : 'all'}
+                        value={filters.period || 'all'}
                         onValueChange={(v) =>
-                          setFilters({ day: v === 'all' ? null : Number(v) })
+                          setFilters({ period: v === 'all' ? null : v })
                         }
                       >
                         <SelectTrigger size="sm" className="h-9 text-sm">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="max-h-56">
-                          <SelectItem value="all">Tous</SelectItem>
-                          {DAYS.map((d) => (
-                            <SelectItem key={d.value} value={d.value}>
-                              {d.label}
+                        <SelectContent>
+                          {PERIODS.map((p) => (
+                            <SelectItem key={p.value} value={p.value}>
+                              {p.full}
                             </SelectItem>
                           ))}
                         </SelectContent>

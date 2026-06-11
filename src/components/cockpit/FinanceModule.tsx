@@ -6,7 +6,7 @@ import { KpiModuleView } from './KpiModuleView';
 
 export function FinanceModule() {
   const { filters } = useAppStore();
-  const key = `${filters.year}-${filters.quarter}-${filters.month}-${filters.day}`;
+  const key = `${filters.year}-${filters.quarter}-${filters.month}-${filters.period}`;
   return (
     <div key={key} className="space-y-6">
       <ModuleHeroSection domain="finance" />
