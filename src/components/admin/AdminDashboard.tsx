@@ -72,65 +72,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   export: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400',
 };
 
-interface QuickActionItem {
-  viewKey: AdminViewKey;
-  title: string;
-  description: string;
-  icon: React.ElementType;
-  iconBg: string;
-  iconColor: string;
-}
 
-const QUICK_ACTIONS: QuickActionItem[] = [
-  {
-    viewKey: 'admin_dashboard',
-    title: 'Tableau de bord',
-    description: 'Vue d\'ensemble et statistiques',
-    icon: LayoutDashboard,
-    iconBg: 'bg-fun-blue/10',
-    iconColor: 'text-fun-blue',
-  },
-  {
-    viewKey: 'admin_users',
-    title: 'Utilisateurs',
-    description: 'Gérer les comptes et accès',
-    icon: Users,
-    iconBg: 'bg-tango/10',
-    iconColor: 'text-tango',
-  },
-  {
-    viewKey: 'admin_roles',
-    title: 'Rôles & Permissions',
-    description: 'Configurer les rôles et droits',
-    icon: Shield,
-    iconBg: 'bg-purple-100 dark:bg-purple-900/30',
-    iconColor: 'text-purple-700 dark:text-purple-400',
-  },
-  {
-    viewKey: 'admin_datasources',
-    title: 'Sources de Données',
-    description: 'Connexions et synchronisation',
-    icon: Database,
-    iconBg: 'bg-green-100 dark:bg-green-900/30',
-    iconColor: 'text-green-700 dark:text-green-400',
-  },
-  {
-    viewKey: 'admin_logs',
-    title: 'Journal d\'Audit',
-    description: 'Suivi des activités et actions',
-    icon: ScrollText,
-    iconBg: 'bg-amber-100 dark:bg-amber-900/30',
-    iconColor: 'text-amber-700 dark:text-amber-400',
-  },
-  {
-    viewKey: 'admin_settings',
-    title: 'Paramètres',
-    description: 'Configuration de la plateforme',
-    icon: Settings,
-    iconBg: 'bg-gray-100 dark:bg-gray-800',
-    iconColor: 'text-gray-700 dark:text-gray-300',
-  },
-];
 
 function formatFrenchDate(date: string): string {
   return new Date(date).toLocaleDateString('fr-FR', {
@@ -405,32 +347,7 @@ export function AdminDashboard() {
         </CardContent>
       </Card>
 
-      {/* Quick Action Cards */}
-      <div>
-        <h2 className="mb-4 text-lg font-semibold">Accès Rapide</h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {QUICK_ACTIONS.map((action) => (
-            <button
-              key={action.viewKey}
-              onClick={() => setAdminSubView(action.viewKey)}
-              className="group text-left"
-            >
-              <Card className="h-full transition-all hover:border-fun-blue/40 hover:shadow-md">
-                <CardContent className="flex items-start gap-4 p-4">
-                  <div className={`mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-lg ${action.iconBg}`}>
-                    <action.icon className={`size-5 ${action.iconColor}`} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium leading-tight group-hover:text-fun-blue">{action.title}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{action.description}</p>
-                  </div>
-                  <ArrowRight className="mt-1 size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                </CardContent>
-              </Card>
-            </button>
-          ))}
-        </div>
-      </div>
+
 
       {/* System Health Indicators */}
       <Card>

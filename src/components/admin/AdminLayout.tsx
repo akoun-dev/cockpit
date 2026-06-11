@@ -31,7 +31,7 @@ interface NavGroup {
 
 const NAV_GROUPS: NavGroup[] = [
   {
-    title: 'Principal',
+    title: '',
     items: [
       { key: 'admin_dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
       { key: 'admin_users', label: 'Utilisateurs', icon: Users },
@@ -76,11 +76,13 @@ export function AdminLayout({ activeView, onViewChange, children }: AdminLayoutP
         {/* Navigation groups */}
         <nav className="flex flex-1 flex-col gap-4 overflow-y-auto p-2" aria-label="Navigation admin">
           {NAV_GROUPS.map((group) => (
-            <div key={group.title}>
+            <div key={group.title || 'no-title'}>
               {/* Group label */}
+              {group.title && (
               <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
                 {group.title}
               </p>
+              )}
               <ul className="flex flex-col gap-0.5">
                 {group.items.map(({ key, label, icon: Icon }) => {
                   const isActive = currentView === key;

@@ -42,7 +42,6 @@ import {
   Activity,
   Star,
   TrendingUp,
-  ArrowRight,
   CircleDot,
 } from 'lucide-react';
 
@@ -673,84 +672,7 @@ function ProjectsOverview({ projects }: { projects: ProjectSummary }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ── SECTION 6: Domain Quick Access Cards ─────────────────────────────────
-// ═══════════════════════════════════════════════════════════════════════════
-
-function DomainQuickAccess({
-  summary,
-  onDomainClick,
-}: {
-  summary: Record<string, DomainSummary>;
-  onDomainClick: (module: ModuleKey) => void;
-}) {
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-foreground">Accès Rapide par Domaine</h2>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-        {Object.entries(DOMAIN_META).map(([key, meta]) => {
-          const d = summary[key];
-          const Icon = meta.icon;
-          const perf = d?.performance ?? 0;
-
-          return (
-            <Card
-              key={key}
-              className="group cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 overflow-hidden"
-              onClick={() => onDomainClick(meta.key)}
-            >
-              <div className="h-1" style={{ backgroundColor: meta.color }} />
-              <CardContent className="p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <div
-                    className="flex size-7 items-center justify-center rounded-md shrink-0"
-                    style={{ backgroundColor: meta.bgLight, color: meta.color }}
-                  >
-                    <Icon className="size-3.5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-foreground truncate">{meta.label}</p>
-                    <p className="text-[10px] text-muted-foreground">{d?.count ?? 0} KPI</p>
-                  </div>
-                </div>
-
-                {/* Status mini-bar (stacked) */}
-                {d && d.count > 0 && (
-                  <>
-                    <div className="flex h-1.5 rounded-full overflow-hidden bg-muted mb-2">
-                      <div className="bg-emerald-500" style={{ width: `${(d.atteint / d.count) * 100}%` }} />
-                      <div className="bg-amber-500" style={{ width: `${(d.partiel / d.count) * 100}%` }} />
-                      <div className="bg-red-500" style={{ width: `${(d.non_atteint / d.count) * 100}%` }} />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[9px] text-emerald-600 font-medium">{d.atteint}A</span>
-                        <span className="text-[9px] text-amber-600 font-medium">{d.partiel}P</span>
-                        <span className="text-[9px] text-red-600 font-medium">{d.non_atteint}NA</span>
-                      </div>
-                      <span className="text-xs font-bold" style={{ color: getPerformanceColor(perf) }}>
-                        {perf}%
-                      </span>
-                    </div>
-                  </>
-                )}
-
-                {/* Hover arrow */}
-                <div className="flex justify-end mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <ArrowRight className="size-3.5 text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// ── SECTION 7: Alerts ───────────────────────────────────────────────────
+// ── SECTION 6: Alerts ───────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 
 function AlertsSection({ summary }: { summary: Record<string, DomainSummary> }) {
@@ -926,9 +848,6 @@ export function DashboardAccueil() {
         <DomainPerformanceChart summary={data.summary} onDomainClick={handleNavigate} />
         <StatusDonutSection data={data} />
       </div>
-
-      {/* ── 3. Domain Quick Access ─────────────────────────────────────── */}
-      <DomainQuickAccess summary={data.summary} onDomainClick={handleNavigate} />
 
       {/* ── 4. Priority KPIs + Projects ────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
