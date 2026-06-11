@@ -73,16 +73,6 @@ export function AdminLayout({ activeView, onViewChange, children }: AdminLayoutP
     <div className="flex min-h-0 flex-1 gap-0 overflow-hidden">
       {/* Left navigation panel — desktop only */}
       <aside className="hidden w-56 shrink-0 flex-col border-r border-border bg-muted/30 lg:flex">
-        {/* Admin header */}
-        <div className="border-b border-border px-4 py-4">
-          <div className="flex items-center gap-3">
-            <img src="/logo-ansut.png" alt="ANSUT" className="size-7 rounded object-cover" />
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              Administration
-            </h2>
-          </div>
-        </div>
-
         {/* Navigation groups */}
         <nav className="flex flex-1 flex-col gap-4 overflow-y-auto p-2" aria-label="Navigation admin">
           {NAV_GROUPS.map((group) => (
