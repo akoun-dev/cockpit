@@ -273,7 +273,7 @@ export function Header() {
                 value={String(filters.year)}
                 onValueChange={(v) => setFilters({ year: Number(v) })}
               >
-                <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[68px]')}>
+                <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[82px]')}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -291,7 +291,7 @@ export function Header() {
                 value={filters.quarter ? String(filters.quarter) : 'all'}
                 onValueChange={(v) => setFilters({ quarter: v === 'all' ? null : Number(v) })}
               >
-                <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[56px]')}>
+                <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[76px]')}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -310,7 +310,7 @@ export function Header() {
                 value={filters.month ? String(filters.month) : 'all'}
                 onValueChange={(v) => setFilters({ month: v === 'all' ? null : Number(v) })}
               >
-                <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[60px]')}>
+                <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[82px]')}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -329,7 +329,7 @@ export function Header() {
                 value={filters.day ? String(filters.day) : 'all'}
                 onValueChange={(v) => setFilters({ day: v === 'all' ? null : Number(v) })}
               >
-                <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[52px]')}>
+                <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[72px]')}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
@@ -348,7 +348,7 @@ export function Header() {
                 value={filters.departmentId || 'all'}
                 onValueChange={(v) => setFilters({ departmentId: v === 'all' ? null : v })}
               >
-                <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[175px]')}>
+                <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[190px]')}>
                   <SelectValue placeholder="Tous" />
                 </SelectTrigger>
                 <SelectContent>
