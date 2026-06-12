@@ -159,103 +159,113 @@ const statusChartConfig = {
 } satisfies ChartConfig;
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ── SECTION 1: Executive Summary Strip ────────────────────────────────────
+// ── SECTION 1: Domain KPI Cards ───────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 
-function MiniGauge({ value, size = 64 }: { value: number; size?: number }) {
-  const [animValue, setAnimValue] = useState(0);
-  useEffect(() => {
-    const t = setTimeout(() => setAnimValue(value), 150);
-    return () => clearTimeout(t);
-  }, [value]);
+const DOMAIN_CARD_LABELS: Record<string, string> = {
+  governance: 'Suivi des indicateurs de gouvernance',
+  finance: 'Suivi des indicateurs financiers',
+  operational: 'Suivi des indicateurs opérationnels',
+  rh: 'Suivi des indicateurs de ressources humaines',
+  risque: "Suivi des indicateurs du cadre d'appétence aux risques",
+  pta: 'Suivi de plan de travail',
+};
 
-  const color = getPerformanceColor(animValue);
-  const r = size / 2;
-  const strokeWidth = 5;
-  const circumference = Math.PI * (r - strokeWidth);
-  const filled = (animValue / 100) * circumference;
-
-  return (
-    <div className="relative" style={{ width: size, height: size / 2 + 4 }}>
-      <svg width={size} height={size / 2 + 4} viewBox={`0 0 ${size} ${size / 2 + 4}`}>
-        {/* Background arc */}
-        <path
-          d={`M ${strokeWidth} ${r} A ${r - strokeWidth} ${r - strokeWidth} 0 0 1 ${size - strokeWidth} ${r}`}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          className="text-muted/30"
-        />
-        {/* Filled arc */}
-        <path
-          d={`M ${strokeWidth} ${r} A ${r - strokeWidth} ${r - strokeWidth} 0 0 1 ${size - strokeWidth} ${r}`}
-          fill="none"
-          stroke={color}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={circumference - filled}
-          style={{ transition: 'stroke-dashoffset 1.2s ease-out, stroke 0.5s ease' }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex items-end justify-center pb-0">
-        <span className="text-sm font-bold leading-none" style={{ color }}>
-          {Math.round(animValue)}%
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function StatPill({
-  icon: Icon,
-  label,
-  value,
-  subValue,
-  color,
-  bgLight,
-  onClick,
+function DomainKpiCard({
+  domainKey,
+  summary,
+  priorityCodes,
+  onNavigate,
+  lastUpdated,
 }: {
-  icon: React.ElementType;
-  label: string;
-  value: string | number;
-  subValue?: string;
-  color: string;
-  bgLight: string;
-  onClick?: () => void;
+  domainKey: string;
+  summary: DomainSummary;
+  priorityCodes: string[];
+  onNavigate: (module: ModuleKey) => void;
+  lastUpdated: string;
 }) {
+  const meta = DOMAIN_META[domainKey];
+  if (!meta) return null;
+  const Icon = meta.icon;
+
+  // Pick the top 2 priority indicators, or first 2 if none
+  const priorityIndicators = summary.indicators.filter(
+    (ind) => ind.code && priorityCodes.includes(ind.code),
+  );
+  const topIndicators = priorityIndicators.length >= 2
+    ? priorityIndicators.slice(0, 2)
+    : summary.indicators.slice(0, 2);
+
+  const primary = topIndicators[0];
+  const secondary = topIndicators[1];
+
+  const formattedDate = new Date(lastUpdated).toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+
   return (
     <Card
-      className={cn(
-        'transition-all duration-200 hover:shadow-md cursor-default',
-        onClick && 'hover:-translate-y-0.5 cursor-pointer',
-      )}
-      onClick={onClick}
+      className="group cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 overflow-hidden"
+      onClick={() => onNavigate(meta.key)}
     >
-      <CardContent className="p-3 sm:p-4">
+      {/* Top color bar */}
+      <div className="h-1" style={{ backgroundColor: meta.color }} />
+      <CardContent className="p-4 flex flex-col gap-3">
+        {/* Header: icon + domain name */}
         <div className="flex items-center gap-2.5">
           <div
-            className="flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-lg"
-            style={{ backgroundColor: bgLight, color }}
+            className="flex size-9 shrink-0 items-center justify-center rounded-lg"
+            style={{ backgroundColor: meta.bgLight, color: meta.color }}
           >
-            <Icon className="size-4" />
+            <Icon className="size-4.5" />
           </div>
-          <div className="min-w-0">
-            <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight truncate">
-              {label}
+          <h3 className="text-sm font-semibold text-foreground leading-tight">{meta.label}</h3>
+        </div>
+
+        {/* Metric 1 (Primary) */}
+        {primary && (
+          <div className="space-y-0.5">
+            <p className="text-xs text-muted-foreground leading-snug line-clamp-2 min-h-[2rem]">
+              {primary.name}
             </p>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="text-lg sm:text-xl font-bold text-foreground tracking-tight">
-                {value}
+            <div className="flex items-baseline gap-1">
+              <span className="text-xl font-bold text-foreground" style={{ color: meta.color }}>
+                {primary.value}
               </span>
-              {subValue && (
-                <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
-                  {subValue}
-                </span>
+              {primary.unit && (
+                <span className="text-xs text-muted-foreground font-medium">{primary.unit}</span>
               )}
             </div>
           </div>
+        )}
+
+        {/* Metric 2 (Secondary) */}
+        {secondary && (
+          <div className="space-y-0.5">
+            <p className="text-xs text-muted-foreground leading-snug line-clamp-2 min-h-[2rem]">
+              {secondary.name}
+            </p>
+            <div className="flex items-baseline gap-1">
+              <span className="text-lg font-bold text-foreground">
+                {secondary.value}
+              </span>
+              {secondary.unit && (
+                <span className="text-xs text-muted-foreground font-medium">{secondary.unit}</span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Footer: date + category */}
+        <div className="mt-auto pt-2 border-t border-border">
+          <p className="text-[10px] text-muted-foreground">
+            Date de dernière mise à jour : {formattedDate}
+          </p>
+          <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+            {DOMAIN_CARD_LABELS[domainKey] || ''}
+          </p>
         </div>
       </CardContent>
     </Card>
@@ -269,70 +279,27 @@ function ExecutiveStrip({
   data: DashboardData;
   onNavigate: (module: ModuleKey) => void;
 }) {
-  const { statusCounts, priorityStats, globalPerformance, totalIndicators } = data;
+  const priorityCodes = useMemo(
+    () => data.topPriorityIndicators.map((i) => i.code),
+    [data.topPriorityIndicators],
+  );
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-      {/* Global Score */}
-      <Card className="lg:col-span-1">
-        <CardContent className="p-3 sm:p-4 flex items-center gap-3">
-          <MiniGauge value={globalPerformance} size={64} />
-          <div>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">Score Global</p>
-            <p className="text-[10px] text-muted-foreground">{totalIndicators} indicateurs</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Total KPI */}
-      <StatPill
-        icon={Activity}
-        label="Total KPI"
-        value={totalIndicators}
-        color="#205eb3"
-        bgLight="#205eb310"
-      />
-
-      {/* Atteint */}
-      <StatPill
-        icon={CheckCircle2}
-        label="KPI Atteint"
-        value={statusCounts.atteint}
-        subValue={totalIndicators > 0 ? `${Math.round((statusCounts.atteint / totalIndicators) * 100)}%` : ''}
-        color="#22c55e"
-        bgLight="#22c55e10"
-      />
-
-      {/* Partiel */}
-      <StatPill
-        icon={Clock}
-        label="KPI Partiel"
-        value={statusCounts.partiel}
-        subValue={totalIndicators > 0 ? `${Math.round((statusCounts.partiel / totalIndicators) * 100)}%` : ''}
-        color="#f59e0b"
-        bgLight="#f59e0b10"
-      />
-
-      {/* Non atteint */}
-      <StatPill
-        icon={AlertTriangle}
-        label="KPI Non Atteint"
-        value={statusCounts.non_atteint}
-        subValue={totalIndicators > 0 ? `${Math.round((statusCounts.non_atteint / totalIndicators) * 100)}%` : ''}
-        color="#ef4444"
-        bgLight="#ef444410"
-      />
-
-      {/* Lot 1 DG */}
-      <StatPill
-        icon={Star}
-        label="KPI Lot 1 (DG)"
-        value={priorityStats.total}
-        subValue={`${priorityStats.atteint} atteints`}
-        color="#f18120"
-        bgLight="#f1812010"
-        onClick={() => onNavigate('governance')}
-      />
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {Object.entries(DOMAIN_META).map(([key]) => {
+        const domainSummary = data.summary[key];
+        if (!domainSummary) return null;
+        return (
+          <DomainKpiCard
+            key={key}
+            domainKey={key}
+            summary={domainSummary}
+            priorityCodes={priorityCodes}
+            onNavigate={onNavigate}
+            lastUpdated={data.lastUpdated}
+          />
+        );
+      })}
     </div>
   );
 }
