@@ -169,12 +169,12 @@ export function LoginForm() {
                   <span>dg@ansut.ci</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="font-medium text-emerald-600">DAF</span>
-                  <span>daf@ansut.ci</span>
+                  <span className="font-medium text-cyan-600">PMO</span>
+                  <span>pmo@ansut.ci</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="font-medium text-amber-600">DRH</span>
-                  <span>drh@ansut.ci</span>
+                  <span className="font-medium text-violet-600">Conseiller Technique</span>
+                  <span>ct@ansut.ci</span>
                 </div>
               </div>
               <p className="mt-2 text-center text-[11px] text-muted-foreground/70">
