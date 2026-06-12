@@ -246,6 +246,7 @@ function SortableTableRow({ ind }: { ind: Indicator }) {
 
   return (
     <TableRow
+      id={`ind-${ind.id}`}
       ref={setNodeRef}
       style={style}
       className={cn(
@@ -333,8 +334,11 @@ function SortableMobileCard({ ind }: { ind: Indicator }) {
   const ecart = computeEcart(value, ind.targetValue, ind.unit);
 
   return (
-    <div ref={setNodeRef} style={style} className={cn(isDragging && 'opacity-40')}>
-      <Card className={cn('p-4', ind.isPriority && 'border-l-4 border-l-tango')}>
+    <div id={`ind-${ind.id}`} ref={setNodeRef} style={style} className={cn(isDragging && 'opacity-40')}>
+      <Card className={cn(
+        'p-4',
+        ind.isPriority && 'border-l-4 border-l-tango',
+      )}>
         <div className="flex items-start justify-between gap-2 mb-3">
           <div className="flex items-start gap-2 min-w-0 flex-1">
             <button
@@ -592,9 +596,33 @@ function SubDomainContent({
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 export function KpiModuleView({ domain }: KpiModuleViewProps) {
-  const { filters } = useAppStore();
+  const { filters, highlightIndicatorId } = useAppStore();
   const [indicators, setIndicators] = useState<Indicator[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Scroll to highlighted indicator + apply highlight class via DOM
+  useEffect(() => {
+    if (!highlightIndicatorId || loading) return;
+    // Small delay to let the DOM render after module switch
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`ind-${highlightIndicatorId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Apply highlight class directly to the element or its closest card/row
+        const target = el.closest('tr') || el;
+        target.classList.add('kpi-highlight-row');
+        // Also try card highlight
+        const card = el.querySelector(':scope > .p-4') || el.closest('Card') || el;
+        if (card !== target) card.classList.add('kpi-highlight');
+        // Remove after 2 seconds (animation duration)
+        setTimeout(() => {
+          target.classList.remove('kpi-highlight-row');
+          card.classList.remove('kpi-highlight');
+        }, 2000);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [highlightIndicatorId, loading]);
 
   useEffect(() => {
     let cancelled = false;

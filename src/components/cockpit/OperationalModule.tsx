@@ -3,6 +3,7 @@
 import { useAppStore } from '@/lib/store';
 import { ModuleHeroSection } from './ModuleHeroSection';
 import { KpiModuleView } from './KpiModuleView';
+import { ModuleDocuments } from './ModuleDocuments';
 
 export function OperationalModule() {
   const { filters } = useAppStore();
@@ -11,6 +12,7 @@ export function OperationalModule() {
     <div key={key} className="space-y-6">
       <ModuleHeroSection domain="operational" />
       <KpiModuleView domain="operational" />
+      <ModuleDocuments domain="operational" />
     </div>
   );
 }

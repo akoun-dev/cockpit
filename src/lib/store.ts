@@ -46,6 +46,9 @@ interface AppState {
   cardOrder: Record<string, string[]>;
   setCardOrder: (key: string, order: string[]) => void;
   resetCardOrder: (key: string) => void;
+  // Search highlight — indicator ID to visually highlight for 2 seconds
+  highlightIndicatorId: string | null;
+  setHighlightIndicatorId: (id: string | null) => void;
 }
 
 const initialState: FilterState = {
@@ -97,6 +100,9 @@ export const useAppStore = create<AppState>()(
           delete newOrder[key];
           return { cardOrder: newOrder };
         }),
+      // Search highlight
+      highlightIndicatorId: null,
+      setHighlightIndicatorId: (id) => set({ highlightIndicatorId: id }),
     }),
     {
       name: 'ansut-cockpit-dnd',

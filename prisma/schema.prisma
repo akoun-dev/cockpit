@@ -213,6 +213,14 @@ model Alert {
   @@index([isRead])
 }
 
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   // JSON string
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
 model NotificationConfig {
   id               String   @id @default(cuid())
   type             String   @unique // kpi_critique, rapport_genere, sync_echouee, utilisateur_cree

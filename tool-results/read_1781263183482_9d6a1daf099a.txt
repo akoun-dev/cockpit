@@ -1,0 +1,828 @@
+     1→'use client';
+     2→
+     3→import React, { useState, useEffect, useMemo, useCallback } from 'react';
+     4→import {
+     5→  DndContext,
+     6→  closestCenter,
+     7→  KeyboardSensor,
+     8→  PointerSensor,
+     9→  useSensor,
+    10→  useSensors,
+    11→  DragEndEvent,
+    12→  DragStartEvent,
+    13→  DragOverlay,
+    14→} from '@dnd-kit/core';
+    15→import {
+    16→  SortableContext,
+    17→  sortableKeyboardCoordinates,
+    18→  useSortable,
+    19→  arrayMove,
+    20→} from '@dnd-kit/sortable';
+    21→import { CSS } from '@dnd-kit/utilities';
+    22→import { getUserId } from '@/lib/user-id';
+    23→import {
+    24→  Card,
+    25→  CardContent,
+    26→  CardHeader,
+    27→  CardTitle,
+    28→} from '@/components/ui/card';
+    29→import { Button } from '@/components/ui/button';
+    30→import { Skeleton } from '@/components/ui/skeleton';
+    31→import { cn } from '@/lib/utils';
+    32→import { useAppStore } from '@/lib/store';
+    33→import {
+    34→  ChartContainer,
+    35→  ChartTooltip,
+    36→  ChartTooltipContent,
+    37→  ChartLegend,
+    38→  ChartLegendContent,
+    39→  type ChartConfig,
+    40→} from '@/components/ui/chart';
+    41→import {
+    42→  PieChart,
+    43→  Pie,
+    44→  Cell,
+    45→  BarChart,
+    46→  Bar,
+    47→  XAxis,
+    48→  YAxis,
+    49→  CartesianGrid,
+    50→} from 'recharts';
+    51→import {
+    52→  TrendingUp,
+    53→  TrendingDown,
+    54→  Minus,
+    55→  Target,
+    56→  GripVertical,
+    57→  RotateCcw,
+    58→} from 'lucide-react';
+    59→
+    60→// ─── Types ──────────────────────────────────────────────────────────────────
+    61→
+    62→interface PeriodValue {
+    63→  value: number;
+    64→  period: string;
+    65→  year: number;
+    66→  month?: number;
+    67→  quarter?: number;
+    68→}
+    69→
+    70→interface Indicator {
+    71→  id: string;
+    72→  name: string;
+    73→  code: string;
+    74→  subDomain: string;
+    75→  unit: string;
+    76→  targetValue: number | null;
+    77→  alertValue: number | null;
+    78→  criticalValue: number | null;
+    79→  isPriority: boolean;
+    80→  values: PeriodValue[];
+    81→  order: number;
+    82→}
+    83→
+    84→type StatusType = 'atteint' | 'partiel' | 'non_atteint';
+    85→
+    86→// ─── Domain config ──────────────────────────────────────────────────────────
+    87→
+    88→const DOMAIN_CONFIG: Record<
+    89→  string,
+    90→  {
+    91→    heroCodes: string[];
+    92→    color: string;
+    93→    colorLight: string;
+    94→    icon: string;
+    95→  }
+    96→> = {
+    97→  governance: {
+    98→    heroCodes: ['GOV-001', 'GOV-008', 'GOV-009', 'GOV-010'],
+    99→    color: '#1c55a3',
+   100→    colorLight: '#1c55a315',
+   101→    icon: '🏛️',
+   102→  },
+   103→  finance: {
+   104→    heroCodes: ['FIN-001', 'FIN-002', 'FIN-003', 'FIN-005'],
+   105→    color: '#205eb3',
+   106→    colorLight: '#205eb315',
+   107→    icon: '💰',
+   108→  },
+   109→  operational: {
+   110→    heroCodes: ['OP-001', 'OP-003', 'OP-004', 'OP-005'],
+   111→    color: '#f18120',
+   112→    colorLight: '#f1812015',
+   113→    icon: '🔧',
+   114→  },
+   115→  rh: {
+   116→    heroCodes: ['RH-006', 'RH-007', 'RH-008', 'RH-011'],
+   117→    color: '#22c55e',
+   118→    colorLight: '#22c55e15',
+   119→    icon: '👥',
+   120→  },
+   121→  risque: {
+   122→    heroCodes: ['RIS-002', 'RIS-003', 'RIS-004', 'RIS-010'],
+   123→    color: '#ef4444',
+   124→    colorLight: '#ef444415',
+   125→    icon: '⚠️',
+   126→  },
+   127→  pta: {
+   128→    heroCodes: ['PTA-003', 'PTA-005', 'PTA-006', 'PTA-007'],
+   129→    color: '#f59e0b',
+   130→    colorLight: '#f59e0b15',
+   131→    icon: '📋',
+   132→  },
+   133→};
+   134→
+   135→const SUB_DOMAIN_LABELS: Record<string, string> = {
+   136→  reporting_reglementaire: 'Reporting réglementaire',
+   137→  gouvernance_ethique: 'Gouvernance & Éthique',
+   138→  marches_publics: 'Marchés Publics',
+   139→  relations_publiques: 'Dons & Relations Publiques',
+   140→  execution_budgetaire: 'Exécution budgétaire',
+   141→  rentabilite: 'Rentabilité',
+   142→  ressources_specifiques: 'Ressources Spécifiques',
+   143→  dette: 'Endettement',
+   144→  deploiement_infra: 'Déploiement Infra',
+   145→  relations_operateurs: 'Relations Opérateurs',
+   146→  service_universel: 'Service Universel',
+   147→  projets_programmes: 'Projets & Programmes',
+   148→  effectifs: 'Effectifs',
+   149→  performance: 'Performance',
+   150→  competences: 'Compétences',
+   151→  couts_rh: 'Coûts RH',
+   152→  risque_strategique: 'Risque Stratégique',
+   153→  risque_financier: 'Risque Financier',
+   154→  risque_operationnel: 'Risque Opérationnel',
+   155→  risque_technologique: 'Risque Technologique',
+   156→  risque_gouvernance: 'Risque Gouvernance',
+   157→  pta_gouvernance: 'Gouvernance',
+   158→  pta_operationnel: 'Opérationnel',
+   159→  pta_finance: 'Finance',
+   160→};
+   161→
+   162→// ─── Helpers ────────────────────────────────────────────────────────────────
+   163→
+   164→function formatValue(value: number | null | undefined, unit: string): string {
+   165→  if (value == null) return '—';
+   166→  if (unit === 'nb' || unit === 'km' || unit === 'h' || unit === 'jours')
+   167→    return Math.round(value).toLocaleString('fr-FR');
+   168→  if (unit === 'Mds FCFA') return `${value.toFixed(2)} Mds`;
+   169→  if (unit === 'ratio') return value.toFixed(2);
+   170→  return `${value.toFixed(1)}${unit === '%' ? '%' : ''}`;
+   171→}
+   172→
+   173→function getLatestValue(indicator: Indicator): number | null {
+   174→  if (!indicator.values?.length) return null;
+   175→  return indicator.values[indicator.values.length - 1].value;
+   176→}
+   177→
+   178→function getPreviousValue(indicator: Indicator): number | null {
+   179→  if (!indicator.values || indicator.values.length < 2) return null;
+   180→  return indicator.values[indicator.values.length - 2].value;
+   181→}
+   182→
+   183→function isLowerBetter(unit: string): boolean {
+   184→  return unit === 'jours' || unit === 'nb' || unit === 'h' || unit === 'ratio';
+   185→}
+   186→
+   187→function computeStatus(
+   188→  value: number | null,
+   189→  target: number | null,
+   190→  unit: string
+   191→): StatusType {
+   192→  if (value == null || target == null || target === 0) return 'non_atteint';
+   193→  const lower = isLowerBetter(unit);
+   194→  if (lower) {
+   195→    if (value <= target) return 'atteint';
+   196→    if (value <= target * 1.5) return 'partiel';
+   197→    return 'non_atteint';
+   198→  } else {
+   199→    if (value >= target) return 'atteint';
+   200→    if (value >= target * 0.8) return 'partiel';
+   201→    return 'non_atteint';
+   202→  }
+   203→}
+   204→
+   205→// ─── Sortable Hero Card ──────────────────────────────────────────────────────
+   206→
+   207→function SortableHeroCard({
+   208→  indicator,
+   209→  accentColor,
+   210→  accentLight,
+   211→}: {
+   212→  indicator: Indicator;
+   213→  accentColor: string;
+   214→  accentLight: string;
+   215→}) {
+   216→  const {
+   217→    attributes,
+   218→    listeners,
+   219→    setNodeRef,
+   220→    transform,
+   221→    transition,
+   222→    isDragging,
+   223→  } = useSortable({ id: indicator.id });
+   224→
+   225→  const style = {
+   226→    transform: CSS.Transform.toString(transform),
+   227→    transition,
+   228→    zIndex: isDragging ? 50 : undefined,
+   229→    position: 'relative' as const,
+   230→  };
+   231→
+   232→  const value = getLatestValue(indicator);
+   233→  const prev = getPreviousValue(indicator);
+   234→  const status = computeStatus(value, indicator.targetValue, indicator.unit);
+   235→
+   236→  const progressPercent =
+   237→    indicator.targetValue && value != null && indicator.targetValue > 0
+   238→      ? Math.min((value / indicator.targetValue) * 100, 100)
+   239→      : null;
+   240→
+   241→  const trend =
+   242→    prev != null && value != null
+   243→      ? value > prev
+   244→        ? ('up' as const)
+   245→        : value < prev
+   246→          ? ('down' as const)
+   247→          : ('neutral' as const)
+   248→      : null;
+   249→
+   250→  const trendPct =
+   251→    prev != null && value != null && prev !== 0
+   252→      ? (((value - prev) / Math.abs(prev)) * 100).toFixed(1)
+   253→      : null;
+   254→
+   255→  return (
+   256→    <div ref={setNodeRef} style={style} className={cn(isDragging && 'opacity-40')}>
+   257→      <Card className="relative overflow-hidden border-l-4 hover:shadow-md transition-shadow" style={{ borderLeftColor: accentColor }}>
+   258→        {/* Background accent */}
+   259→        <div
+   260→          className="absolute top-0 right-0 w-24 h-24 rounded-full opacity-[0.06] -translate-y-8 translate-x-8"
+   261→          style={{ backgroundColor: accentColor }}
+   262→        />
+   263→
+   264→        <CardContent className="p-4 relative">
+   265→          {/* Drag handle + Indicator code + name */}
+   266→          <div className="flex items-start justify-between mb-2">
+   267→            <div className="flex items-start gap-1.5 min-w-0 flex-1">
+   268→              <button
+   269→                {...attributes}
+   270→                {...listeners}
+   271→                className="cursor-grab active:cursor-grabbing p-0.5 rounded-md hover:bg-muted/50 mt-0.5 shrink-0 touch-none"
+   272→                aria-label={`Réordonner ${indicator.name}`}
+   273→              >
+   274→                <GripVertical className="size-3.5 text-muted-foreground/40 hover:text-muted-foreground transition-colors" />
+   275→              </button>
+   276→              <div className="min-w-0">
+   277→                <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
+   278→                  {indicator.code}
+   279→                </p>
+   280→                <p className="text-xs font-medium text-foreground leading-tight mt-0.5 truncate">
+   281→                  {indicator.name}
+   282→                </p>
+   283→              </div>
+   284→            </div>
+   285→            {/* Trend */}
+   286→            {trend && trendPct && (
+   287→              <div
+   288→                className={cn(
+   289→                  'flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold shrink-0',
+   290→                  trend === 'up' && !isLowerBetter(indicator.unit)
+   291→                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
+   292→                    : trend === 'down' && isLowerBetter(indicator.unit)
+   293→                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
+   294→                      : trend === 'up'
+   295→                        ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
+   296→                        : trend === 'down'
+   297→                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
+   298→                          : 'bg-gray-100 text-gray-600',
+   299→                )}
+   300→              >
+   301→                {trend === 'up' ? (
+   302→                  <TrendingUp className="size-3" />
+   303→                ) : trend === 'down' ? (
+   304→                  <TrendingDown className="size-3" />
+   305→                ) : (
+   306→                  <Minus className="size-3" />
+   307→                )}
+   308→                {trendPct}%
+   309→              </div>
+   310→            )}
+   311→          </div>
+   312→
+   313→          {/* Value */}
+   314→          <div className="flex items-baseline gap-1.5 mb-2">
+   315→            <span className="text-2xl font-bold tracking-tight" style={{ color: accentColor }}>
+   316→              {formatValue(value, indicator.unit)}
+   317→            </span>
+   318→            <span className="text-xs text-muted-foreground">{indicator.unit}</span>
+   319→          </div>
+   320→
+   321→          {/* Progress toward target */}
+   322→          {progressPercent !== null && (
+   323→            <div className="space-y-1">
+   324→              <div className="flex items-center justify-between text-[10px]">
+   325→                <span className="text-muted-foreground flex items-center gap-0.5">
+   326→                  <Target className="size-2.5" />
+   327→                  Cible: {formatValue(indicator.targetValue, indicator.unit)}
+   328→                </span>
+   329→                <span
+   330→                  className={cn(
+   331→                    'font-semibold',
+   332→                    status === 'atteint' && 'text-emerald-600',
+   333→                    status === 'partiel' && 'text-amber-600',
+   334→                    status === 'non_atteint' && 'text-red-600',
+   335→                  )}
+   336→                >
+   337→                  {Math.round(progressPercent)}%
+   338→                </span>
+   339→              </div>
+   340→              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+   341→                <div
+   342→                  className="h-full rounded-full transition-all duration-700"
+   343→                  style={{
+   344→                    width: `${progressPercent}%`,
+   345→                    backgroundColor:
+   346→                      status === 'atteint' ? '#22c55e' : status === 'partiel' ? '#f59e0b' : '#ef4444',
+   347→                  }}
+   348→                />
+   349→              </div>
+   350→            </div>
+   351→          )}
+   352→
+   353→          {/* No target case */}
+   354→          {progressPercent === null && value != null && (
+   355→            <p className="text-[10px] text-muted-foreground italic">Pas de cible définie</p>
+   356→          )}
+   357→        </CardContent>
+   358→      </Card>
+   359→    </div>
+   360→  );
+   361→}
+   362→
+   363→// ─── Drag Overlay for Hero Card ──────────────────────────────────────────────
+   364→
+   365→function HeroCardOverlay({
+   366→  indicator,
+   367→  accentColor,
+   368→}: {
+   369→  indicator: Indicator;
+   370→  accentColor: string;
+   371→}) {
+   372→  const value = getLatestValue(indicator);
+   373→  return (
+   374→    <div className="rounded-lg border-2 bg-card p-4 shadow-xl opacity-90 w-[250px]" style={{ borderColor: accentColor }}>
+   375→      <div className="flex items-center gap-2">
+   376→        <GripVertical className="size-4 text-muted-foreground" />
+   377→        <span className="font-mono text-[10px] text-muted-foreground">{indicator.code}</span>
+   378→        <span className="text-sm font-medium flex-1 truncate">{indicator.name}</span>
+   379→        <span className="text-lg font-bold" style={{ color: accentColor }}>
+   380→          {formatValue(value, indicator.unit)}
+   381→        </span>
+   382→      </div>
+   383→    </div>
+   384→  );
+   385→}
+   386→
+   387→// ─── Draggable Hero Cards Grid ───────────────────────────────────────────────
+   388→
+   389→function DraggableHeroCards({
+   390→  indicators,
+   391→  accentColor,
+   392→  accentLight,
+   393→  domain,
+   394→}: {
+   395→  indicators: Indicator[];
+   396→  accentColor: string;
+   397→  accentLight: string;
+   398→  domain: string;
+   399→}) {
+   400→  const { cardOrder, setCardOrder, resetCardOrder } = useAppStore();
+   401→  const orderKey = `${getUserId()}__${domain}__hero`;
+   402→  const savedOrder = cardOrder[orderKey];
+   403→  const [activeId, setActiveId] = useState<string | null>(null);
+   404→
+   405→  const orderedIndicators = useMemo(() => {
+   406→    if (!savedOrder || savedOrder.length === 0) return indicators;
+   407→    const orderMap = new Map(savedOrder.map((id, idx) => [id, idx]));
+   408→    return [...indicators].sort((a, b) => {
+   409→      const aIdx = orderMap.get(a.id) ?? Infinity;
+   410→      const bIdx = orderMap.get(b.id) ?? Infinity;
+   411→      return aIdx - bIdx;
+   412→    });
+   413→  }, [indicators, savedOrder]);
+   414→
+   415→  const itemIds = useMemo(
+   416→    () => orderedIndicators.map((i) => i.id),
+   417→    [orderedIndicators],
+   418→  );
+   419→
+   420→  const sensors = useSensors(
+   421→    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+   422→    useSensor(KeyboardSensor, {
+   423→      coordinateGetter: sortableKeyboardCoordinates,
+   424→    }),
+   425→  );
+   426→
+   427→  const activeIndicator = useMemo(
+   428→    () => (activeId ? indicators.find((i) => i.id === activeId) : null),
+   429→    [activeId, indicators],
+   430→  );
+   431→
+   432→  const handleDragStart = useCallback((event: DragStartEvent) => {
+   433→    setActiveId(String(event.active.id));
+   434→  }, []);
+   435→
+   436→  const handleDragEnd = useCallback(
+   437→    (event: DragEndEvent) => {
+   438→      setActiveId(null);
+   439→      const { active, over } = event;
+   440→      if (over && active.id !== over.id) {
+   441→        const oldIndex = orderedIndicators.findIndex((i) => i.id === active.id);
+   442→        const newIndex = orderedIndicators.findIndex((i) => i.id === over.id);
+   443→        if (oldIndex !== -1 && newIndex !== -1) {
+   444→          const newOrder = arrayMove(orderedIndicators, oldIndex, newIndex).map(
+   445→            (i) => i.id,
+   446→          );
+   447→          setCardOrder(orderKey, newOrder);
+   448→        }
+   449→      }
+   450→    },
+   451→    [orderedIndicators, orderKey, setCardOrder],
+   452→  );
+   453→
+   454→  const handleDragCancel = useCallback(() => {
+   455→    setActiveId(null);
+   456→  }, []);
+   457→
+   458→  const hasCustomOrder = savedOrder && savedOrder.length > 0;
+   459→
+   460→  return (
+   461→    <div>
+   462→      {/* Header with reset button */}
+   463→      <div className="flex items-center justify-between mb-3">
+   464→        <p className="text-xs text-muted-foreground">
+   465→          Indicateurs clés &middot; <span className="opacity-60">Glisser pour réordonner</span>
+   466→        </p>
+   467→        {hasCustomOrder && (
+   468→          <Button
+   469→            variant="ghost"
+   470→            size="sm"
+   471→            className="h-6 gap-1 text-[10px] text-muted-foreground hover:text-foreground px-2"
+   472→            onClick={() => resetCardOrder(orderKey)}
+   473→          >
+   474→            <RotateCcw className="size-2.5" />
+   475→            Réinitialiser
+   476→          </Button>
+   477→        )}
+   478→      </div>
+   479→
+   480→      <DndContext
+   481→        sensors={sensors}
+   482→        collisionDetection={closestCenter}
+   483→        onDragStart={handleDragStart}
+   484→        onDragEnd={handleDragEnd}
+   485→        onDragCancel={handleDragCancel}
+   486→      >
+   487→        <SortableContext items={itemIds}>
+   488→          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+   489→            {orderedIndicators.map((ind) => (
+   490→              <SortableHeroCard
+   491→                key={ind.id}
+   492→                indicator={ind}
+   493→                accentColor={accentColor}
+   494→                accentLight={accentLight}
+   495→              />
+   496→            ))}
+   497→          </div>
+   498→        </SortableContext>
+   499→
+   500→        <DragOverlay dropAnimation={null}>
+   501→          {activeIndicator ? (
+   502→            <HeroCardOverlay indicator={activeIndicator} accentColor={accentColor} />
+   503→          ) : null}
+   504→        </DragOverlay>
+   505→      </DndContext>
+   506→    </div>
+   507→  );
+   508→}
+   509→
+   510→// ─── Skeleton ───────────────────────────────────────────────────────────────
+   511→
+   512→function HeroSectionSkeleton() {
+   513→  return (
+   514→    <div className="space-y-6">
+   515→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+   516→        {Array.from({ length: 4 }).map((_, i) => (
+   517→          <Card key={i}>
+   518→            <CardContent className="p-4 space-y-3">
+   519→              <Skeleton className="h-3 w-16" />
+   520→              <Skeleton className="h-3 w-28" />
+   521→              <Skeleton className="h-8 w-20" />
+   522→              <Skeleton className="h-2 w-full" />
+   523→            </CardContent>
+   524→          </Card>
+   525→        ))}
+   526→      </div>
+   527→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   528→        <Card>
+   529→          <CardContent className="p-4">
+   530→            <Skeleton className="h-4 w-32 mb-4" />
+   531→            <Skeleton className="h-[200px] w-full rounded-lg" />
+   532→          </CardContent>
+   533→        </Card>
+   534→        <Card>
+   535→          <CardContent className="p-4">
+   536→            <Skeleton className="h-4 w-32 mb-4" />
+   537→            <Skeleton className="h-[200px] w-full rounded-lg" />
+   538→          </CardContent>
+   539→        </Card>
+   540→      </div>
+   541→    </div>
+   542→  );
+   543→}
+   544→
+   545→// ─── Status Donut Chart ────────────────────────────────────────────────────
+   546→
+   547→const statusChartConfig = {
+   548→  atteint: { label: 'Atteint', color: '#22c55e' },
+   549→  partiel: { label: 'Partiel', color: '#f59e0b' },
+   550→  non_atteint: { label: 'Non atteint', color: '#ef4444' },
+   551→} satisfies ChartConfig;
+   552→
+   553→function StatusDonutChart({
+   554→  atteint,
+   555→  partiel,
+   556→  non_atteint,
+   557→  total,
+   558→}: {
+   559→  atteint: number;
+   560→  partiel: number;
+   561→  non_atteint: number;
+   562→  total: number;
+   563→}) {
+   564→  const data = [
+   565→    { name: 'atteint', value: atteint },
+   566→    { name: 'partiel', value: partiel },
+   567→    { name: 'non_atteint', value: non_atteint },
+   568→  ].filter((d) => d.value > 0);
+   569→
+   570→  if (total === 0) {
+   571→    return (
+   572→      <Card className="h-full">
+   573→        <CardContent className="flex flex-col items-center justify-center py-8">
+   574→          <p className="text-sm text-muted-foreground">Aucune donnée</p>
+   575→        </CardContent>
+   576→      </Card>
+   577→    );
+   578→  }
+   579→
+   580→  const scorePct = total > 0 ? Math.round(((atteint + partiel * 0.5) / total) * 100) : 0;
+   581→
+   582→  return (
+   583→    <Card className="h-full">
+   584→      <CardHeader className="pb-2">
+   585→        <div className="flex items-center justify-between">
+   586→          <CardTitle className="text-sm font-semibold">Répartition par Statut</CardTitle>
+   587→          <span
+   588→            className={cn(
+   589→              'text-2xl font-bold',
+   590→              scorePct >= 80 ? 'text-emerald-600' : scorePct >= 60 ? 'text-amber-600' : 'text-red-600',
+   591→            )}
+   592→          >
+   593→            {scorePct}%
+   594→          </span>
+   595→        </div>
+   596→      </CardHeader>
+   597→      <CardContent className="flex items-center gap-4">
+   598→        <ChartContainer config={statusChartConfig} className="mx-auto aspect-square h-[160px] w-[160px] shrink-0">
+   599→          <PieChart>
+   600→            <Pie
+   601→              data={data}
+   602→              dataKey="value"
+   603→              nameKey="name"
+   604→              cx="50%"
+   605→              cy="50%"
+   606→              innerRadius="55%"
+   607→              outerRadius="80%"
+   608→              strokeWidth={2}
+   609→              stroke="var(--color-card)"
+   610→            >
+   611→              {data.map((entry, index) => (
+   612→                <Cell key={entry.name} fill={`var(--color-${entry.name})`} />
+   613→              ))}
+   614→            </Pie>
+   615→            <ChartTooltip content={<ChartTooltipContent />} />
+   616→          </PieChart>
+   617→        </ChartContainer>
+   618→        <div className="space-y-2.5 text-sm min-w-0">
+   619→          <div className="flex items-center gap-2">
+   620→            <span className="size-3 rounded-full bg-emerald-500 shrink-0" />
+   621→            <span className="text-muted-foreground">Atteint</span>
+   622→            <span className="font-bold ml-auto">{atteint}</span>
+   623→          </div>
+   624→          <div className="flex items-center gap-2">
+   625→            <span className="size-3 rounded-full bg-amber-500 shrink-0" />
+   626→            <span className="text-muted-foreground">Partiel</span>
+   627→            <span className="font-bold ml-auto">{partiel}</span>
+   628→          </div>
+   629→          <div className="flex items-center gap-2">
+   630→            <span className="size-3 rounded-full bg-red-500 shrink-0" />
+   631→            <span className="text-muted-foreground">Non atteint</span>
+   632→            <span className="font-bold ml-auto">{non_atteint}</span>
+   633→          </div>
+   634→          <div className="pt-1.5 border-t border-border flex items-center gap-2">
+   635→            <span className="text-muted-foreground">Total</span>
+   636→            <span className="font-bold ml-auto">{total}</span>
+   637→          </div>
+   638→        </div>
+   639→      </CardContent>
+   640→    </Card>
+   641→  );
+   642→}
+   643→
+   644→// ─── Sub-Domain Performance Bar Chart ─────────────────────────────────────
+   645→
+   646→function SubDomainBarChart({
+   647→  domain,
+   648→  indicators,
+   649→  accentColor,
+   650→}: {
+   651→  domain: string;
+   652→  indicators: Indicator[];
+   653→  accentColor: string;
+   654→}) {
+   655→  const data = useMemo(() => {
+   656→    const map = new Map<string, { total: number; achieved: number }>();
+   657→    indicators.forEach((ind) => {
+   658→      const key = ind.subDomain || 'autre';
+   659→      if (!map.has(key)) map.set(key, { total: 0, achieved: 0 });
+   660→      const entry = map.get(key)!;
+   661→      entry.total++;
+   662→      const value = getLatestValue(ind);
+   663→      const status = computeStatus(value, ind.targetValue, ind.unit);
+   664→      if (status === 'atteint') entry.achieved++;
+   665→    });
+   666→
+   667→    return Array.from(map.entries())
+   668→      .map(([key, { total, achieved }]) => ({
+   669→        name: (SUB_DOMAIN_LABELS[key] || key.replace(/_/g, ' ')).length > 18
+   670→          ? (SUB_DOMAIN_LABELS[key] || key).substring(0, 18) + '…'
+   671→          : SUB_DOMAIN_LABELS[key] || key,
+   672→        fullName: SUB_DOMAIN_LABELS[key] || key,
+   673→        performance: total > 0 ? Math.round((achieved / total) * 100) : 0,
+   674→        fill: accentColor,
+   675→      }))
+   676→      .sort((a, b) => b.performance - a.performance);
+   677→  }, [indicators, accentColor]);
+   678→
+   679→  if (data.length === 0) return null;
+   680→
+   681→  const barChartConfig = {
+   682→    performance: { label: 'Performance', color: accentColor },
+   683→  } satisfies ChartConfig;
+   684→
+   685→  return (
+   686→    <Card className="h-full">
+   687→      <CardHeader className="pb-2">
+   688→        <CardTitle className="text-sm font-semibold">Performance par Sous-Domaine</CardTitle>
+   689→      </CardHeader>
+   690→      <CardContent>
+   691→        <ChartContainer config={barChartConfig} className="h-[200px] w-full">
+   692→          <BarChart data={data} layout="vertical" margin={{ left: 0, right: 20 }}>
+   693→            <CartesianGrid strokeDasharray="3 3" horizontal={false} vertical />
+   694→            <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}%`} />
+   695→            <YAxis
+   696→              type="category"
+   697→              dataKey="name"
+   698→              width={130}
+   699→              tick={{ fontSize: 11 }}
+   700→            />
+   701→            <ChartTooltip
+   702→              content={
+   703→                <ChartTooltipContent
+   704→                  formatter={(value: number) => [`${value}%`, 'Performance']}
+   705→                />
+   706→              }
+   707→            />
+   708→            <Bar dataKey="performance" fill="var(--color-performance)" radius={[0, 4, 4, 0]} barSize={20} />
+   709→          </BarChart>
+   710→        </ChartContainer>
+   711→        <ChartLegend className="mt-2">
+   712→          <ChartLegendContent />
+   713→        </ChartLegend>
+   714→      </CardContent>
+   715→    </Card>
+   716→  );
+   717→}
+   718→
+   719→// ─── Main Component ────────────────────────────────────────────────────────
+   720→
+   721→interface ModuleHeroSectionProps {
+   722→  domain: string;
+   723→}
+   724→
+   725→export function ModuleHeroSection({ domain }: ModuleHeroSectionProps) {
+   726→  const { filters } = useAppStore();
+   727→  const [indicators, setIndicators] = useState<Indicator[]>([]);
+   728→  const [loading, setLoading] = useState(true);
+   729→
+   730→  useEffect(() => {
+   731→    let cancelled = false;
+   732→
+   733→    const params = new URLSearchParams({ domain, year: String(filters.year || 2025) });
+   734→    if (filters.quarter) params.set('quarter', String(filters.quarter));
+   735→    if (filters.month) params.set('month', String(filters.month));
+   736→    if (filters.periodStart) params.set('periodStart', filters.periodStart);
+   737→    if (filters.periodEnd) params.set('periodEnd', filters.periodEnd);
+   738→
+   739→    fetch(`/api/indicators/domain?${params}`)
+   740→      .then((res) => res.json())
+   741→      .then((data) => {
+   742→        if (!cancelled) {
+   743→          setIndicators(data?.indicators ?? []);
+   744→          setLoading(false);
+   745→        }
+   746→      })
+   747→      .catch(() => {
+   748→        if (!cancelled) {
+   749→          setIndicators([]);
+   750→          setLoading(false);
+   751→        }
+   752→      });
+   753→
+   754→    return () => { cancelled = true; };
+   755→  }, [domain, filters.year, filters.quarter, filters.month, filters.periodStart, filters.periodEnd]);
+   756→
+   757→  const config = DOMAIN_CONFIG[domain] || {
+   758→    heroCodes: [],
+   759→    color: '#1c55a3',
+   760→    colorLight: '#1c55a315',
+   761→    icon: '📊',
+   762→  };
+   763→
+   764→  // Get hero indicators — by code, falling back to priority indicators
+   765→  const heroIndicators = useMemo(() => {
+   766→    // Try predefined codes
+   767→    if (config.heroCodes.length > 0) {
+   768→      const found = config.heroCodes
+   769→        .map((code) => indicators.find((i) => i.code === code))
+   770→        .filter((i): i is Indicator => i !== undefined);
+   771→      if (found.length >= 2) return found.slice(0, 4);
+   772→    }
+   773→
+   774→    // Fallback: use priority indicators
+   775→    const priority = indicators.filter((i) => i.isPriority);
+   776→    if (priority.length >= 2) return priority.slice(0, 4);
+   777→
+   778→    // Last fallback: first 4 indicators
+   779→    return indicators.slice(0, 4);
+   780→  }, [indicators, config.heroCodes]);
+   781→
+   782→  // Status distribution
+   783→  const statusStats = useMemo(() => {
+   784→    let atteint = 0;
+   785→    let partiel = 0;
+   786→    let non_atteint = 0;
+   787→    indicators.forEach((ind) => {
+   788→      const value = getLatestValue(ind);
+   789→      const status = computeStatus(value, ind.targetValue, ind.unit);
+   790→      if (status === 'atteint') atteint++;
+   791→      else if (status === 'partiel') partiel++;
+   792→      else non_atteint++;
+   793→    });
+   794→    return { atteint, partiel, non_atteint, total: indicators.length };
+   795→  }, [indicators]);
+   796→
+   797→  if (loading) return <HeroSectionSkeleton />;
+   798→  if (indicators.length === 0) return null;
+   799→
+   800→  return (
+   801→    <div className="space-y-4 sm:space-y-6">
+   802→      {/* ── Hero KPI Cards (draggable) ── */}
+   803→      {heroIndicators.length > 0 && (
+   804→        <DraggableHeroCards
+   805→          indicators={heroIndicators}
+   806→          accentColor={config.color}
+   807→          accentLight={config.colorLight}
+   808→          domain={domain}
+   809→        />
+   810→      )}
+   811→
+   812→      {/* ── Charts Row ── */}
+   813→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   814→        <StatusDonutChart
+   815→          atteint={statusStats.atteint}
+   816→          partiel={statusStats.partiel}
+   817→          non_atteint={statusStats.non_atteint}
+   818→          total={statusStats.total}
+   819→        />
+   820→        <SubDomainBarChart
+   821→          domain={domain}
+   822→          indicators={indicators}
+   823→          accentColor={config.color}
+   824→        />
+   825→      </div>
+   826→    </div>
+   827→  );
+   828→}

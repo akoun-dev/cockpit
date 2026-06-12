@@ -141,6 +141,37 @@ export function AdminSettings() {
     }
   }, [theme, mounted]);
 
+  // Keys to persist to backend
+  const PERSIST_KEYS: (keyof SettingsState)[] = [
+    'pdfTemplate',
+    'pptTemplate',
+    'excelTemplate',
+    'defaultExportFormat',
+    'includeLogo',
+    'includeGenerationDate',
+  ];
+
+  // Fetch persisted settings from API
+  const fetchPersistedSettings = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/settings');
+      if (res.ok) {
+        const data = await res.json() as Record<string, unknown>;
+        setSettings((prev) => {
+          const merged = { ...prev };
+          for (const key of PERSIST_KEYS) {
+            if (key in data && data[key] !== undefined) {
+              (merged as Record<string, unknown>)[key] = data[key];
+            }
+          }
+          return merged;
+        });
+      }
+    } catch {
+      // Silently fail — use defaults
+    }
+  }, []);
+
   // Fetch system info from API
   const fetchSystemInfo = useCallback(async () => {
     setLoadingSystem(true);
@@ -177,7 +208,8 @@ export function AdminSettings() {
 
   useEffect(() => {
     fetchSystemInfo();
-  }, [fetchSystemInfo]);
+    fetchPersistedSettings();
+  }, [fetchSystemInfo, fetchPersistedSettings]);
 
   // ---------- Handlers ----------
 
@@ -192,13 +224,39 @@ export function AdminSettings() {
 
   const handleSave = async () => {
     setSaving(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-    setSaving(false);
-    toast({
-      title: 'Paramètres sauvegardés',
-      description: 'Les paramètres ont été mis à jour avec succès.',
-    });
+    try {
+      // Persist export-related settings to backend
+      const promises = PERSIST_KEYS.map((key) => {
+        const val = settings[key];
+        return fetch('/api/admin/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key, value: val }),
+        });
+      });
+      const results = await Promise.allSettled(promises);
+      const failed = results.filter((r) => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok));
+      if (failed.length > 0) {
+        toast({
+          title: 'Attention',
+          description: `${failed.length} paramètre(s) n'ont pas pu être sauvegardés.`,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Paramètres sauvegardés',
+          description: 'Les paramètres ont été mis à jour avec succès.',
+        });
+      }
+    } catch {
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de sauvegarder les paramètres.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   // ---------- Render helpers ----------

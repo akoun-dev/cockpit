@@ -3,6 +3,7 @@
 import { useAppStore } from '@/lib/store';
 import { ModuleHeroSection } from './ModuleHeroSection';
 import { KpiModuleView } from './KpiModuleView';
+import { ModuleDocuments } from './ModuleDocuments';
 
 export function RisqueModule() {
   const { filters } = useAppStore();
@@ -11,6 +12,7 @@ export function RisqueModule() {
     <div key={key} className="space-y-6">
       <ModuleHeroSection domain="risque" />
       <KpiModuleView domain="risque" />
+      <ModuleDocuments domain="risque" />
     </div>
   );
 }

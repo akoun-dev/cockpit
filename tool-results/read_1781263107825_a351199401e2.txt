@@ -1,0 +1,1041 @@
+     1→'use client';
+     2→
+     3→import React, { useState, useEffect, useCallback } from 'react';
+     4→import { useTheme } from 'next-themes';
+     5→import {
+     6→  Settings,
+     7→  Globe,
+     8→  Bell,
+     9→  Shield,
+    10→  Server,
+    11→  Save,
+    12→  CheckCircle2,
+    13→  Info,
+    14→  Palette,
+    15→  Clock,
+    16→  Mail,
+    17→  Lock,
+    18→  HardDrive,
+    19→  Loader2,
+    20→  FileText,
+    21→  FileSpreadsheet,
+    22→  Presentation,
+    23→  ImageIcon as ImageLucide,
+    24→  CalendarDays,
+    25→  Hash,
+    26→  Languages,
+    27→  Building2,
+    28→  RefreshCw,
+    29→  CalendarRange,
+    30→} from 'lucide-react';
+    31→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+    32→import { Input } from '@/components/ui/input';
+    33→import { Label } from '@/components/ui/label';
+    34→import { Button } from '@/components/ui/button';
+    35→import { Badge } from '@/components/ui/badge';
+    36→import { Separator } from '@/components/ui/separator';
+    37→import { Switch } from '@/components/ui/switch';
+    38→import {
+    39→  Select,
+    40→  SelectContent,
+    41→  SelectItem,
+    42→  SelectTrigger,
+    43→  SelectValue,
+    44→} from '@/components/ui/select';
+    45→import { Skeleton } from '@/components/ui/skeleton';
+    46→import { useToast } from '@/hooks/use-toast';
+    47→
+    48→// ---------- Types ----------
+    49→
+    50→interface SystemInfo {
+    51→  totalUsers: number;
+    52→  totalRoles: number;
+    53→  totalIndicators: number;
+    54→  diskUsage: string;
+    55→}
+    56→
+    57→interface SettingsState {
+    58→  // Configuration Générale
+    59→  appName: string;
+    60→  logoUrl: string;
+    61→  version: string;
+    62→  defaultLanguage: string;
+    63→  timezone: string;
+    64→  dateFormat: string;
+    65→  // Affichage
+    66→  theme: string;
+    67→  referenceDate: string;
+    68→  currencyFormat: string;
+    69→  decimalSeparator: string;
+    70→  decimalPlaces: string;
+    71→  numberFormat: string;
+    72→  // Notifications
+    73→  emailAlerts: boolean;
+    74→  reportFrequency: string;
+    75→  recipientEmail: string;
+    76→  // Tableau de bord
+    77→  dashboardRefreshFrequency: string;
+    78→  dashboardDefaultPeriod: string;
+    79→  // Sécurité
+    80→  passwordPolicy: string;
+    81→  sessionExpiration: string;
+    82→  ipLogging: boolean;
+    83→  // Export & Rapports
+    84→  pdfTemplate: string;
+    85→  pptTemplate: string;
+    86→  excelTemplate: string;
+    87→  defaultExportFormat: string;
+    88→  includeLogo: boolean;
+    89→  includeGenerationDate: boolean;
+    90→}
+    91→
+    92→const DEFAULT_SETTINGS: SettingsState = {
+    93→  appName: 'ANSUT Cockpit DG',
+    94→  logoUrl: '/logo-ansut.png',
+    95→  version: '1.0.0',
+    96→  defaultLanguage: 'fr',
+    97→  timezone: 'Africa/Kinshasa',
+    98→  dateFormat: 'DD/MM/YYYY',
+    99→  theme: 'system',
+   100→  referenceDate: new Date().toISOString().split('T')[0],
+   101→  currencyFormat: 'FCFA',
+   102→  decimalSeparator: 'comma',
+   103→  decimalPlaces: '2',
+   104→  numberFormat: '1 234,56',
+   105→  emailAlerts: true,
+   106→  reportFrequency: 'weekly',
+   107→  recipientEmail: 'admin@ansut.sn',
+   108→  passwordPolicy: 'standard',
+   109→  sessionExpiration: '4h',
+   110→  ipLogging: true,
+   111→  dashboardRefreshFrequency: '30s',
+   112→  dashboardDefaultPeriod: 'mois-en-cours',
+   113→  pdfTemplate: 'standard',
+   114→  pptTemplate: 'standard',
+   115→  excelTemplate: 'standard',
+   116→  defaultExportFormat: 'pdf',
+   117→  includeLogo: true,
+   118→  includeGenerationDate: true,
+   119→};
+   120→
+   121→// ---------- Component ----------
+   122→
+   123→export function AdminSettings() {
+   124→  const { theme, setTheme } = useTheme();
+   125→  const { toast } = useToast();
+   126→  const [settings, setSettings] = useState<SettingsState>(DEFAULT_SETTINGS);
+   127→  const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
+   128→  const [loadingSystem, setLoadingSystem] = useState(true);
+   129→  const [saving, setSaving] = useState(false);
+   130→  const [mounted, setMounted] = useState(false);
+   131→
+   132→  // Ensure client-side hydration before rendering theme-dependent UI
+   133→  useEffect(() => {
+   134→    setMounted(true);
+   135→  }, []);
+   136→
+   137→  // Sync next-themes value into local state
+   138→  useEffect(() => {
+   139→    if (mounted && theme) {
+   140→      setSettings((prev) => ({ ...prev, theme }));
+   141→    }
+   142→  }, [theme, mounted]);
+   143→
+   144→  // Fetch system info from API
+   145→  const fetchSystemInfo = useCallback(async () => {
+   146→    setLoadingSystem(true);
+   147→    try {
+   148→      const res = await fetch('/api/admin/dashboard-stats');
+   149→      if (res.ok) {
+   150→        const data = await res.json();
+   151→        setSystemInfo({
+   152→          totalUsers: data.totalUsers ?? 0,
+   153→          totalRoles: data.totalRoles ?? 0,
+   154→          totalIndicators: data.configuredModules ?? 0,
+   155→          diskUsage: '142 Mo',
+   156→        });
+   157→      } else {
+   158→        // Fallback
+   159→        setSystemInfo({
+   160→          totalUsers: 24,
+   161→          totalRoles: 6,
+   162→          totalIndicators: 8,
+   163→          diskUsage: '142 Mo',
+   164→        });
+   165→      }
+   166→    } catch {
+   167→      setSystemInfo({
+   168→        totalUsers: 24,
+   169→        totalRoles: 6,
+   170→        totalIndicators: 8,
+   171→        diskUsage: '142 Mo',
+   172→      });
+   173→    } finally {
+   174→      setLoadingSystem(false);
+   175→    }
+   176→  }, []);
+   177→
+   178→  useEffect(() => {
+   179→    fetchSystemInfo();
+   180→  }, [fetchSystemInfo]);
+   181→
+   182→  // ---------- Handlers ----------
+   183→
+   184→  const handleChange = <K extends keyof SettingsState>(key: K, value: SettingsState[K]) => {
+   185→    setSettings((prev) => ({ ...prev, [key]: value }));
+   186→  };
+   187→
+   188→  const handleThemeChange = (value: string) => {
+   189→    handleChange('theme', value);
+   190→    setTheme(value);
+   191→  };
+   192→
+   193→  const handleSave = async () => {
+   194→    setSaving(true);
+   195→    // Simulate API call
+   196→    await new Promise((resolve) => setTimeout(resolve, 1200));
+   197→    setSaving(false);
+   198→    toast({
+   199→      title: 'Paramètres sauvegardés',
+   200→      description: 'Les paramètres ont été mis à jour avec succès.',
+   201→    });
+   202→  };
+   203→
+   204→  // ---------- Render helpers ----------
+   205→
+   206→  if (!mounted) {
+   207→    return (
+   208→      <div className="space-y-6">
+   209→        <div>
+   210→          <Skeleton className="h-8 w-64" />
+   211→          <Skeleton className="mt-2 h-4 w-48 sm:w-96" />
+   212→        </div>
+   213→        <div className="grid gap-6 md:grid-cols-2">
+   214→          {Array.from({ length: 6 }).map((_, i) => (
+   215→            <Skeleton key={i} className="h-72 rounded-xl" />
+   216→          ))}
+   217→        </div>
+   218→      </div>
+   219→    );
+   220→  }
+   221→
+   222→  return (
+   223→    <div className="space-y-6 overflow-x-hidden">
+   224→      {/* Page header */}
+   225→      <div>
+   226→        <div className="flex items-center gap-3">
+   227→          <div className="rounded-lg bg-fun-blue/10 p-2">
+   228→            <Settings className="size-5 text-fun-blue" />
+   229→          </div>
+   230→          <div className="min-w-0">
+   231→            <h1 className="text-2xl font-bold tracking-tight">Paramètres</h1>
+   232→            <p className="line-clamp-2 text-sm text-muted-foreground">
+   233→              Configuration générale de la plateforme ANSUT Cockpit DG
+   234→            </p>
+   235→          </div>
+   236→        </div>
+   237→      </div>
+   238→
+   239→      {/* ====== ANSUT Organizational Info ====== */}
+   240→      <Card className="overflow-hidden">
+   241→        <CardHeader className="bg-gradient-to-r from-fun-blue/5 to-tango/5 border-b p-4 sm:p-6">
+   242→          <div className="flex items-center gap-2.5">
+   243→            <div className="shrink-0 rounded-md bg-fun-blue/10 p-1.5">
+   244→              <Building2 className="size-4 text-fun-blue" />
+   245→            </div>
+   246→            <div className="min-w-0">
+   247→              <CardTitle className="text-base">Organisation ANSUT</CardTitle>
+   248→              <CardDescription className="mt-0.5 truncate text-xs">
+   249→                Agence Nationale du Service Universel des Télécommunications/TIC
+   250→              </CardDescription>
+   251→            </div>
+   252→          </div>
+   253→        </CardHeader>
+   254→        <CardContent className="p-4 sm:p-6">
+   255→          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+   256→            {[
+   257→              { sigle: 'DG', libelle: 'Directeur Général' },
+   258→              { sigle: 'PMO', libelle: 'Project Management Officer' },
+   259→              { sigle: 'DSIS', libelle: 'Direction des Solutions et Intégration de Services' },
+   260→              { sigle: 'DDIR', libelle: 'Direction du Développement des Infrastructures et du RNHD' },
+   261→              { sigle: 'DJMG', libelle: 'Direction Juridique et des Moyens Généraux' },
+   262→              { sigle: 'RDRHF', libelle: 'Responsable du Département Ressources Humaines et Formation' },
+   263→              { sigle: 'DFC', libelle: 'Direction des Finances et Comptabilité' },
+   264→            ].map((role) => (
+   265→              <div
+   266→                key={role.sigle}
+   267→                className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-3 transition-colors hover:bg-muted/40"
+   268→              >
+   269→                <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-fun-blue/10 font-bold text-xs text-fun-blue">
+   270→                  {role.sigle}
+   271→                </div>
+   272→                <div className="min-w-0">
+   273→                  <p className="truncate text-sm font-semibold leading-tight">{role.libelle}</p>
+   274→                  <p className="text-xs text-muted-foreground">{role.sigle}</p>
+   275→                </div>
+   276→              </div>
+   277→            ))}
+   278→          </div>
+   279→        </CardContent>
+   280→      </Card>
+   281→
+   282→      <div className="grid gap-6 lg:grid-cols-2">
+   283→        {/* ====== 1. Configuration Générale ====== */}
+   284→        <Card className="transition-shadow hover:shadow-md">
+   285→          <CardHeader className="pb-4">
+   286→            <div className="flex items-center gap-2.5">
+   287→              <div className="shrink-0 rounded-md bg-fun-blue/10 p-1.5">
+   288→                <Globe className="size-4 text-fun-blue" />
+   289→              </div>
+   290→              <div className="min-w-0">
+   291→                <CardTitle className="text-base">Configuration Générale</CardTitle>
+   292→                <CardDescription className="mt-0.5 text-xs">
+   293→                  Informations de base de l&apos;application
+   294→                </CardDescription>
+   295→              </div>
+   296→            </div>
+   297→          </CardHeader>
+   298→          <CardContent className="space-y-4 p-4 sm:p-6">
+   299→            {/* Nom de l'application */}
+   300→            <div className="space-y-1.5">
+   301→              <Label htmlFor="appName" className="text-sm font-medium">
+   302→                Nom de l&apos;application
+   303→              </Label>
+   304→              <Input
+   305→                id="appName"
+   306→                value={settings.appName}
+   307→                onChange={(e) => handleChange('appName', e.target.value)}
+   308→                placeholder="Nom de l'application"
+   309→                className="h-9"
+   310→              />
+   311→            </div>
+   312→
+   313→            {/* Logo URL */}
+   314→            <div className="space-y-1.5">
+   315→              <Label htmlFor="logoUrl" className="text-sm font-medium">
+   316→                URL du logo
+   317→              </Label>
+   318→              <Input
+   319→                id="logoUrl"
+   320→                value={settings.logoUrl}
+   321→                onChange={(e) => handleChange('logoUrl', e.target.value)}
+   322→                placeholder="/logo-ansut.png"
+   323→                className="h-9"
+   324→              />
+   325→            </div>
+   326→
+   327→            {/* Version (readonly) */}
+   328→            <div className="space-y-1.5">
+   329→              <Label htmlFor="version" className="text-sm font-medium">
+   330→                Version
+   331→              </Label>
+   332→              <div className="relative">
+   333→                <Input
+   334→                  id="version"
+   335→                  value={settings.version}
+   336→                  readOnly
+   337→                  className="h-9 cursor-not-allowed bg-muted/50"
+   338→                />
+   339→                <Badge
+   340→                  variant="secondary"
+   341→                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px]"
+   342→                >
+   343→                  Lecture seule
+   344→                </Badge>
+   345→              </div>
+   346→            </div>
+   347→
+   348→            {/* Langue par défaut */}
+   349→            <div className="space-y-1.5">
+   350→              <Label htmlFor="defaultLanguage" className="text-sm font-medium flex items-center gap-1.5">
+   351→                <Languages className="shrink-0 size-3.5 text-muted-foreground" />
+   352→                Langue par défaut
+   353→              </Label>
+   354→              <Select
+   355→                value={settings.defaultLanguage}
+   356→                onValueChange={(v) => handleChange('defaultLanguage', v)}
+   357→              >
+   358→                <SelectTrigger id="defaultLanguage" className="h-9 w-full">
+   359→                  <SelectValue placeholder="Sélectionner une langue" />
+   360→                </SelectTrigger>
+   361→                <SelectContent>
+   362→                  <SelectItem value="fr">🇫🇷 Français</SelectItem>
+   363→                  <SelectItem value="en">🇬🇧 Anglais</SelectItem>
+   364→                </SelectContent>
+   365→              </Select>
+   366→            </div>
+   367→
+   368→            {/* Fuseau horaire */}
+   369→            <div className="space-y-1.5">
+   370→              <Label htmlFor="timezone" className="text-sm font-medium flex items-center gap-1.5">
+   371→                <Clock className="shrink-0 size-3.5 text-muted-foreground" />
+   372→                Fuseau horaire
+   373→              </Label>
+   374→              <Select
+   375→                value={settings.timezone}
+   376→                onValueChange={(v) => handleChange('timezone', v)}
+   377→              >
+   378→                <SelectTrigger id="timezone" className="h-9 w-full">
+   379→                  <SelectValue placeholder="Sélectionner un fuseau horaire" />
+   380→                </SelectTrigger>
+   381→                <SelectContent>
+   382→                  <SelectItem value="Africa/Kinshasa">Africa/Kinshasa (UTC+1)</SelectItem>
+   383→                  <SelectItem value="Africa/Abidjan">Africa/Abidjan (UTC+0)</SelectItem>
+   384→                  <SelectItem value="UTC">UTC (UTC+0)</SelectItem>
+   385→                  <SelectItem value="Europe/Paris">Europe/Paris (UTC+1/+2)</SelectItem>
+   386→                </SelectContent>
+   387→              </Select>
+   388→            </div>
+   389→
+   390→            {/* Format de date */}
+   391→            <div className="space-y-1.5">
+   392→              <Label htmlFor="dateFormat" className="text-sm font-medium flex items-center gap-1.5">
+   393→                <CalendarDays className="shrink-0 size-3.5 text-muted-foreground" />
+   394→                Format de date
+   395→              </Label>
+   396→              <Select
+   397→                value={settings.dateFormat}
+   398→                onValueChange={(v) => handleChange('dateFormat', v)}
+   399→              >
+   400→                <SelectTrigger id="dateFormat" className="h-9 w-full">
+   401→                  <SelectValue placeholder="Sélectionner un format" />
+   402→                </SelectTrigger>
+   403→                <SelectContent>
+   404→                  <SelectItem value="DD/MM/YYYY">DD/MM/YYYY (31/12/2025)</SelectItem>
+   405→                  <SelectItem value="MM/DD/YYYY">MM/DD/YYYY (12/31/2025)</SelectItem>
+   406→                  <SelectItem value="YYYY-MM-DD">YYYY-MM-DD (2025-12-31)</SelectItem>
+   407→                </SelectContent>
+   408→              </Select>
+   409→            </div>
+   410→
+   411→            {/* Fréquence de rafraîchissement du tableau de bord */}
+   412→            <div className="space-y-1.5">
+   413→              <Label htmlFor="dashboardRefreshFrequency" className="text-sm font-medium flex items-center gap-1.5">
+   414→                <RefreshCw className="shrink-0 size-3.5 text-muted-foreground" />
+   415→                Fréquence de rafraîchissement du tableau de bord
+   416→              </Label>
+   417→              <Select
+   418→                value={settings.dashboardRefreshFrequency}
+   419→                onValueChange={(v) => handleChange('dashboardRefreshFrequency', v)}
+   420→              >
+   421→                <SelectTrigger id="dashboardRefreshFrequency" className="h-9 w-full">
+   422→                  <SelectValue placeholder="Sélectionner une fréquence" />
+   423→                </SelectTrigger>
+   424→                <SelectContent>
+   425→                  <SelectItem value="5s">Temps réel (5s)</SelectItem>
+   426→                  <SelectItem value="30s">30 secondes</SelectItem>
+   427→                  <SelectItem value="1m">1 minute</SelectItem>
+   428→                  <SelectItem value="5m">5 minutes</SelectItem>
+   429→                  <SelectItem value="15m">15 minutes</SelectItem>
+   430→                  <SelectItem value="30m">30 minutes</SelectItem>
+   431→                  <SelectItem value="manual">Manuel</SelectItem>
+   432→                </SelectContent>
+   433→              </Select>
+   434→            </div>
+   435→
+   436→            {/* Période par défaut du tableau de bord */}
+   437→            <div className="space-y-1.5">
+   438→              <Label htmlFor="dashboardDefaultPeriod" className="text-sm font-medium flex items-center gap-1.5">
+   439→                <CalendarRange className="shrink-0 size-3.5 text-muted-foreground" />
+   440→                Période par défaut du tableau de bord
+   441→              </Label>
+   442→              <Select
+   443→                value={settings.dashboardDefaultPeriod}
+   444→                onValueChange={(v) => handleChange('dashboardDefaultPeriod', v)}
+   445→              >
+   446→                <SelectTrigger id="dashboardDefaultPeriod" className="h-9 w-full">
+   447→                  <SelectValue placeholder="Sélectionner une période" />
+   448→                </SelectTrigger>
+   449→                <SelectContent>
+   450→                  <SelectItem value="mois-en-cours">Mois en cours</SelectItem>
+   451→                  <SelectItem value="trimestre-en-cours">Trimestre en cours</SelectItem>
+   452→                  <SelectItem value="semestre-en-cours">Semestre en cours</SelectItem>
+   453→                  <SelectItem value="annee-en-cours">Année en cours</SelectItem>
+   454→                </SelectContent>
+   455→              </Select>
+   456→            </div>
+   457→          </CardContent>
+   458→        </Card>
+   459→
+   460→        {/* ====== 2. Affichage ====== */}
+   461→        <Card className="transition-shadow hover:shadow-md">
+   462→          <CardHeader className="pb-4">
+   463→            <div className="flex items-center gap-2.5">
+   464→              <div className="shrink-0 rounded-md bg-tango/10 p-1.5">
+   465→                <Palette className="size-4 text-tango" />
+   466→              </div>
+   467→              <div className="min-w-0">
+   468→                <CardTitle className="text-base">Affichage</CardTitle>
+   469→                <CardDescription className="mt-0.5 text-xs">
+   470→                  Personnaliser le rendu visuel
+   471→                </CardDescription>
+   472→              </div>
+   473→            </div>
+   474→          </CardHeader>
+   475→          <CardContent className="space-y-4 p-4 sm:p-6">
+   476→            {/* Thème */}
+   477→            <div className="space-y-1.5">
+   478→              <Label htmlFor="theme" className="text-sm font-medium">
+   479→                Thème
+   480→              </Label>
+   481→              <Select value={settings.theme} onValueChange={handleThemeChange}>
+   482→                <SelectTrigger id="theme" className="h-9 w-full">
+   483→                  <SelectValue placeholder="Sélectionner un thème" />
+   484→                </SelectTrigger>
+   485→                <SelectContent>
+   486→                  <SelectItem value="light">☀️ Clair</SelectItem>
+   487→                  <SelectItem value="dark">🌙 Sombre</SelectItem>
+   488→                  <SelectItem value="system">💻 Auto</SelectItem>
+   489→                </SelectContent>
+   490→              </Select>
+   491→            </div>
+   492→
+   493→            {/* Date de référence */}
+   494→            <div className="space-y-1.5">
+   495→              <Label htmlFor="referenceDate" className="text-sm font-medium">
+   496→                Date de référence
+   497→              </Label>
+   498→              <Input
+   499→                id="referenceDate"
+   500→                type="date"
+   501→                value={settings.referenceDate}
+   502→                onChange={(e) => handleChange('referenceDate', e.target.value)}
+   503→                className="h-9"
+   504→              />
+   505→            </div>
+   506→
+   507→            {/* Format monétaire */}
+   508→            <div className="space-y-1.5">
+   509→              <Label htmlFor="currencyFormat" className="text-sm font-medium">
+   510→                Format monétaire
+   511→              </Label>
+   512→              <Select
+   513→                value={settings.currencyFormat}
+   514→                onValueChange={(v) => handleChange('currencyFormat', v)}
+   515→              >
+   516→                <SelectTrigger id="currencyFormat" className="h-9 w-full">
+   517→                  <SelectValue placeholder="Sélectionner une devise" />
+   518→                </SelectTrigger>
+   519→                <SelectContent>
+   520→                  <SelectItem value="FCFA">FCFA</SelectItem>
+   521→                  <SelectItem value="EUR">EUR (€)</SelectItem>
+   522→                  <SelectItem value="USD">USD ($)</SelectItem>
+   523→                </SelectContent>
+   524→              </Select>
+   525→            </div>
+   526→
+   527→            {/* Séparateur décimal */}
+   528→            <div className="space-y-1.5">
+   529→              <Label htmlFor="decimalSeparator" className="text-sm font-medium">
+   530→                Séparateur décimal
+   531→              </Label>
+   532→              <Select
+   533→                value={settings.decimalSeparator}
+   534→                onValueChange={(v) => handleChange('decimalSeparator', v)}
+   535→              >
+   536→                <SelectTrigger id="decimalSeparator" className="h-9 w-full">
+   537→                  <SelectValue placeholder="Sélectionner un séparateur" />
+   538→                </SelectTrigger>
+   539→                <SelectContent>
+   540→                  <SelectItem value="comma">Virgule (,)</SelectItem>
+   541→                  <SelectItem value="point">Point (.)</SelectItem>
+   542→                </SelectContent>
+   543→              </Select>
+   544→            </div>
+   545→
+   546→            {/* Nombre de décimales */}
+   547→            <div className="space-y-1.5">
+   548→              <Label htmlFor="decimalPlaces" className="text-sm font-medium flex items-center gap-1.5">
+   549→                <Hash className="shrink-0 size-3.5 text-muted-foreground" />
+   550→                Nombre de décimales
+   551→              </Label>
+   552→              <Select
+   553→                value={settings.decimalPlaces}
+   554→                onValueChange={(v) => handleChange('decimalPlaces', v)}
+   555→              >
+   556→                <SelectTrigger id="decimalPlaces" className="h-9 w-full">
+   557→                  <SelectValue placeholder="Sélectionner" />
+   558→                </SelectTrigger>
+   559→                <SelectContent>
+   560→                  <SelectItem value="0">0 (entier)</SelectItem>
+   561→                  <SelectItem value="1">1 décimale</SelectItem>
+   562→                  <SelectItem value="2">2 décimales</SelectItem>
+   563→                  <SelectItem value="3">3 décimales</SelectItem>
+   564→                </SelectContent>
+   565→              </Select>
+   566→            </div>
+   567→
+   568→            {/* Format des nombres */}
+   569→            <div className="space-y-1.5">
+   570→              <Label htmlFor="numberFormat" className="text-sm font-medium flex items-center gap-1.5">
+   571→                <Hash className="shrink-0 size-3.5 text-muted-foreground" />
+   572→                Format des nombres
+   573→              </Label>
+   574→              <Select
+   575→                value={settings.numberFormat}
+   576→                onValueChange={(v) => handleChange('numberFormat', v)}
+   577→              >
+   578→                <SelectTrigger id="numberFormat" className="h-9 w-full">
+   579→                  <SelectValue placeholder="Sélectionner un format" />
+   580→                </SelectTrigger>
+   581→                <SelectContent>
+   582→                  <SelectItem value="1 234,56">1 234,56 (espace + virgule)</SelectItem>
+   583→                  <SelectItem value="1234.56">1234.56 (pas de séparateur)</SelectItem>
+   584→                  <SelectItem value="1.234,56">1.234,56 (point + virgule)</SelectItem>
+   585→                </SelectContent>
+   586→              </Select>
+   587→            </div>
+   588→          </CardContent>
+   589→        </Card>
+   590→
+   591→        {/* ====== 3. Export & Rapports ====== */}
+   592→        <Card className="transition-shadow hover:shadow-md">
+   593→          <CardHeader className="pb-4">
+   594→            <div className="flex items-center gap-2.5">
+   595→              <div className="shrink-0 rounded-md bg-emerald-100 p-1.5 dark:bg-emerald-900/30">
+   596→                <FileText className="size-4 text-emerald-700 dark:text-emerald-400" />
+   597→              </div>
+   598→              <div className="min-w-0">
+   599→                <CardTitle className="text-base">Export & Rapports</CardTitle>
+   600→                <CardDescription className="mt-0.5 text-xs">
+   601→                  Configurer les templates et options d&apos;export
+   602→                </CardDescription>
+   603→              </div>
+   604→            </div>
+   605→          </CardHeader>
+   606→          <CardContent className="space-y-4 p-4 sm:p-6">
+   607→            {/* Template PDF */}
+   608→            <div className="space-y-1.5">
+   609→              <Label htmlFor="pdfTemplate" className="text-sm font-medium flex items-center gap-1.5">
+   610→                <FileText className="shrink-0 size-3.5 text-muted-foreground" />
+   611→                Template PDF
+   612→              </Label>
+   613→              <Select
+   614→                value={settings.pdfTemplate}
+   615→                onValueChange={(v) => handleChange('pdfTemplate', v)}
+   616→              >
+   617→                <SelectTrigger id="pdfTemplate" className="h-9 w-full">
+   618→                  <SelectValue placeholder="Sélectionner un template" />
+   619→                </SelectTrigger>
+   620→                <SelectContent>
+   621→                  <SelectItem value="standard">Standard</SelectItem>
+   622→                  <SelectItem value="custom">Personnalisé</SelectItem>
+   623→                </SelectContent>
+   624→              </Select>
+   625→            </div>
+   626→
+   627→            {/* Template PPT */}
+   628→            <div className="space-y-1.5">
+   629→              <Label htmlFor="pptTemplate" className="text-sm font-medium flex items-center gap-1.5">
+   630→                <Presentation className="shrink-0 size-3.5 text-muted-foreground" />
+   631→                Template PPT
+   632→              </Label>
+   633→              <Select
+   634→                value={settings.pptTemplate}
+   635→                onValueChange={(v) => handleChange('pptTemplate', v)}
+   636→              >
+   637→                <SelectTrigger id="pptTemplate" className="h-9 w-full">
+   638→                  <SelectValue placeholder="Sélectionner un template" />
+   639→                </SelectTrigger>
+   640→                <SelectContent>
+   641→                  <SelectItem value="standard">Standard</SelectItem>
+   642→                  <SelectItem value="custom">Personnalisé</SelectItem>
+   643→                </SelectContent>
+   644→              </Select>
+   645→            </div>
+   646→
+   647→            {/* Template Excel */}
+   648→            <div className="space-y-1.5">
+   649→              <Label htmlFor="excelTemplate" className="text-sm font-medium flex items-center gap-1.5">
+   650→                <FileSpreadsheet className="shrink-0 size-3.5 text-muted-foreground" />
+   651→                Template Excel
+   652→              </Label>
+   653→              <Select
+   654→                value={settings.excelTemplate}
+   655→                onValueChange={(v) => handleChange('excelTemplate', v)}
+   656→              >
+   657→                <SelectTrigger id="excelTemplate" className="h-9 w-full">
+   658→                  <SelectValue placeholder="Sélectionner un template" />
+   659→                </SelectTrigger>
+   660→                <SelectContent>
+   661→                  <SelectItem value="standard">Standard</SelectItem>
+   662→                  <SelectItem value="custom">Personnalisé</SelectItem>
+   663→                </SelectContent>
+   664→              </Select>
+   665→            </div>
+   666→
+   667→            {/* Format par défaut */}
+   668→            <div className="space-y-1.5">
+   669→              <Label htmlFor="defaultExportFormat" className="text-sm font-medium">
+   670→                Format par défaut
+   671→              </Label>
+   672→              <Select
+   673→                value={settings.defaultExportFormat}
+   674→                onValueChange={(v) => handleChange('defaultExportFormat', v)}
+   675→              >
+   676→                <SelectTrigger id="defaultExportFormat" className="h-9 w-full">
+   677→                  <SelectValue placeholder="Sélectionner un format" />
+   678→                </SelectTrigger>
+   679→                <SelectContent>
+   680→                  <SelectItem value="pdf">PDF</SelectItem>
+   681→                  <SelectItem value="excel">Excel</SelectItem>
+   682→                  <SelectItem value="powerpoint">PowerPoint</SelectItem>
+   683→                </SelectContent>
+   684→              </Select>
+   685→            </div>
+   686→
+   687→            <Separator />
+   688→
+   689→            {/* Include Logo ANSUT */}
+   690→            <div className="flex items-center justify-between gap-4">
+   691→              <div className="min-w-0 space-y-0.5">
+   692→                <Label htmlFor="includeLogo" className="text-sm font-medium flex items-center gap-1.5">
+   693→                  <ImageLucide className="shrink-0 size-3.5 text-muted-foreground" />
+   694→                  <span className="truncate">Inclure le logo ANSUT</span>
+   695→                </Label>
+   696→                <p className="truncate text-xs text-muted-foreground">
+   697→                  Afficher le logo sur les exports et rapports
+   698→                </p>
+   699→              </div>
+   700→              <Switch
+   701→                className="shrink-0"
+   702→                id="includeLogo"
+   703→                checked={settings.includeLogo}
+   704→                onCheckedChange={(v) => handleChange('includeLogo', v)}
+   705→              />
+   706→            </div>
+   707→
+   708→            <Separator />
+   709→
+   710→            {/* Include generation date */}
+   711→            <div className="flex items-center justify-between gap-4">
+   712→              <div className="min-w-0 space-y-0.5">
+   713→                <Label htmlFor="includeGenerationDate" className="text-sm font-medium flex items-center gap-1.5">
+   714→                  <CalendarDays className="shrink-0 size-3.5 text-muted-foreground" />
+   715→                  <span className="truncate">Inclure la date de génération</span>
+   716→                </Label>
+   717→                <p className="truncate text-xs text-muted-foreground">
+   718→                  Ajouter la date et l&apos;heure sur les documents exportés
+   719→                </p>
+   720→              </div>
+   721→              <Switch
+   722→                className="shrink-0"
+   723→                id="includeGenerationDate"
+   724→                checked={settings.includeGenerationDate}
+   725→                onCheckedChange={(v) => handleChange('includeGenerationDate', v)}
+   726→              />
+   727→            </div>
+   728→          </CardContent>
+   729→        </Card>
+   730→
+   731→        {/* ====== 4. Notifications ====== */}
+   732→        <Card className="transition-shadow hover:shadow-md">
+   733→          <CardHeader className="pb-4">
+   734→            <div className="flex items-center gap-2.5">
+   735→              <div className="shrink-0 rounded-md bg-green-100 p-1.5 dark:bg-green-900/30">
+   736→                <Bell className="size-4 text-green-700 dark:text-green-400" />
+   737→              </div>
+   738→              <div className="min-w-0">
+   739→                <CardTitle className="text-base">Notifications</CardTitle>
+   740→                <CardDescription className="mt-0.5 text-xs">
+   741→                  Gérer les alertes et rapports
+   742→                </CardDescription>
+   743→              </div>
+   744→            </div>
+   745→          </CardHeader>
+   746→          <CardContent className="space-y-5 p-4 sm:p-6">
+   747→            {/* Alertes par email */}
+   748→            <div className="flex items-center justify-between gap-4">
+   749→              <div className="min-w-0 space-y-0.5">
+   750→                <Label htmlFor="emailAlerts" className="text-sm font-medium">
+   751→                  Alertes par email
+   752→                </Label>
+   753→                <p className="truncate text-xs text-muted-foreground">
+   754→                  Recevoir les notifications par courriel
+   755→                </p>
+   756→              </div>
+   757→              <Switch
+   758→                className="shrink-0"
+   759→                id="emailAlerts"
+   760→                checked={settings.emailAlerts}
+   761→                onCheckedChange={(v) => handleChange('emailAlerts', v)}
+   762→              />
+   763→            </div>
+   764→
+   765→            <Separator />
+   766→
+   767→            {/* Fréquence rapport */}
+   768→            <div className="space-y-1.5">
+   769→              <Label htmlFor="reportFrequency" className="text-sm font-medium">
+   770→                Fréquence du rapport
+   771→              </Label>
+   772→              <Select
+   773→                value={settings.reportFrequency}
+   774→                onValueChange={(v) => handleChange('reportFrequency', v)}
+   775→              >
+   776→                <SelectTrigger id="reportFrequency" className="h-9 w-full">
+   777→                  <SelectValue placeholder="Sélectionner une fréquence" />
+   778→                </SelectTrigger>
+   779→                <SelectContent>
+   780→                  <SelectItem value="daily">Journalier</SelectItem>
+   781→                  <SelectItem value="weekly">Hebdomadaire</SelectItem>
+   782→                  <SelectItem value="monthly">Mensuel</SelectItem>
+   783→                </SelectContent>
+   784→              </Select>
+   785→            </div>
+   786→
+   787→            {/* Email destinataire */}
+   788→            <div className="space-y-1.5">
+   789→              <Label htmlFor="recipientEmail" className="text-sm font-medium flex items-center gap-1.5">
+   790→                <Mail className="shrink-0 size-3.5 text-muted-foreground" />
+   791→                Email destinataire
+   792→              </Label>
+   793→              <Input
+   794→                id="recipientEmail"
+   795→                type="email"
+   796→                value={settings.recipientEmail}
+   797→                onChange={(e) => handleChange('recipientEmail', e.target.value)}
+   798→                placeholder="admin@ansut.sn"
+   799→                className="h-9"
+   800→              />
+   801→            </div>
+   802→          </CardContent>
+   803→        </Card>
+   804→
+   805→        {/* ====== 5. Sécurité ====== */}
+   806→        <Card className="transition-shadow hover:shadow-md lg:col-span-2">
+   807→          <CardHeader className="pb-4">
+   808→            <div className="flex items-center gap-2.5">
+   809→              <div className="shrink-0 rounded-md bg-purple-100 p-1.5 dark:bg-purple-900/30">
+   810→                <Shield className="size-4 text-purple-700 dark:text-purple-400" />
+   811→              </div>
+   812→              <div className="min-w-0">
+   813→                <CardTitle className="text-base">Sécurité</CardTitle>
+   814→                <CardDescription className="mt-0.5 text-xs">
+   815→                  Politiques d&apos;authentification et de session
+   816→                </CardDescription>
+   817→              </div>
+   818→            </div>
+   819→          </CardHeader>
+   820→          <CardContent className="p-4 sm:p-6">
+   821→            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+   822→              {/* Politique de mot de passe */}
+   823→              <div className="space-y-1.5">
+   824→                <Label htmlFor="passwordPolicy" className="text-sm font-medium flex items-center gap-1.5">
+   825→                  <Lock className="shrink-0 size-3.5 text-muted-foreground" />
+   826→                  Politique de mot de passe
+   827→                </Label>
+   828→                <Select
+   829→                  value={settings.passwordPolicy}
+   830→                  onValueChange={(v) => handleChange('passwordPolicy', v)}
+   831→                >
+   832→                  <SelectTrigger id="passwordPolicy" className="h-9 w-full">
+   833→                    <SelectValue placeholder="Sélectionner une politique" />
+   834→                  </SelectTrigger>
+   835→                  <SelectContent>
+   836→                    <SelectItem value="standard">Standard</SelectItem>
+   837→                    <SelectItem value="enhanced">Renforcé</SelectItem>
+   838→                  </SelectContent>
+   839→                </Select>
+   840→                <p className="text-[11px] text-muted-foreground">
+   841→                  {settings.passwordPolicy === 'standard'
+   842→                    ? 'Minimum 8 caractères, lettres et chiffres.'
+   843→                    : 'Minimum 12 caractères, majuscules, minuscules, chiffres et symboles.'}
+   844→                </p>
+   845→              </div>
+   846→
+   847→              {/* Expiration session */}
+   848→              <div className="space-y-1.5">
+   849→                <Label htmlFor="sessionExpiration" className="text-sm font-medium flex items-center gap-1.5">
+   850→                  <Clock className="shrink-0 size-3.5 text-muted-foreground" />
+   851→                  Expiration de session
+   852→                </Label>
+   853→                <Select
+   854→                  value={settings.sessionExpiration}
+   855→                  onValueChange={(v) => handleChange('sessionExpiration', v)}
+   856→                >
+   857→                  <SelectTrigger id="sessionExpiration" className="h-9 w-full">
+   858→                    <SelectValue placeholder="Sélectionner une durée" />
+   859→                  </SelectTrigger>
+   860→                  <SelectContent>
+   861→                    <SelectItem value="30min">30 minutes</SelectItem>
+   862→                    <SelectItem value="1h">1 heure</SelectItem>
+   863→                    <SelectItem value="4h">4 heures</SelectItem>
+   864→                    <SelectItem value="8h">8 heures</SelectItem>
+   865→                    <SelectItem value="24h">24 heures</SelectItem>
+   866→                  </SelectContent>
+   867→                </Select>
+   868→              </div>
+   869→
+   870→              {/* Journalisation IP */}
+   871→              <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/20 p-3 dark:bg-muted/40">
+   872→                <div className="min-w-0 space-y-0.5">
+   873→                  <Label htmlFor="ipLogging" className="text-sm font-medium">
+   874→                    Journalisation IP
+   875→                  </Label>
+   876→                  <p className="truncate text-xs text-muted-foreground">
+   877→                    Enregistrer les adresses IP dans le journal d&apos;audit
+   878→                  </p>
+   879→                </div>
+   880→                <Switch
+   881→                  className="shrink-0"
+   882→                  id="ipLogging"
+   883→                  checked={settings.ipLogging}
+   884→                  onCheckedChange={(v) => handleChange('ipLogging', v)}
+   885→                />
+   886→              </div>
+   887→            </div>
+   888→          </CardContent>
+   889→        </Card>
+   890→      </div>
+   891→
+   892→      {/* ====== 6. Informations Système (full-width) ====== */}
+   893→      <Card className="transition-shadow hover:shadow-md">
+   894→        <CardHeader className="pb-4">
+   895→          <div className="flex items-center gap-2.5">
+   896→            <div className="shrink-0 rounded-md bg-sky-100 p-1.5 dark:bg-sky-900/30">
+   897→              <Server className="size-4 text-sky-700 dark:text-sky-400" />
+   898→            </div>
+   899→            <div className="min-w-0">
+   900→              <CardTitle className="text-base">Informations Système</CardTitle>
+   901→              <CardDescription className="mt-0.5 text-xs">
+   902→                Détails techniques sur l&apos;environnement
+   903→              </CardDescription>
+   904→            </div>
+   905→          </div>
+   906→        </CardHeader>
+   907→        <CardContent className="p-4 sm:p-6">
+   908→          {loadingSystem ? (
+   909→            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+   910→              {Array.from({ length: 8 }).map((_, i) => (
+   911→                <Skeleton key={i} className="h-16 rounded-lg" />
+   912→              ))}
+   913→            </div>
+   914→          ) : (
+   915→            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+   916→              {/* Framework */}
+   917→              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+   918→                <Info className="size-4 shrink-0 text-fun-blue" />
+   919→                <div className="min-w-0">
+   920→                  <p className="text-xs text-muted-foreground">Framework</p>
+   921→                  <p className="truncate text-sm font-medium">Next.js 16</p>
+   922→                </div>
+   923→              </div>
+   924→
+   925→              {/* Base de données */}
+   926→              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+   927→                <HardDrive className="size-4 shrink-0 text-fun-blue" />
+   928→                <div className="min-w-0">
+   929→                  <p className="text-xs text-muted-foreground">Base de données</p>
+   930→                  <p className="truncate text-sm font-medium">SQLite / Prisma ORM</p>
+   931→                </div>
+   932→              </div>
+   933→
+   934→              {/* Nombre d'utilisateurs */}
+   935→              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+   936→                <Info className="size-4 shrink-0 text-tango" />
+   937→                <div className="min-w-0">
+   938→                  <p className="text-xs text-muted-foreground">Utilisateurs</p>
+   939→                  <p className="truncate text-sm font-medium">
+   940→                    {systemInfo?.totalUsers ?? '—'}{' '}
+   941→                    <span className="text-xs font-normal text-muted-foreground">enregistrés</span>
+   942→                  </p>
+   943→                </div>
+   944→              </div>
+   945→
+   946→              {/* Nombre de rôles */}
+   947→              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+   948→                <Info className="size-4 shrink-0 text-tango" />
+   949→                <div className="min-w-0">
+   950→                  <p className="text-xs text-muted-foreground">Rôles</p>
+   951→                  <p className="truncate text-sm font-medium">
+   952→                    {systemInfo?.totalRoles ?? '—'}{' '}
+   953→                    <span className="text-xs font-normal text-muted-foreground">configurés</span>
+   954→                  </p>
+   955→                </div>
+   956→              </div>
+   957→
+   958→              {/* Indicateurs */}
+   959→              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+   960→                <Info className="size-4 shrink-0 text-green-600 dark:text-green-400" />
+   961→                <div className="min-w-0">
+   962→                  <p className="text-xs text-muted-foreground">Indicateurs</p>
+   963→                  <p className="truncate text-sm font-medium">
+   964→                    {systemInfo?.totalIndicators ?? '—'}{' '}
+   965→                    <span className="text-xs font-normal text-muted-foreground">actifs</span>
+   966→                  </p>
+   967→                </div>
+   968→              </div>
+   969→
+   970→              {/* Espace disque */}
+   971→              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+   972→                <HardDrive className="size-4 shrink-0 text-green-600 dark:text-green-400" />
+   973→                <div className="min-w-0">
+   974→                  <p className="text-xs text-muted-foreground">Espace disque</p>
+   975→                  <p className="truncate text-sm font-medium">{systemInfo?.diskUsage ?? '—'}</p>
+   976→                </div>
+   977→              </div>
+   978→
+   979→              {/* Environnement */}
+   980→              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+   981→                <Server className="size-4 shrink-0 text-purple-600 dark:text-purple-400" />
+   982→                <div className="min-w-0">
+   983→                  <p className="text-xs text-muted-foreground">Environnement</p>
+   984→                  <div className="flex items-center gap-1.5">
+   985→                    <p className="truncate text-sm font-medium">Production</p>
+   986→                    <Badge variant="secondary" className="text-[10px]">
+   987→                      <CheckCircle2 className="size-2.5 text-success" />
+   988→                      Actif
+   989→                    </Badge>
+   990→                  </div>
+   991→                </div>
+   992→              </div>
+   993→
+   994→              {/* Dernière mise à jour */}
+   995→              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+   996→                <Clock className="size-4 shrink-0 text-purple-600 dark:text-purple-400" />
+   997→                <div className="min-w-0">
+   998→                  <p className="text-xs text-muted-foreground">Dernière sauvegarde</p>
+   999→                  <p className="truncate text-sm font-medium">
+  1000→                    {new Date().toLocaleDateString('fr-FR', {
+  1001→                      day: 'numeric',
+  1002→                      month: 'short',
+  1003→                      year: 'numeric',
+  1004→                      hour: '2-digit',
+  1005→                      minute: '2-digit',
+  1006→                    })}
+  1007→                  </p>
+  1008→                </div>
+  1009→              </div>
+  1010→            </div>
+  1011→          )}
+  1012→        </CardContent>
+  1013→      </Card>
+  1014→
+  1015→      {/* ====== Save Button ====== */}
+  1016→      <div className="flex flex-col-reverse items-center gap-3 sm:flex-row sm:justify-end">
+  1017→        <p className="text-xs text-muted-foreground">
+  1018→          Les modifications seront appliquées après sauvegarde.
+  1019→        </p>
+  1020→        <Button
+  1021→          onClick={handleSave}
+  1022→          disabled={saving}
+  1023→          className="w-full gap-2 bg-fun-blue hover:bg-fun-blue-dark text-white sm:w-auto sm:min-w-[200px]"
+  1024→        >
+  1025→          {saving ? (
+  1026→            <>
+  1027→              <Loader2 className="size-4 animate-spin" />
+  1028→              Enregistrement…
+  1029→            </>
+  1030→          ) : (
+  1031→            <>
+  1032→              <Save className="size-4" />
+  1033→              Sauvegarder les paramètres
+  1034→            </>
+  1035→          )}
+  1036→        </Button>
+  1037→      </div>
+  1038→    </div>
+  1039→  );
+  1040→}
+  1041→

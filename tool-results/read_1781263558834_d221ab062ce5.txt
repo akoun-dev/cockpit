@@ -1,0 +1,919 @@
+     1→     1→'use client';
+     2→     2→
+     3→     3→import React, { useEffect, useState, useCallback, useMemo } from 'react';
+     4→     4→import { SidebarTrigger } from '@/components/ui/sidebar';
+     5→     5→import { Button } from '@/components/ui/button';
+     6→     6→import {
+     7→     7→  Select,
+     8→     8→  SelectContent,
+     9→     9→  SelectItem,
+    10→    10→  SelectTrigger,
+    11→    11→  SelectValue,
+    12→    12→} from '@/components/ui/select';
+    13→    13→import {
+    14→    14→  DropdownMenu,
+    15→    15→  DropdownMenuContent,
+    16→    16→  DropdownMenuItem,
+    17→    17→  DropdownMenuTrigger,
+    18→    18→} from '@/components/ui/dropdown-menu';
+    19→    19→import {
+    20→    20→  Sheet,
+    21→    21→  SheetContent,
+    22→    22→  SheetDescription,
+    23→    23→  SheetHeader,
+    24→    24→  SheetTitle,
+    25→    25→  SheetTrigger,
+    26→    26→} from '@/components/ui/sheet';
+    27→    27→import {
+    28→    28→  Popover,
+    29→    29→  PopoverContent,
+    30→    30→  PopoverTrigger,
+    31→    31→} from '@/components/ui/popover';
+    32→    32→import { Label } from '@/components/ui/label';
+    33→    33→import { Badge } from '@/components/ui/badge';
+    34→    34→import {
+    35→    35→  FileSpreadsheet,
+    36→    36→  FileText,
+    37→    37→  Download,
+    38→    38→  Moon,
+    39→    39→  Sun,
+    40→    40→  SlidersHorizontal,
+    41→    41→  X,
+    42→    42→  Calendar as CalendarIcon,
+    43→    43→  Building2,
+    44→    44→  Search,
+    45→    45→} from 'lucide-react';
+    46→    46→import { useAppStore, type AppViewKey, type ModuleKey } from '@/lib/store';
+    47→    47→import { useTheme } from 'next-themes';
+    48→    48→import { cn } from '@/lib/utils';
+    49→    49→import {
+    50→    50→  CommandDialog,
+    51→    51→  CommandEmpty,
+    52→    52→  CommandGroup,
+    53→    53→  CommandInput,
+    54→    54→  CommandItem,
+    55→    55→  CommandList,
+    56→    56→} from '@/components/ui/command';
+    57→    57→
+    58→    58→// ─── Constants ──────────────────────────────────────────────────────────────
+    59→    59→
+    60→    60→const MODULE_LABELS: Record<AppViewKey, string> = {
+    61→    61→  accueil: 'Tableau de Bord',
+    62→    62→  governance: 'Gouvernance',
+    63→    63→  finance: 'Finance',
+    64→    64→  operational: 'Opérationnel',
+    65→    65→  rh: 'Ressources Humaines',
+    66→    66→  risque: 'Cadre de Risque',
+    67→    67→  pta: "Plan Triennal d'Actions",
+    68→    68→  admin: 'Administration',
+    69→    69→};
+    70→    70→
+    71→    71→const YEARS = [2024, 2025];
+    72→    72→
+    73→    73→const QUARTERS = [
+    74→    74→  { value: '1', label: 'T1', full: 'T1 — Premier trimestre' },
+    75→    75→  { value: '2', label: 'T2', full: 'T2 — Deuxième trimestre' },
+    76→    76→  { value: '3', label: 'T3', full: 'T3 — Troisième trimestre' },
+    77→    77→  { value: '4', label: 'T4', full: 'T4 — Quatrième trimestre' },
+    78→    78→];
+    79→    79→
+    80→    80→const MONTHS_FR = [
+    81→    81→  { value: '1', label: 'Jan', full: 'Janvier' },
+    82→    82→  { value: '2', label: 'Fév', full: 'Février' },
+    83→    83→  { value: '3', label: 'Mar', full: 'Mars' },
+    84→    84→  { value: '4', label: 'Avr', full: 'Avril' },
+    85→    85→  { value: '5', label: 'Mai', full: 'Mai' },
+    86→    86→  { value: '6', label: 'Juin', full: 'Juin' },
+    87→    87→  { value: '7', label: 'Juil', full: 'Juillet' },
+    88→    88→  { value: '8', label: 'Août', full: 'Août' },
+    89→    89→  { value: '9', label: 'Sep', full: 'Septembre' },
+    90→    90→  { value: '10', label: 'Oct', full: 'Octobre' },
+    91→    91→  { value: '11', label: 'Nov', full: 'Novembre' },
+    92→    92→  { value: '12', label: 'Déc', full: 'Décembre' },
+    93→    93→];
+    94→    94→
+    95→    95→function formatDateShort(dateStr: string | null): string {
+    96→    96→  if (!dateStr) return '';
+    97→    97→  const d = new Date(dateStr);
+    98→    98→  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    99→    99→}
+   100→   100→
+   101→   101→interface Department {
+   102→   102→  id: string;
+   103→   103→  name: string;
+   104→   104→}
+   105→   105→
+   106→   106→// ─── Inline select styles (for the blue header) ─────────────────────────────
+   107→   107→
+   108→   108→const HEADER_SELECT =
+   109→   109→  'h-8 border-white/20 bg-white/10 text-white text-xs backdrop-blur-sm hover:bg-white/20 focus:ring-white/30';
+   110→   110→
+   111→   111→// ─── Theme Toggle ───────────────────────────────────────────────────────────
+   112→   112→
+   113→   113→function ThemeToggle() {
+   114→   114→  const { theme, setTheme } = useTheme();
+   115→   115→  return (
+   116→   116→    <Button
+   117→   117→      variant="ghost"
+   118→   118→      size="icon"
+   119→   119→      className="h-8 w-8 shrink-0 border border-white/20 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 hover:text-white"
+   120→   120→      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+   121→   121→      aria-label="Basculer le thème"
+   122→   122→    >
+   123→   123→      {theme === 'dark' ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
+   124→   124→    </Button>
+   125→   125→  );
+   126→   126→}
+   127→   127→
+   128→   128→// ─── Export Dropdown ────────────────────────────────────────────────────────
+   129→   129→
+   130→   130→function ExportDropdown({ className }: { className?: string }) {
+   131→   131→  const { activeView, filters } = useAppStore();
+   132→   132→
+   133→   133→  return (
+   134→   134→    <DropdownMenu>
+   135→   135→      <DropdownMenuTrigger asChild>
+   136→   136→        <Button
+   137→   137→          variant="ghost"
+   138→   138→          size="sm"
+   139→   139→          className={cn(
+   140→   140→            'h-8 gap-1.5 border border-white/20 bg-white/10 text-white text-xs backdrop-blur-sm hover:bg-white/20 hover:text-white',
+   141→   141→            className,
+   142→   142→          )}
+   143→   143→        >
+   144→   144→          <Download className="size-3.5" />
+   145→   145→          <span className="hidden lg:inline">Exporter</span>
+   146→   146→        </Button>
+   147→   147→      </DropdownMenuTrigger>
+   148→   148→      <DropdownMenuContent align="end" className="w-44">
+   149→   149→        <DropdownMenuItem
+   150→   150→          onClick={() => console.log('Export Excel:', { module: activeView, filters })}
+   151→   151→          className="gap-2 cursor-pointer"
+   152→   152→        >
+   153→   153→          <FileSpreadsheet className="size-4 text-green-600" />
+   154→   154→          Exporter Excel
+   155→   155→        </DropdownMenuItem>
+   156→   156→        <DropdownMenuItem
+   157→   157→          onClick={() => console.log('Export PDF:', { module: activeView, filters })}
+   158→   158→          className="gap-2 cursor-pointer"
+   159→   159→        >
+   160→   160→          <FileText className="size-4 text-red-600" />
+   161→   161→          Exporter PDF
+   162→   162→        </DropdownMenuItem>
+   163→   163→      </DropdownMenuContent>
+   164→   164→    </DropdownMenu>
+   165→   165→  );
+   166→   166→}
+   167→   167→
+   168→   168→// ─── Active filter badges (shown on mobile under title) ─────────────────────
+   169→   169→
+   170→   170→function ActiveFilterBadges() {
+   171→   171→  const { filters, setFilters } = useAppStore();
+   172→   172→  const badges: { label: string; onClear: () => void }[] = [];
+   173→   173→
+   174→   174→  if (filters.quarter) {
+   175→   175→    const q = QUARTERS.find((q) => q.value === String(filters.quarter));
+   176→   176→    badges.push({
+   177→   177→      label: q?.label || `T${filters.quarter}`,
+   178→   178→      onClear: () => setFilters({ quarter: null }),
+   179→   179→    });
+   180→   180→  }
+   181→   181→  if (filters.month) {
+   182→   182→    const m = MONTHS_FR.find((m) => m.value === String(filters.month));
+   183→   183→    badges.push({
+   184→   184→      label: m?.label || `M${filters.month}`,
+   185→   185→      onClear: () => setFilters({ month: null }),
+   186→   186→    });
+   187→   187→  }
+   188→   188→  if (filters.periodStart || filters.periodEnd) {
+   189→   189→    const from = formatDateShort(filters.periodStart);
+   190→   190→    const to = formatDateShort(filters.periodEnd);
+   191→   191→    badges.push({
+   192→   192→      label: from && to ? `${from} → ${to}` : from || to,
+   193→   193→      onClear: () => setFilters({ periodStart: null, periodEnd: null }),
+   194→   194→    });
+   195→   195→  }
+   196→   196→  if (filters.departmentId) {
+   197→   197→    badges.push({
+   198→   198→      label: 'Dept',
+   199→   199→      onClear: () => setFilters({ departmentId: null }),
+   200→   200→    });
+   201→   201→  }
+   202→   202→
+   203→   203→  if (badges.length === 0) return null;
+   204→   204→
+   205→   205→  return (
+   206→   206→    <div className="flex items-center gap-1 flex-wrap">
+   207→   207→      {badges.map((b, i) => (
+   208→   208→        <button
+   209→   209→          key={i}
+   210→   210→          onClick={b.onClear}
+   211→   211→          className="inline-flex items-center gap-0.5 rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-white/30 transition-colors"
+   212→   212→        >
+   213→   213→          {b.label}
+   214→   214→          <X className="size-2.5" />
+   215→   215→        </button>
+   216→   216→      ))}
+   217→   217→    </div>
+   218→   218→  );
+   219→   219→}
+   220→   220→
+   221→   221→// ─── Global Search ─────────────────────────────────────────────────────────
+   222→   222→
+   223→   223→interface SearchResult {
+   224→   224→  type: 'module' | 'indicator';
+   225→   225→  id: string;
+   226→   226→  name: string;
+   227→   227→  code: string | null;
+   228→   228→  domain: string;
+   229→   229→  domainLabel: string;
+   230→   230→  domainColor: string;
+   231→   231→  value: number | null;
+   232→   232→  targetValue: number | null;
+   233→   233→  unit: string;
+   234→   234→  status: string | null;
+   235→   235→}
+   236→   236→
+   237→   237→function GlobalSearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+   238→   238→  const { setActiveView, setActiveModule, setHighlightIndicatorId, filters } = useAppStore();
+   239→   239→  const [query, setQuery] = useState('');
+   240→   240→  const [results, setResults] = useState<SearchResult[]>([]);
+   241→   241→  const [loading, setLoading] = useState(false);
+   242→   242→  const debounceRef = React.useRef<ReturnType<typeof setTimeout>>();
+   243→   243→
+   244→   244→  const doSearch = useCallback(async (q: string) => {
+   245→   245→    if (q.length < 2) {
+   246→   246→      setResults([]);
+   247→   247→      return;
+   248→   248→    }
+   249→   249→    try {
+   250→   250→      setLoading(true);
+   251→   251→      const params = new URLSearchParams({ q, year: String(filters.year) });
+   252→   252→      if (filters.quarter) params.set('quarter', String(filters.quarter));
+   253→   253→      const res = await fetch(`/api/search?${params}`);
+   254→   254→      if (res.ok) {
+   255→   255→        const data = await res.json();
+   256→   256→        setResults(data.results || []);
+   257→   257→      }
+   258→   258→    } catch {
+   259→   259→      // silent
+   260→   260→    } finally {
+   261→   261→      setLoading(false);
+   262→   262→    }
+   263→   263→  }, [filters.year, filters.quarter]);
+   264→   264→
+   265→   265→  function handleValueChange(value: string) {
+   266→   266→    setQuery(value);
+   267→   267→    if (debounceRef.current) clearTimeout(debounceRef.current);
+   268→   268→    debounceRef.current = setTimeout(() => doSearch(value), 250);
+   269→   269→  }
+   270→   270→
+   271→   271→  function handleSelect(result: SearchResult) {
+   272→   272→    onOpenChange(false);
+   273→   273→    setQuery('');
+   274→   274→    setResults([]);
+   275→   275→    if (result.type === 'module') {
+   276→   276→      setActiveView(result.domain as ModuleKey);
+   277→   277→    } else {
+   278→   278→      // Highlight the indicator for 2 seconds
+   279→   279→      if (result.id) {
+   280→   280→        setHighlightIndicatorId(result.id);
+   281→   281→        setTimeout(() => setHighlightIndicatorId(null), 2500);
+   282→   282→      }
+   283→   283→      setActiveView(result.domain as ModuleKey);
+   284→   284→    }
+   285→   285→  }
+   286→   286→
+   287→   287→  // Group results by domain
+   288→   288→  const grouped = useMemo(() => {
+   289→   289→    const map = new Map<string, SearchResult[]>();
+   290→   290→    for (const r of results) {
+   291→   291→      const key = r.domainLabel;
+   292→   292→      if (!map.has(key)) map.set(key, []);
+   293→   293→      map.get(key)!.push(r);
+   294→   294→    }
+   295→   295→    return Array.from(map.entries());
+   296→   296→  }, [results]);
+   297→   297→
+   298→   298→  return (
+   299→   299→    <CommandDialog open={open} onOpenChange={onOpenChange}>
+   300→   300→      <CommandInput
+   301→   301→        placeholder="Rechercher un KPI, un indicateur, un module..."
+   302→   302→        value={query}
+   303→   303→        onValueChange={handleValueChange}
+   304→   304→      />
+   305→   305→      <CommandList>
+   306→   306→        <CommandEmpty>
+   307→   307→          {loading ? (
+   308→   308→            <div className="flex items-center justify-center py-6">
+   309→   309→              <div className="size-4 border-2 border-muted-foreground/20 border-t-muted-foreground rounded-full animate-spin" />
+   310→   310→            </div>
+   311→   311→          ) : query.length >= 2 ? (
+   312→   312→            'Aucun résultat trouvé'
+   313→   313→          ) : (
+   314→   314→            'Tapez au moins 2 caractères pour rechercher'
+   315→   315→          )}
+   316→   316→        </CommandEmpty>
+   317→   317→        {grouped.map(([domainLabel, items]) => (
+   318→   318→          <CommandGroup key={domainLabel} heading={domainLabel}>
+   319→   319→            {items.map((item) => (
+   320→   320→              <CommandItem
+   321→   321→                key={item.id}
+   322→   322→                value={`${item.name} ${item.code || ''} ${domainLabel}`}
+   323→   323→                onSelect={() => handleSelect(item)}
+   324→   324→                className="gap-3 py-2.5"
+   325→   325→              >
+   326→   326→                <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: item.domainColor }} />
+   327→   327→                <div className="flex-1 min-w-0">
+   328→   328→                  <div className="flex items-center gap-2">
+   329→   329→                    <span className="text-sm font-medium truncate">{item.name}</span>
+   330→   330→                    {item.code && (
+   331→   331→                      <span className="text-[10px] font-mono text-muted-foreground shrink-0">{item.code}</span>
+   332→   332→                    )}
+   333→   333→                  </div>
+   334→   334→                  {item.type === 'indicator' && item.value !== null && (
+   335→   335→                    <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
+   336→   336→                      <span>Valeur: <strong className="text-foreground">{item.value}</strong> {item.unit}</span>
+   337→   337→                      {item.targetValue !== null && (
+   338→   338→                        <span>/ Cible: {item.targetValue}</span>
+   339→   339→                      )}
+   340→   340→                    </div>
+   341→   341→                  )}
+   342→   342→                </div>
+   343→   343→                {item.type === 'module' && (
+   344→   344→                  <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded shrink-0">
+   345→   345→                    Module
+   346→   346→                  </span>
+   347→   347→                )}
+   348→   348→              </CommandItem>
+   349→   349→            ))}
+   350→   350→          </CommandGroup>
+   351→   351→        ))}
+   352→   352→      </CommandList>
+   353→   353→    </CommandDialog>
+   354→   354→  );
+   355→   355→}
+   356→   356→
+   357→   357→// ─── Main Header ────────────────────────────────────────────────────────────
+   358→   358→
+   359→   359→export function Header() {
+   360→   360→  const { activeView, filters, setFilters } = useAppStore();
+   361→   361→  const isAdmin = activeView === 'admin';
+   362→   362→  const [departments, setDepartments] = useState<Department[]>([]);
+   363→   363→  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+   364→   364→  const [searchOpen, setSearchOpen] = useState(false);
+   365→   365→
+   366→   366→  // Keyboard shortcut: Ctrl+K / Cmd+K to open search
+   367→   367→  useEffect(() => {
+   368→   368→    function handleKeyDown(e: KeyboardEvent) {
+   369→   369→      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+   370→   370→        e.preventDefault();
+   371→   371→        setSearchOpen(true);
+   372→   372→      }
+   373→   373→    }
+   374→   374→    document.addEventListener('keydown', handleKeyDown);
+   375→   375→    return () => document.removeEventListener('keydown', handleKeyDown);
+   376→   376→  }, []);
+   377→   377→
+   378→   378→  useEffect(() => {
+   379→   379→    async function fetchDepartments() {
+   380→   380→      try {
+   381→   381→        const res = await fetch('/api/departments');
+   382→   382→        if (res.ok) setDepartments(await res.json());
+   383→   383→      } catch {
+   384→   384→        setDepartments([
+   385→   385→          { id: 'direction', name: 'Direction Générale' },
+   386→   386→          { id: 'finance', name: 'Finance & Comptabilité' },
+   387→   387→          { id: 'rh', name: 'Ressources Humaines' },
+   388→   388→          { id: 'ops', name: 'Opérations' },
+   389→   389→          { id: 'it', name: 'Technologie' },
+   390→   390→          { id: 'juridique', name: 'Juridique' },
+   391→   391→          { id: 'communication', name: 'Communication' },
+   392→   392→        ]);
+   393→   393→      }
+   394→   394→    }
+   395→   395→    fetchDepartments();
+   396→   396→  }, []);
+   397→   397→
+   398→   398→  // Count active filters (excluding year which is always set)
+   399→   399→  const activeFilterCount = [
+   400→   400→    filters.quarter,
+   401→   401→    filters.month,
+   402→   402→    filters.periodStart || filters.periodEnd,
+   403→   403→    filters.departmentId,
+   404→   404→  ].filter(Boolean).length;
+   405→   405→
+   406→   406→  return (
+   407→   407→    <header className="sticky top-0 z-30 flex items-center justify-between bg-fun-blue px-3 py-2 sm:px-4 sm:py-2.5 lg:px-6 text-white shadow-md">
+   408→   408→      {/* ── Left: sidebar trigger + title ── */}
+   409→   409→      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+   410→   410→        <SidebarTrigger className="shrink-0 text-white hover:bg-white/10 hover:text-white" />
+   411→   411→        <div className="flex flex-col min-w-0">
+   412→   412→          <h1 className="text-sm font-bold leading-tight sm:text-base lg:text-xl truncate">
+   413→   413→            {MODULE_LABELS[activeView]}
+   414→   414→          </h1>
+   415→   415→          <div className="flex items-center gap-2 min-w-0">
+   416→   416→            <p className="hidden text-[10px] text-white/60 sm:block truncate">
+   417→   417→              {isAdmin
+   418→   418→                ? "Panneau d'administration système"
+   419→   419→                : 'Cockpit de Direction Générale'}
+   420→   420→            </p>
+   421→   421→            {/* Mobile: active filter pills */}
+   422→   422→            <div className="sm:hidden">
+   423→   423→              <ActiveFilterBadges />
+   424→   424→            </div>
+   425→   425→          </div>
+   426→   426→        </div>
+   427→   427→
+   428→   428→        {/* Global search button — after title, desktop only */}
+   429→   429→        <button
+   430→   430→          onClick={() => setSearchOpen(true)}
+   431→   431→          className={cn(
+   432→   432→            'hidden sm:flex items-center gap-2 h-8 px-3 rounded-md text-xs text-white/60 border border-white/15 bg-white/5 hover:bg-white/15 hover:text-white/90 transition-colors w-[160px] lg:w-[220px] shrink-0 cursor-pointer',
+   433→   433→          )}
+   434→   434→        >
+   435→   435→          <Search className="size-3.5 shrink-0" />
+   436→   436→          <span className="flex-1 text-left truncate">Rechercher un KPI...</span>
+   437→   437→          <kbd className="hidden lg:inline-flex items-center gap-0.5 text-[10px] text-white/40 bg-white/10 rounded px-1.5 py-0.5 font-mono">
+   438→   438→            ⌘K
+   439→   439→          </kbd>
+   440→   440→        </button>
+   441→   441→      </div>
+   442→   442→
+   443→   443→      {/* ── Right: filters + export + theme ── */}
+   444→   444→      {!isAdmin && (
+   445→   445→        <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 shrink-0">
+   446→   446→          {/* Desktop inline filters (md+) */}
+   447→   447→          <div className="hidden md:flex items-center gap-1.5 lg:gap-2">
+   448→   448→            {/* Year */}
+   449→   449→            <Select
+   450→   450→              value={String(filters.year)}
+   451→   451→              onValueChange={(v) => setFilters({ year: Number(v) })}
+   452→   452→            >
+   453→   453→              <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[82px]')}>
+   454→   454→                <SelectValue />
+   455→   455→              </SelectTrigger>
+   456→   456→              <SelectContent>
+   457→   457→                {YEARS.map((y) => (
+   458→   458→                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+   459→   459→                ))}
+   460→   460→              </SelectContent>
+   461→   461→            </Select>
+   462→   462→
+   463→   463→            {/* Quarter */}
+   464→   464→            <Select
+   465→   465→              value={filters.quarter ? String(filters.quarter) : 'all'}
+   466→   466→              onValueChange={(v) => setFilters({ quarter: v === 'all' ? null : Number(v) })}
+   467→   467→            >
+   468→   468→              <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[76px]')}>
+   469→   469→                <SelectValue />
+   470→   470→              </SelectTrigger>
+   471→   471→              <SelectContent>
+   472→   472→                <SelectItem value="all">Tous</SelectItem>
+   473→   473→                {QUARTERS.map((q) => (
+   474→   474→                  <SelectItem key={q.value} value={q.value}>{q.label}</SelectItem>
+   475→   475→                ))}
+   476→   476→              </SelectContent>
+   477→   477→            </Select>
+   478→   478→
+   479→   479→            {/* Month */}
+   480→   480→            <Select
+   481→   481→              value={filters.month ? String(filters.month) : 'all'}
+   482→   482→              onValueChange={(v) => setFilters({ month: v === 'all' ? null : Number(v) })}
+   483→   483→            >
+   484→   484→              <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[82px]')}>
+   485→   485→                <SelectValue />
+   486→   486→              </SelectTrigger>
+   487→   487→              <SelectContent>
+   488→   488→                <SelectItem value="all">Tous</SelectItem>
+   489→   489→                {MONTHS_FR.map((m) => (
+   490→   490→                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+   491→   491→                ))}
+   492→   492→              </SelectContent>
+   493→   493→            </Select>
+   494→   494→
+   495→   495→            {/* Period — visible on lg+ */}
+   496→   496→            <div className="hidden lg:block">
+   497→   497→              <Popover>
+   498→   498→                <PopoverTrigger asChild>
+   499→   499→                  <button
+   500→   500→                    className={cn(
+   501→   501→                      HEADER_SELECT,
+   502→   502→                      'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs whitespace-nowrap cursor-pointer',
+   503→   503→                      (filters.periodStart || filters.periodEnd) && 'bg-white/20',
+   504→   504→                    )}
+   505→   505→                  >
+   506→   506→                    <CalendarIcon className="size-3.5 shrink-0" />
+   507→   507→                    {filters.periodStart && filters.periodEnd
+   508→   508→                      ? <span>{formatDateShort(filters.periodStart)} → {formatDateShort(filters.periodEnd)}</span>
+   509→   509→                      : filters.periodStart
+   510→   510→                        ? <span>Depuis {formatDateShort(filters.periodStart)}</span>
+   511→   511→                        : filters.periodEnd
+   512→   512→                          ? <span>Jusqu'au {formatDateShort(filters.periodEnd)}</span>
+   513→   513→                          : <span className="opacity-70">Période</span>
+   514→   514→                    }
+   515→   515→                    {(filters.periodStart || filters.periodEnd) && (
+   516→   516→                      <X
+   517→   517→                        className="size-3 shrink-0 opacity-60 hover:opacity-100"
+   518→   518→                        onClick={(e) => { e.stopPropagation(); setFilters({ periodStart: null, periodEnd: null }); }}
+   519→   519→                      />
+   520→   520→                    )}
+   521→   521→                  </button>
+   522→   522→                </PopoverTrigger>
+   523→   523→                <PopoverContent className="w-auto p-3" align="end">
+   524→   524→                  <div className="flex flex-col gap-3">
+   525→   525→                    <div className="flex items-center gap-2 text-sm font-medium">
+   526→   526→                      <CalendarIcon className="size-4 text-fun-blue" />
+   527→   527→                      Période personnalisée
+   528→   528→                    </div>
+   529→   529→                    <div className="grid grid-cols-2 gap-2">
+   530→   530→                      <div className="space-y-1">
+   531→   531→                        <Label className="text-xs text-muted-foreground">Date début</Label>
+   532→   532→                        <input
+   533→   533→                          type="date"
+   534→   534→                          value={filters.periodStart || ''}
+   535→   535→                          onChange={(e) => setFilters({ periodStart: e.target.value || null })}
+   536→   536→                          className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+   537→   537→                        />
+   538→   538→                      </div>
+   539→   539→                      <div className="space-y-1">
+   540→   540→                        <Label className="text-xs text-muted-foreground">Date fin</Label>
+   541→   541→                        <input
+   542→   542→                          type="date"
+   543→   543→                          value={filters.periodEnd || ''}
+   544→   544→                          onChange={(e) => setFilters({ periodEnd: e.target.value || null })}
+   545→   545→                          className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+   546→   546→                        />
+   547→   547→                      </div>
+   548→   548→                    </div>
+   549→   549→                  </div>
+   550→   550→                </PopoverContent>
+   551→   551→              </Popover>
+   552→   552→            </div>
+   553→   553→
+   554→   554→            {/* Department — visible on xl+ */}
+   555→   555→            <div className="hidden xl:block">
+   556→   556→              <Select
+   557→   557→                value={filters.departmentId || 'all'}
+   558→   558→                onValueChange={(v) => setFilters({ departmentId: v === 'all' ? null : v })}
+   559→   559→              >
+   560→   560→                <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[190px]')}>
+   561→   561→                  <SelectValue placeholder="Tous" />
+   562→   562→                </SelectTrigger>
+   563→   563→                <SelectContent>
+   564→   564→                  <SelectItem value="all">Tous les départements</SelectItem>
+   565→   565→                  {departments.map((dept) => (
+   566→   566→                    <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+   567→   567→                  ))}
+   568→   568→                </SelectContent>
+   569→   569→              </Select>
+   570→   570→            </div>
+   571→   571→
+   572→   572→            <ExportDropdown />
+   573→   573→          </div>
+   574→   574→
+   575→   575→          {/* ── Mobile search icon ── */}
+   576→   576→          <button
+   577→   577→            onClick={() => setSearchOpen(true)}
+   578→   578→            className="sm:hidden h-8 w-8 flex items-center justify-center border border-white/20 bg-white/10 text-white rounded-md hover:bg-white/20 transition-colors"
+   579→   579→            aria-label="Rechercher"
+   580→   580→          >
+   581→   581→            <Search className="size-3.5" />
+   582→   582→          </button>
+   583→   583→
+   584→   584→          {/* ── Mobile filter sheet button ── */}
+   585→   585→          <div className="md:hidden">
+   586→   586→            <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
+   587→   587→              <SheetTrigger asChild>
+   588→   588→                <Button
+   589→   589→                  variant="ghost"
+   590→   590→                  size="sm"
+   591→   591→                  className="relative h-8 w-8 p-0 border border-white/20 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 hover:text-white"
+   592→   592→                >
+   593→   593→                  <SlidersHorizontal className="size-4" />
+   594→   594→                  {activeFilterCount > 0 && (
+   595→   595→                    <span className="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-tango text-[9px] font-bold flex items-center justify-center shadow-sm">
+   596→   596→                      {activeFilterCount}
+   597→   597→                    </span>
+   598→   598→                  )}
+   599→   599→                  <span className="sr-only">Filtres</span>
+   600→   600→                </Button>
+   601→   601→              </SheetTrigger>
+   602→   602→
+   603→   603→              <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh] overflow-y-auto">
+   604→   604→                <SheetHeader className="pb-2 border-b border-border">
+   605→   605→                  <div className="flex items-center justify-between pr-6">
+   606→   606→                    <div>
+   607→   607→                      <SheetTitle className="text-base">Filtres</SheetTitle>
+   608→   608→                      <SheetDescription className="text-xs mt-0.5">
+   609→   609→                        Affinez la période et le département
+   610→   610→                      </SheetDescription>
+   611→   611→                    </div>
+   612→   612→                    {activeFilterCount > 0 && (
+   613→   613→                      <Badge
+   614→   614→                        variant="secondary"
+   615→   615→                        className="text-[10px] bg-tango/15 text-tango border-tango/20"
+   616→   616→                      >
+   617→   617→                        {activeFilterCount} actif{activeFilterCount > 1 ? 's' : ''}
+   618→   618→                      </Badge>
+   619→   619→                    )}
+   620→   620→                  </div>
+   621→   621→                </SheetHeader>
+   622→   622→
+   623→   623→                <div className="px-4 py-4 space-y-5">
+   624→   624→                  {/* Year */}
+   625→   625→                  <div className="grid grid-cols-3 gap-3">
+   626→   626→                    <div className="space-y-1.5">
+   627→   627→                      <Label className="text-xs font-medium flex items-center gap-1.5">
+   628→   628→                        <CalendarIcon className="size-3" />
+   629→   629→                        Année
+   630→   630→                      </Label>
+   631→   631→                      <Select
+   632→   632→                        value={String(filters.year)}
+   633→   633→                        onValueChange={(v) => setFilters({ year: Number(v) })}
+   634→   634→                      >
+   635→   635→                        <SelectTrigger size="sm" className="h-9 text-sm">
+   636→   636→                          <SelectValue />
+   637→   637→                        </SelectTrigger>
+   638→   638→                        <SelectContent>
+   639→   639→                          {YEARS.map((y) => (
+   640→   640→                            <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+   641→   641→                          ))}
+   642→   642→                        </SelectContent>
+   643→   643→                      </Select>
+   644→   644→                    </div>
+   645→   645→
+   646→   646→                    {/* Quarter */}
+   647→   647→                    <div className="space-y-1.5">
+   648→   648→                      <Label className="text-xs font-medium">Trimestre</Label>
+   649→   649→                      <Select
+   650→   650→                        value={filters.quarter ? String(filters.quarter) : 'all'}
+   651→   651→                        onValueChange={(v) =>
+   652→   652→                          setFilters({ quarter: v === 'all' ? null : Number(v) })
+   653→   653→                        }
+   654→   654→                      >
+   655→   655→                        <SelectTrigger size="sm" className="h-9 text-sm">
+   656→   656→                          <SelectValue />
+   657→   657→                        </SelectTrigger>
+   658→   658→                        <SelectContent>
+   659→   659→                          <SelectItem value="all">Tous</SelectItem>
+   660→   660→                          {QUARTERS.map((q) => (
+   661→   661→                            <SelectItem key={q.value} value={q.value}>
+   662→   662→                              {q.full}
+   663→   663→                            </SelectItem>
+   664→   664→                          ))}
+   665→   665→                        </SelectContent>
+   666→   666→                      </Select>
+   667→   667→                    </div>
+   668→   668→
+   669→   669→                    {/* Month */}
+   670→   670→                    <div className="space-y-1.5">
+   671→   671→                      <Label className="text-xs font-medium">Mois</Label>
+   672→   672→                      <Select
+   673→   673→                        value={filters.month ? String(filters.month) : 'all'}
+   674→   674→                        onValueChange={(v) =>
+   675→   675→                          setFilters({ month: v === 'all' ? null : Number(v) })
+   676→   676→                        }
+   677→   677→                      >
+   678→   678→                        <SelectTrigger size="sm" className="h-9 text-sm">
+   679→   679→                          <SelectValue />
+   680→   680→                        </SelectTrigger>
+   681→   681→                        <SelectContent>
+   682→   682→                          <SelectItem value="all">Tous</SelectItem>
+   683→   683→                          {MONTHS_FR.map((m) => (
+   684→   684→                            <SelectItem key={m.value} value={m.value}>
+   685→   685→                              {m.full}
+   686→   686→                            </SelectItem>
+   687→   687→                          ))}
+   688→   688→                        </SelectContent>
+   689→   689→                      </Select>
+   690→   690→                    </div>
+   691→   691→                  </div>
+   692→   692→
+   693→   693→                  {/* Period + Department */}
+   694→   694→                  <div className="grid grid-cols-2 gap-3">
+   695→   695→                    <div className="space-y-1.5">
+   696→   696→                      <Label className="text-xs font-medium flex items-center gap-1.5">
+   697→   697→                        <CalendarIcon className="size-3" />
+   698→   698→                        Période
+   699→   699→                      </Label>
+   700→   700→                      <div className="flex flex-col gap-1.5">
+   701→   701→                        <input
+   702→   702→                          type="date"
+   703→   703→                          value={filters.periodStart || ''}
+   704→   704→                          onChange={(e) => setFilters({ periodStart: e.target.value || null })}
+   705→   705→                          placeholder="Début"
+   706→   706→                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+   707→   707→                        />
+   708→   708→                        <input
+   709→   709→                          type="date"
+   710→   710→                          value={filters.periodEnd || ''}
+   711→   711→                          onChange={(e) => setFilters({ periodEnd: e.target.value || null })}
+   712→   712→                          placeholder="Fin"
+   713→   713→                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+   714→   714→                        />
+   715→   715→                      </div>
+   716→   716→                    </div>
+   717→   717→
+   718→   718→                    <div className="space-y-1.5">
+   719→   719→                      <Label className="text-xs font-medium flex items-center gap-1.5">
+   720→   720→                        <Building2 className="size-3" />
+   721→   721→                        Département
+   722→   722→                      </Label>
+   723→   723→                      <Select
+   724→   724→                        value={filters.departmentId || 'all'}
+   725→   725→                        onValueChange={(v) =>
+   726→   726→                          setFilters({ departmentId: v === 'all' ? null : v })
+   727→   727→                        }
+   728→   728→                      >
+   729→   729→                        <SelectTrigger size="sm" className="h-9 text-sm">
+   730→   730→                          <SelectValue />
+   731→   731→                        </SelectTrigger>
+   732→   732→                        <SelectContent>
+   733→   733→                          <SelectItem value="all">Tous</SelectItem>
+   734→   734→                          {departments.map((dept) => (
+   735→   735→                            <SelectItem key={dept.id} value={dept.id}>
+   736→   736→                              {dept.name}
+   737→   737→                            </SelectItem>
+   738→   738→                          ))}
+   739→   739→                        </SelectContent>
+   740→   740→                      </Select>
+   741→   741→                    </div>
+   742→   742→                  </div>
+   743→   743→
+   744→   744→                  {/* Export buttons */}
+   745→   745→                  <div className="pt-3 border-t border-border">
+   746→   746→                    <Label className="text-xs font-medium text-muted-foreground mb-2.5 block">
+   747→   747→                      Exporter les données
+   748→   748→                    </Label>
+   749→   749→                    <div className="flex gap-2">
+   750→   750→                      <Button
+   751→   751→                        variant="outline"
+   752→   752→                        size="sm"
+   753→   753→                        className="flex-1 gap-2 text-xs"
+   754→   754→                        onClick={() => {
+   755→   755→                          console.log('Export Excel');
+   756→   756→                          setFilterSheetOpen(false);
+   757→   757→                        }}
+   758→   758→                      >
+   759→   759→                        <FileSpreadsheet className="size-4 text-green-600" />
+   760→   760→                        Excel
+   761→   761→                      </Button>
+   762→   762→                      <Button
+   763→   763→                        variant="outline"
+   764→   764→                        size="sm"
+   765→   765→                        className="flex-1 gap-2 text-xs"
+   766→   766→                        onClick={() => {
+   767→   767→                          console.log('Export PDF');
+   768→   768→                          setFilterSheetOpen(false);
+   769→   769→                        }}
+   770→   770→                      >
+   771→   771→                        <FileText className="size-4 text-red-600" />
+   772→   772→                        PDF
+   773→   773→                      </Button>
+   774→   774→                    </div>
+   775→   775→                  </div>
+   776→   776→                </div>
+   777→   777→              </SheetContent>
+   778→   778→            </Sheet>
+   779→   779→          </div>
+   780→   780→
+   781→   781→          {/* Filter button for md-lg screens to access Day/Dept/Export */}
+   782→   782→          <div className="hidden md:flex xl:hidden">
+   783→   783→            <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
+   784→   784→              <SheetTrigger asChild>
+   785→   785→                <Button
+   786→   786→                  variant="ghost"
+   787→   787→                  size="sm"
+   788→   788→                  className={cn(
+   789→   789→                    'relative h-8 gap-1.5 border border-white/20 bg-white/10 text-white text-xs backdrop-blur-sm hover:bg-white/20 hover:text-white',
+   790→   790→                    activeFilterCount > 0 && 'border-tango/50',
+   791→   791→                  )}
+   792→   792→                >
+   793→   793→                  <SlidersHorizontal className="size-3.5" />
+   794→   794→                  {activeFilterCount > 0 && (
+   795→   795→                    <span className="size-4 rounded-full bg-tango text-[9px] font-bold flex items-center justify-center">
+   796→   796→                      {activeFilterCount}
+   797→   797→                    </span>
+   798→   798→                  )}
+   799→   799→                </Button>
+   800→   800→              </SheetTrigger>
+   801→   801→
+   802→   802→              <SheetContent side="bottom" className="rounded-t-2xl max-h-[70vh]">
+   803→   803→                <SheetHeader className="pb-2 border-b border-border">
+   804→   804→                  <SheetTitle className="text-base">Filtres avancés</SheetTitle>
+   805→   805→                  <SheetDescription>
+   806→   806→                    Période, Département et Export
+   807→   807→                  </SheetDescription>
+   808→   808→                </SheetHeader>
+   809→   809→
+   810→   810→                <div className="px-4 py-4 space-y-5">
+   811→   811→                  <div className="grid grid-cols-2 gap-3">
+   812→   812→                    <div className="space-y-1.5">
+   813→   813→                      <Label className="text-xs font-medium flex items-center gap-1.5">
+   814→   814→                        <CalendarIcon className="size-3" />
+   815→   815→                        Période
+   816→   816→                      </Label>
+   817→   817→                      <div className="flex flex-col gap-1.5">
+   818→   818→                        <input
+   819→   819→                          type="date"
+   820→   820→                          value={filters.periodStart || ''}
+   821→   821→                          onChange={(e) => setFilters({ periodStart: e.target.value || null })}
+   822→   822→                          placeholder="Début"
+   823→   823→                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+   824→   824→                        />
+   825→   825→                        <input
+   826→   826→                          type="date"
+   827→   827→                          value={filters.periodEnd || ''}
+   828→   828→                          onChange={(e) => setFilters({ periodEnd: e.target.value || null })}
+   829→   829→                          placeholder="Fin"
+   830→   830→                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+   831→   831→                        />
+   832→   832→                      </div>
+   833→   833→                    </div>
+   834→   834→
+   835→   835→                    <div className="space-y-1.5">
+   836→   836→                      <Label className="text-xs font-medium flex items-center gap-1.5">
+   837→   837→                        <Building2 className="size-3" />
+   838→   838→                        Département
+   839→   839→                      </Label>
+   840→   840→                      <Select
+   841→   841→                        value={filters.departmentId || 'all'}
+   842→   842→                        onValueChange={(v) =>
+   843→   843→                          setFilters({ departmentId: v === 'all' ? null : v })
+   844→   844→                        }
+   845→   845→                      >
+   846→   846→                        <SelectTrigger size="sm" className="h-9 text-sm">
+   847→   847→                          <SelectValue />
+   848→   848→                        </SelectTrigger>
+   849→   849→                        <SelectContent>
+   850→   850→                          <SelectItem value="all">Tous</SelectItem>
+   851→   851→                          {departments.map((dept) => (
+   852→   852→                            <SelectItem key={dept.id} value={dept.id}>
+   853→   853→                              {dept.name}
+   854→   854→                            </SelectItem>
+   855→   855→                          ))}
+   856→   856→                        </SelectContent>
+   857→   857→                      </Select>
+   858→   858→                    </div>
+   859→   859→                  </div>
+   860→   860→
+   861→   861→                  <div className="pt-3 border-t border-border">
+   862→   862→                    <Label className="text-xs font-medium text-muted-foreground mb-2.5 block">
+   863→   863→                      Exporter
+   864→   864→                    </Label>
+   865→   865→                    <div className="flex gap-2">
+   866→   866→                      <Button
+   867→   867→                        variant="outline"
+   868→   868→                        size="sm"
+   869→   869→                        className="flex-1 gap-2 text-xs"
+   870→   870→                        onClick={() => {
+   871→   871→                          console.log('Export Excel');
+   872→   872→                          setFilterSheetOpen(false);
+   873→   873→                        }}
+   874→   874→                      >
+   875→   875→                        <FileSpreadsheet className="size-4 text-green-600" />
+   876→   876→                        Excel
+   877→   877→                      </Button>
+   878→   878→                      <Button
+   879→   879→                        variant="outline"
+   880→   880→                        size="sm"
+   881→   881→                        className="flex-1 gap-2 text-xs"
+   882→   882→                        onClick={() => {
+   883→   883→                          console.log('Export PDF');
+   884→   884→                          setFilterSheetOpen(false);
+   885→   885→                        }}
+   886→   886→                      >
+   887→   887→                        <FileText className="size-4 text-red-600" />
+   888→   888→                        PDF
+   889→   889→                      </Button>
+   890→   890→                    </div>
+   891→   891→                  </div>
+   892→   892→                </div>
+   893→   893→              </SheetContent>
+   894→   894→            </Sheet>
+   895→   895→          </div>
+   896→   896→
+   897→   897→          <ThemeToggle />
+   898→   898→        </div>
+   899→   899→      )}
+   900→   900→
+   901→   901→      {/* Admin: search + theme toggle */}
+   902→   902→      {isAdmin && (
+   903→   903→        <div className="flex items-center gap-2">
+   904→   904→          <button
+   905→   905→            onClick={() => setSearchOpen(true)}
+   906→   906→            className="h-8 w-8 flex items-center justify-center border border-white/20 bg-white/10 text-white rounded-md hover:bg-white/20 transition-colors"
+   907→   907→            aria-label="Rechercher"
+   908→   908→          >
+   909→   909→            <Search className="size-3.5" />
+   910→   910→          </button>
+   911→   911→          <ThemeToggle />
+   912→   912→        </div>
+   913→   913→      )}
+   914→   914→
+   915→   915→      {/* Global Search Dialog */}
+   916→   916→      <GlobalSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
+   917→   917→    </header>
+   918→   918→  );
+   919→   919→}

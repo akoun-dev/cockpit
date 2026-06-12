@@ -364,3 +364,61 @@ Stage Summary:
 - Global search (Ctrl+K) searches KPIs and modules with navigation
 - Files created: src/app/api/search/route.ts
 - Files modified: src/components/admin/AdminLayout.tsx, src/components/cockpit/DashboardAccueil.tsx, src/components/cockpit/Header.tsx
+
+---
+Task ID: 4-a/4-b/4-c/4-d
+Agent: Main
+Task: SystemSetting model, settings API, export API, module documents
+
+Work Log:
+- Task 4-a: Added `SystemSetting` model (id, key, value, updatedAt, createdAt) to prisma/schema.prisma. Ran `db:push` to sync.
+- Task 4-b: Created `/api/admin/settings` route (GET: flat key-value object with JSON parsing; PUT: upsert by key). Updated AdminSettings.tsx:
+  - Added `PERSIST_KEYS` array for 6 export settings (pdfTemplate, pptTemplate, excelTemplate, defaultExportFormat, includeLogo, includeGenerationDate)
+  - Added `fetchPersistedSettings()` callback that merges DB settings into local state on mount
+  - Replaced fake `setTimeout` in `handleSave` with real API calls (PUT for each PERSIST_KEY via Promise.allSettled)
+  - Toast notification shows success or partial failure count
+- Task 4-c: Created `/api/export` route that reads SystemSetting values, fetches indicators with values for given module/filters. Updated ExportDropdown in Header.tsx:
+  - Replaced `console.log` handlers with real API calls to `/api/export`
+  - Added `ExportResponseData` interface
+  - Fetches `defaultExportFormat` from settings API to show "Par défaut" badge on the default format
+  - Excel export generates CSV (with BOM, semicolon separator for French Excel)
+  - PDF export generates styled HTML table (respects includeLogo/includeGenerationDate settings)
+  - Both trigger file download via Blob URLs
+  - Loading state with spinner, toast on success/error
+- Task 4-d: Created `ModuleDocuments` component that fetches documents from `/api/admin/documents?module={key}`. Shows card with "Documents & Ressources liées" header, type badges (Lien/SharePoint/OneDrive/Teams), external link icons, hover effects. Returns null when no documents exist. Added `<ModuleDocuments>` to all 6 module wrappers (Governance, Finance, Operational, RH, Risque, PTA).
+
+Stage Summary:
+- SystemSetting model added to Prisma schema and DB
+- Settings CRUD API at /api/admin/settings (GET flat object, PUT upsert)
+- AdminSettings.tsx now persists Export & Rapports settings to DB
+- Export API at /api/export returns structured indicator data with settings
+- ExportDropdown generates CSV (Excel) or HTML (PDF) downloads with toast feedback
+- ModuleDocuments component shows linked documents in all 6 module views
+- Files created: src/app/api/admin/settings/route.ts, src/app/api/export/route.ts, src/components/cockpit/ModuleDocuments.tsx
+- Files modified: prisma/schema.prisma, src/components/admin/AdminSettings.tsx, src/components/cockpit/Header.tsx, 6 module wrappers
+---
+Task ID: 3
+Agent: Main Agent
+Task: Add 2-second visual indicator when searching for a KPI + Connect Export & Rapports
+
+Work Log:
+- Added `highlightIndicatorId` and `setHighlightIndicatorId` to Zustand store (non-persisted)
+- Modified GlobalSearchDialog in Header.tsx to set highlight ID on indicator search select, with 2.5s auto-clear
+- Added CSS keyframe animation `kpi-highlight-pulse` in globals.css (2s ease-out, tango orange glow)
+- Added `.kpi-highlight` class for cards and `.kpi-highlight-row` class for table rows
+- Implemented DOM-based highlight approach in KpiModuleView, ModuleHeroSection, and DashboardAccueil using useEffect that watches highlightIndicatorId, finds element by ID, applies CSS class, and removes after 2s
+- Added scroll-into-view behavior for highlighted indicators
+- Created SystemSetting model in Prisma schema and pushed to DB
+- Created GET/PUT /api/admin/settings for settings persistence
+- Created GET /api/export route that reads export settings from DB, fetches indicators with values
+- Updated AdminSettings.tsx to load/save Export & Rapports settings to DB via API
+- Updated ExportDropdown in Header.tsx to call real export API, generate CSV (Excel) and HTML (PDF) downloads, show toast notifications, and display "Par défaut" badge based on saved settings
+- Created ModuleDocuments component showing linked documents per module
+- Added ModuleDocuments to all 6 module views (Governance, Finance, Operational, RH, Risque, PTA)
+
+Stage Summary:
+- KPI search highlight: Working with 2-second pulse animation (tango orange glow), scrolls to element
+- Export & Rapports settings: Persisted to DB, connected to header export dropdown
+- Export buttons: Generate real CSV/HTML downloads with indicator data
+- Module documents: Fetched from DB and displayed as linked list in each module view
+- All lint checks pass, no runtime errors

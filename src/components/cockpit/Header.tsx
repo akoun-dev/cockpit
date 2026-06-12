@@ -42,6 +42,8 @@ import {
   Calendar as CalendarIcon,
   Building2,
   Search,
+  Loader2,
+  Star,
 } from 'lucide-react';
 import { useAppStore, type AppViewKey, type ModuleKey } from '@/lib/store';
 import { useTheme } from 'next-themes';
@@ -54,6 +56,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
+import { useToast } from '@/hooks/use-toast';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -127,8 +130,183 @@ function ThemeToggle() {
 
 // ─── Export Dropdown ────────────────────────────────────────────────────────
 
+interface ExportIndicator {
+  code: string;
+  name: string;
+  subDomain: string | null;
+  unit: string;
+  targetValue: number | null;
+  alertValue: number | null;
+  criticalValue: number | null;
+  isPriority: boolean;
+  department: string | null;
+  values: { year: number; quarter: number | null; month: number | null; period: string; value: number; comment: string | null }[];
+  latestValue: number | null;
+  latestPeriod: string | null;
+}
+
+interface ExportResponseData {
+  format: string;
+  module: string;
+  moduleLabel: string;
+  filters: Record<string, unknown>;
+  settings: Record<string, unknown>;
+  indicators: ExportIndicator[];
+  totalIndicators: number;
+  generatedAt: string;
+}
+
 function ExportDropdown({ className }: { className?: string }) {
   const { activeView, filters } = useAppStore();
+  const { toast } = useToast();
+  const [exporting, setExporting] = useState<string | null>(null);
+  const [defaultFormat, setDefaultFormat] = useState<string | null>(null);
+
+  // Fetch default export format on mount
+  useEffect(() => {
+    fetch('/api/admin/settings')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: Record<string, unknown> | null) => {
+        if (data?.defaultExportFormat) {
+          setDefaultFormat(String(data.defaultExportFormat));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const buildExportUrl = (format: string) => {
+    const params = new URLSearchParams();
+    params.set('module', activeView === 'accueil' ? 'governance' : activeView);
+    params.set('format', format);
+    if (filters.year) params.set('year', String(filters.year));
+    if (filters.quarter) params.set('quarter', String(filters.quarter));
+    if (filters.month) params.set('month', String(filters.month));
+    if (filters.periodStart) params.set('periodStart', filters.periodStart);
+    if (filters.periodEnd) params.set('periodEnd', filters.periodEnd);
+    return `/api/export?${params.toString()}`;
+  };
+
+  const downloadAsCsv = (data: ExportResponseData) => {
+    const moduleLabel = MODULE_LABELS[data.module as AppViewKey] ?? data.module;
+    const header = [
+      'Code',
+      'Indicateur',
+      'Sous-domaine',
+      'Unité',
+      'Cible',
+      'Valeur',
+      'Période',
+      'Département',
+      'Priorité',
+    ];
+    const rows = data.indicators.map((ind) => [
+      ind.code,
+      `"${ind.name}"`,
+      ind.subDomain ?? '',
+      ind.unit,
+      ind.targetValue?.toString() ?? '',
+      ind.latestValue?.toString() ?? '',
+      ind.latestPeriod ?? '',
+      ind.department ?? '',
+      ind.isPriority ? 'Oui' : 'Non',
+    ]);
+
+    // BOM for Excel UTF-8
+    const bom = '\uFEFF';
+    const csv = bom + [header.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `export_${data.module}_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadAsHtml = (data: ExportResponseData) => {
+    const moduleLabel = MODULE_LABELS[data.module as AppViewKey] ?? data.module;
+    const includeLogo = data.settings?.includeLogo !== false;
+    const includeDate = data.settings?.includeGenerationDate !== false;
+
+    const rows = data.indicators
+      .map(
+        (ind) => `
+        <tr>
+          <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-weight:500;font-size:12px;">${ind.code}${ind.isPriority ? ' ★' : ''}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;">${ind.name}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;">${ind.subDomain ?? '—'}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;text-align:right;">${ind.latestValue ?? '—'}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;text-align:right;">${ind.targetValue ?? '—'}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;">${ind.unit}</td>
+        </tr>`,
+      )
+      .join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><title>Export ${moduleLabel}</title></head>
+<body style="font-family:system-ui,sans-serif;margin:40px;color:#1a1a2e;">
+  <div style="max-width:1000px;margin:0 auto;">
+    ${includeLogo ? '<h1 style="font-size:22px;margin-bottom:4px;">ANSUT Cockpit DG</h1>' : ''}
+    <h2 style="font-size:18px;color:#1c55a3;margin-bottom:2px;">${moduleLabel}</h2>
+    ${includeDate ? `<p style="font-size:12px;color:#6b7280;margin-bottom:20px;">Généré le ${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })} — ${data.totalIndicators} indicateurs</p>` : '<p style="margin-bottom:20px;"></p>'}
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="background:#f3f4f6;">
+          <th style="padding:8px 10px;text-align:left;font-size:12px;border-bottom:2px solid #1c55a3;">Code</th>
+          <th style="padding:8px 10px;text-align:left;font-size:12px;border-bottom:2px solid #1c55a3;">Indicateur</th>
+          <th style="padding:8px 10px;text-align:left;font-size:12px;border-bottom:2px solid #1c55a3;">Sous-domaine</th>
+          <th style="padding:8px 10px;text-align:right;font-size:12px;border-bottom:2px solid #1c55a3;">Valeur</th>
+          <th style="padding:8px 10px;text-align:right;font-size:12px;border-bottom:2px solid #1c55a3;">Cible</th>
+          <th style="padding:8px 10px;text-align:left;font-size:12px;border-bottom:2px solid #1c55a3;">Unité</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>
+</body></html>`;
+
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `export_${data.module}_${new Date().toISOString().slice(0, 10)}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExport = async (format: 'excel' | 'pdf') => {
+    if (exporting) return;
+    setExporting(format);
+    try {
+      const res = await fetch(buildExportUrl(format));
+      if (!res.ok) throw new Error('Export failed');
+      const data: ExportResponseData = await res.json();
+
+      if (format === 'excel') {
+        downloadAsCsv(data);
+      } else {
+        downloadAsHtml(data);
+      }
+
+      toast({
+        title: 'Export réussi',
+        description: `${data.totalIndicators} indicateurs exportés pour ${MODULE_LABELS[data.module as AppViewKey] ?? data.module}.`,
+      });
+    } catch {
+      toast({
+        title: 'Erreur d\'export',
+        description: 'Impossible de générer l\'export. Veuillez réessayer.',
+        variant: 'destructive',
+      });
+    } finally {
+      setExporting(null);
+    }
+  };
 
   return (
     <DropdownMenu>
@@ -141,24 +319,40 @@ function ExportDropdown({ className }: { className?: string }) {
             className,
           )}
         >
-          <Download className="size-3.5" />
+          {exporting ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <Download className="size-3.5" />
+          )}
           <span className="hidden lg:inline">Exporter</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-44">
+      <DropdownMenuContent align="end" className="w-52">
         <DropdownMenuItem
-          onClick={() => console.log('Export Excel:', { module: activeView, filters })}
+          onClick={() => handleExport('excel')}
+          disabled={!!exporting}
           className="gap-2 cursor-pointer"
         >
-          <FileSpreadsheet className="size-4 text-green-600" />
-          Exporter Excel
+          <FileSpreadsheet className={cn('size-4', defaultFormat === 'excel' ? 'text-green-600' : 'text-green-600/70')} />
+          <span className="flex-1">Exporter Excel</span>
+          {defaultFormat === 'excel' && (
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 gap-0.5">
+              <Star className="size-2 text-tango" /> Par défaut
+            </Badge>
+          )}
         </DropdownMenuItem>
         <DropdownMenuItem
-          onClick={() => console.log('Export PDF:', { module: activeView, filters })}
+          onClick={() => handleExport('pdf')}
+          disabled={!!exporting}
           className="gap-2 cursor-pointer"
         >
-          <FileText className="size-4 text-red-600" />
-          Exporter PDF
+          <FileText className={cn('size-4', defaultFormat === 'pdf' ? 'text-red-600' : 'text-red-600/70')} />
+          <span className="flex-1">Exporter PDF</span>
+          {defaultFormat === 'pdf' && (
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 gap-0.5">
+              <Star className="size-2 text-tango" /> Par défaut
+            </Badge>
+          )}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -235,7 +429,7 @@ interface SearchResult {
 }
 
 function GlobalSearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const { setActiveView, setActiveModule, filters } = useAppStore();
+  const { setActiveView, setActiveModule, setHighlightIndicatorId, filters } = useAppStore();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -275,6 +469,11 @@ function GlobalSearchDialog({ open, onOpenChange }: { open: boolean; onOpenChang
     if (result.type === 'module') {
       setActiveView(result.domain as ModuleKey);
     } else {
+      // Highlight the indicator for 2 seconds
+      if (result.id) {
+        setHighlightIndicatorId(result.id);
+        setTimeout(() => setHighlightIndicatorId(null), 2500);
+      }
       setActiveView(result.domain as ModuleKey);
     }
   }

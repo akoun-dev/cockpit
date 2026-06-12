@@ -339,7 +339,22 @@ function ExecutiveStrip({
   data: DashboardData;
   onNavigate: (module: ModuleKey) => void;
 }) {
-  const { cardOrder, setCardOrder } = useAppStore();
+  const { cardOrder, setCardOrder, highlightIndicatorId } = useAppStore();
+
+  // Highlight card when searching from homepage
+  useEffect(() => {
+    if (!highlightIndicatorId) return;
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`ind-${highlightIndicatorId}`);
+      if (el) {
+        const card = el.closest('[class*="Card"]') || el;
+        card.classList.add('kpi-highlight');
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => card.classList.remove('kpi-highlight'), 2000);
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [highlightIndicatorId]);
 
   const defaultOrder = Object.keys(DOMAIN_META);
   const homepageDndKey = getHomepageDndKey();

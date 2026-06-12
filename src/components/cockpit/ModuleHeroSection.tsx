@@ -253,7 +253,7 @@ function SortableHeroCard({
       : null;
 
   return (
-    <div ref={setNodeRef} style={style} className={cn(isDragging && 'opacity-40')}>
+    <div id={`ind-${indicator.id}`} ref={setNodeRef} style={style} className={cn(isDragging && 'opacity-40')}>
       <Card className="relative overflow-hidden border-l-4 hover:shadow-md transition-shadow" style={{ borderLeftColor: accentColor }}>
         {/* Background accent */}
         <div
@@ -723,9 +723,24 @@ interface ModuleHeroSectionProps {
 }
 
 export function ModuleHeroSection({ domain }: ModuleHeroSectionProps) {
-  const { filters } = useAppStore();
+  const { filters, highlightIndicatorId } = useAppStore();
   const [indicators, setIndicators] = useState<Indicator[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Highlight indicator from search
+  useEffect(() => {
+    if (!highlightIndicatorId || loading) return;
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`ind-${highlightIndicatorId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const card = el.querySelector('[class*="Card"]') || el.closest('[class*="Card"]') || el;
+        card.classList.add('kpi-highlight');
+        setTimeout(() => card.classList.remove('kpi-highlight'), 2000);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [highlightIndicatorId, loading]);
 
   useEffect(() => {
     let cancelled = false;
