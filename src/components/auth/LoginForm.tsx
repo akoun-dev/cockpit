@@ -53,8 +53,8 @@ export function LoginForm() {
 
         {/* Top: Logo */}
         <div className="relative z-10 p-10">
-          <div className="flex size-14 items-center justify-center rounded-lg bg-white shadow-lg">
-            <img src="/logo-ansut.png" alt="ANSUT" className="size-12 object-cover rounded-md" />
+          <div className="flex size-16 items-center justify-center rounded-xl bg-white shadow-lg">
+            <img src="/logo-ansut-square.png" alt="ANSUT" className="size-14 object-contain" />
           </div>
         </div>
 
@@ -87,8 +87,8 @@ export function LoginForm() {
         <div className="w-full max-w-sm xl:max-w-[360px]">
           {/* Mobile-only logo */}
           <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-[#1a3a6e] shadow-md">
-              <img src="/logo-ansut.png" alt="ANSUT" className="size-8 object-cover rounded-md" />
+            <div className="flex size-11 items-center justify-center rounded-lg bg-[#1a3a6e] shadow-md">
+              <img src="/logo-ansut-square.png" alt="ANSUT" className="size-9 object-contain" />
             </div>
             <span className="text-lg font-bold text-[#1a3a6e]">ANSUT</span>
           </div>
