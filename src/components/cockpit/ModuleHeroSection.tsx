@@ -19,6 +19,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { getUserId } from '@/lib/user-id';
 import {
   Card,
   CardContent,
@@ -397,7 +398,7 @@ function DraggableHeroCards({
   domain: string;
 }) {
   const { cardOrder, setCardOrder, resetCardOrder } = useAppStore();
-  const orderKey = `${domain}__hero`;
+  const orderKey = `${getUserId()}__${domain}__hero`;
   const savedOrder = cardOrder[orderKey];
   const [activeId, setActiveId] = useState<string | null>(null);
 

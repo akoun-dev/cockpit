@@ -27,6 +27,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { getUserId } from '@/lib/user-id';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -198,7 +199,9 @@ const HOMEPAGE_KPI_CODES: Record<string, [string, string]> = {
   pta: ['PTA-005', 'PTA-007'],
 };
 
-const HOMEPAGE_DND_KEY = 'homepage-domains';
+function getHomepageDndKey(): string {
+  return `${getUserId()}__homepage-domains`;
+}
 
 function SortableDomainKpiCard({
   domainKey,
@@ -339,7 +342,8 @@ function ExecutiveStrip({
   const { cardOrder, setCardOrder } = useAppStore();
 
   const defaultOrder = Object.keys(DOMAIN_META);
-  const savedOrder = cardOrder[HOMEPAGE_DND_KEY];
+  const homepageDndKey = getHomepageDndKey();
+  const savedOrder = cardOrder[homepageDndKey];
   const domainKeys = useMemo(() => {
     if (!savedOrder || savedOrder.length === 0) return defaultOrder;
     // Merge saved order with any new domains not yet saved
@@ -359,7 +363,7 @@ function ExecutiveStrip({
       const oldIndex = domainKeys.indexOf(active.id as string);
       const newIndex = domainKeys.indexOf(over.id as string);
       const newOrder = arrayMove(domainKeys, oldIndex, newIndex);
-      setCardOrder(HOMEPAGE_DND_KEY, newOrder);
+      setCardOrder(homepageDndKey, newOrder);
     }
   }
 

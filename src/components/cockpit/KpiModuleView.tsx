@@ -20,6 +20,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { getUserId } from '@/lib/user-id';
 import {
   Card,
   CardContent,
@@ -450,7 +451,7 @@ function SubDomainContent({
 }) {
   const isMobile = useIsMobile();
   const { cardOrder, setCardOrder, resetCardOrder } = useAppStore();
-  const orderKey = `${domain}__${subDomain}`;
+  const orderKey = `${getUserId()}__${domain}__${subDomain}`;
   const savedOrder = cardOrder[orderKey];
   const [activeId, setActiveId] = useState<string | null>(null);
 

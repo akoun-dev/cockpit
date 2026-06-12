@@ -403,19 +403,6 @@ export function Header() {
       {/* ── Left: sidebar trigger + title ── */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
         <SidebarTrigger className="shrink-0 text-white hover:bg-white/10 hover:text-white" />
-        {/* Global search button — always visible */}
-        <button
-          onClick={() => setSearchOpen(true)}
-          className={cn(
-            'hidden sm:flex items-center gap-2 h-8 px-3 rounded-md text-xs text-white/60 border border-white/15 bg-white/5 hover:bg-white/15 hover:text-white/90 transition-colors min-w-[160px] lg:min-w-[220px] cursor-pointer',
-          )}
-        >
-          <Search className="size-3.5 shrink-0" />
-          <span className="flex-1 text-left truncate">Rechercher un KPI...</span>
-          <kbd className="hidden lg:inline-flex items-center gap-0.5 text-[10px] text-white/40 bg-white/10 rounded px-1.5 py-0.5 font-mono">
-            ⌘K
-          </kbd>
-        </button>
         <div className="flex flex-col min-w-0">
           <h1 className="text-sm font-bold leading-tight sm:text-base lg:text-xl truncate">
             {MODULE_LABELS[activeView]}
@@ -432,6 +419,20 @@ export function Header() {
             </div>
           </div>
         </div>
+
+        {/* Global search button — after title, desktop only */}
+        <button
+          onClick={() => setSearchOpen(true)}
+          className={cn(
+            'hidden sm:flex items-center gap-2 h-8 px-3 rounded-md text-xs text-white/60 border border-white/15 bg-white/5 hover:bg-white/15 hover:text-white/90 transition-colors w-[160px] lg:w-[220px] shrink-0 cursor-pointer',
+          )}
+        >
+          <Search className="size-3.5 shrink-0" />
+          <span className="flex-1 text-left truncate">Rechercher un KPI...</span>
+          <kbd className="hidden lg:inline-flex items-center gap-0.5 text-[10px] text-white/40 bg-white/10 rounded px-1.5 py-0.5 font-mono">
+            ⌘K
+          </kbd>
+        </button>
       </div>
 
       {/* ── Right: filters + export + theme ── */}
