@@ -14,6 +14,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -45,7 +46,12 @@ import {
   Loader2,
   Star,
   Play,
+  LogOut,
+  User,
+  Shield,
 } from 'lucide-react';
+import { useSession, signOut } from 'next-auth/react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAppStore, type AppViewKey, type ModuleKey } from '@/lib/store';
 import { StorytellingOverlay } from '@/components/cockpit/StorytellingOverlay';
 import { useTheme } from 'next-themes';
@@ -632,6 +638,124 @@ function GlobalSearchDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   );
 }
 
+// ─── User Menu (authenticated) ─────────────────────────────────────────────
+
+function UserMenu() {
+  const { data: session } = useSession();
+
+  const user = session?.user as unknown as {
+    permissions: Record<string, string>;
+    role: { level: number; label?: string; color?: string } | null;
+    department: { name?: string } | null;
+  } | undefined;
+
+  const userInitials = session?.user?.name
+    ? session.user.name
+        .split(' ')
+        .map((n: string) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    : '??';
+
+  const roleLabel = user?.role?.label || 'Utilisateur';
+  const departmentName = user?.department?.name || '';
+
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: '/' });
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-2 py-1 backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+          aria-label="Menu utilisateur"
+        >
+          <Avatar className="size-7">
+            <AvatarFallback
+              className="text-[10px] font-bold text-white"
+              style={{ backgroundColor: user?.role?.color || '#1c55a3' }}
+            >
+              {userInitials}
+            </AvatarFallback>
+          </Avatar>
+          <span className="hidden text-xs font-medium text-white sm:inline max-w-[120px] truncate">
+            {session?.user?.name || 'Utilisateur'}
+          </span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        {/* User info header */}
+        <div className="flex items-center gap-3 p-3">
+          <Avatar className="size-10">
+            <AvatarFallback
+              className="text-sm font-bold text-white"
+              style={{ backgroundColor: user?.role?.color || '#1c55a3' }}
+            >
+              {userInitials}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex flex-col min-w-0 flex-1">
+            <p className="text-sm font-semibold truncate">{session?.user?.name}</p>
+            <p className="text-xs text-muted-foreground truncate">{session?.user?.email}</p>
+          </div>
+        </div>
+
+        <DropdownMenuSeparator />
+
+        {/* Role and department info */}
+        <div className="px-3 py-2">
+          <div className="flex items-center gap-2 text-xs">
+            <Shield className="size-3.5 shrink-0" style={{ color: user?.role?.color || '#1c55a3' }} />
+            <span className="font-medium">{roleLabel}</span>
+          </div>
+          {departmentName && (
+            <p className="mt-1 text-xs text-muted-foreground pl-5.5">{departmentName}</p>
+          )}
+        </div>
+
+        <DropdownMenuSeparator />
+
+        {/* Accessible modules summary */}
+        <div className="px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1.5">
+            Modules accessibles
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {user?.permissions
+              ? Object.entries(user.permissions)
+                  .filter(([, access]) => access && access !== 'none')
+                  .map(([mod, access]) => (
+                    <Badge
+                      key={mod}
+                      variant="outline"
+                      className="text-[10px] px-1.5 py-0 h-5 font-normal"
+                    >
+                      {mod}
+                      {access === 'admin' && ' ⚡'}
+                      {access === 'write' && ' ✏️'}
+                    </Badge>
+                  ))
+              : <span className="text-xs text-muted-foreground">Aucun module</span>
+            }
+          </div>
+        </div>
+
+        <DropdownMenuSeparator />
+
+        <DropdownMenuItem
+          onClick={handleLogout}
+          className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/30 cursor-pointer"
+        >
+          <LogOut className="size-4 mr-2" />
+          Se déconnecter
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 // ─── Main Header ────────────────────────────────────────────────────────────
 
 export function Header() {
@@ -1082,10 +1206,11 @@ export function Header() {
           </div>
 
           <ThemeToggle />
+          <UserMenu />
         </div>
       )}
 
-      {/* Admin: search + theme toggle */}
+      {/* Admin: search + theme toggle + user menu */}
       {isAdmin && (
         <div className="flex items-center gap-2">
           <button
@@ -1096,6 +1221,7 @@ export function Header() {
             <Search className="size-3.5" />
           </button>
           <ThemeToggle />
+          <UserMenu />
         </div>
       )}
 

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useSession, signOut } from 'next-auth/react';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
@@ -12,8 +13,7 @@ import {
   Target,
   RefreshCw,
   Shield,
-  ChevronLeft,
-  SeparatorHorizontal,
+  LogOut,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -32,8 +32,9 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useAppStore, type ModuleKey, type AppViewKey } from '@/lib/store';
 import { useSidebar } from '@/components/ui/sidebar';
+import { getAccessibleModules, hasAdminAccess } from '@/lib/permissions';
 
-const NAV_ITEMS: { key: ModuleKey; label: string; icon: React.ElementType }[] = [
+const ALL_NAV_ITEMS: { key: ModuleKey; label: string; icon: React.ElementType }[] = [
   { key: 'accueil', label: 'Accueil', icon: LayoutDashboard },
   { key: 'governance', label: 'Gouvernance', icon: Landmark },
   { key: 'finance', label: 'Finance', icon: Wallet },
@@ -44,8 +45,22 @@ const NAV_ITEMS: { key: ModuleKey; label: string; icon: React.ElementType }[] = 
 ];
 
 export function AppSidebar() {
+  const { data: session } = useSession();
   const { activeView, setActiveView, lastUpdated } = useAppStore();
   const { state } = useSidebar();
+
+  const sessionUser = session?.user as unknown as {
+    permissions: Record<string, string>;
+    role: { level: number; label?: string } | null;
+    department: { name?: string } | null;
+  } | undefined;
+  const permissions = sessionUser?.permissions;
+  const roleLevel = sessionUser?.role?.level;
+
+  // Filter nav items based on user permissions
+  const accessibleModules = getAccessibleModules(permissions);
+  const navItems = ALL_NAV_ITEMS.filter((item) => accessibleModules.includes(item.key));
+  const showAdmin = hasAdminAccess(permissions, roleLevel);
 
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
@@ -71,6 +86,23 @@ export function AppSidebar() {
   const handleAdminClick = () => {
     setActiveView('admin');
   };
+
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: '/' });
+  };
+
+  // Get user initials for avatar
+  const userInitials = session?.user?.name
+    ? session.user.name
+        .split(' ')
+        .map((n: string) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    : '??';
+
+  const roleLabel = sessionUser?.role?.label || 'Utilisateur';
+  const departmentName = sessionUser?.department?.name || '';
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -103,7 +135,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {NAV_ITEMS.map((item) => (
+              {navItems.map((item) => (
                 <SidebarMenuItem key={item.key}>
                   <SidebarMenuButton
                     isActive={activeView === item.key}
@@ -124,30 +156,34 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Admin Section */}
-        <SidebarSeparator />
-        <SidebarGroup>
-          <SidebarGroupLabel>Administration</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={activeView === 'admin'}
-                  tooltip="Administration"
-                  onClick={() => handleAdminClick()}
-                  className={
-                    activeView === 'admin'
-                      ? 'sidebar-active-indicator bg-fun-blue/10 text-fun-blue hover:bg-fun-blue/15 hover:text-fun-blue font-medium'
-                      : ''
-                  }
-                >
-                  <Shield className="size-5" />
-                  <span>Administration</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Admin Section — only for admin users */}
+        {showAdmin && (
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel>Administration</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      isActive={activeView === 'admin'}
+                      tooltip="Administration"
+                      onClick={() => handleAdminClick()}
+                      className={
+                        activeView === 'admin'
+                          ? 'sidebar-active-indicator bg-fun-blue/10 text-fun-blue hover:bg-fun-blue/15 hover:text-fun-blue font-medium'
+                          : ''
+                      }
+                    >
+                      <Shield className="size-5" />
+                      <span>Administration</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
       </SidebarContent>
 
       <SidebarSeparator />
@@ -186,25 +222,35 @@ export function AppSidebar() {
 
           <SidebarSeparator />
 
-          {/* User badge */}
+          {/* User badge with logout */}
           <div className="flex items-center gap-3 rounded-lg bg-sidebar-accent/50 p-2">
             <Avatar className="size-8 shrink-0">
               <AvatarFallback className="bg-fun-blue text-white text-xs font-semibold">
-                DG
+                {userInitials}
               </AvatarFallback>
             </Avatar>
             <div
-              className={`flex flex-col overflow-hidden transition-all duration-200 ${
+              className={`flex flex-col overflow-hidden transition-all duration-200 flex-1 min-w-0 ${
                 state === 'collapsed' ? 'w-0 opacity-0' : 'w-auto opacity-100'
               }`}
             >
-              <span className="text-xs font-semibold text-foreground whitespace-nowrap">
-                Directeur Général
+              <span className="text-xs font-semibold text-foreground whitespace-nowrap truncate">
+                {session?.user?.name || 'Utilisateur'}
               </span>
-              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                DG - Directeur Général
+              <span className="text-[10px] text-muted-foreground whitespace-nowrap truncate">
+                {roleLabel}{departmentName ? ` — ${departmentName}` : ''}
               </span>
             </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 shrink-0 hover:bg-destructive/10 hover:text-destructive"
+              onClick={handleLogout}
+              tooltip="Déconnexion"
+            >
+              <LogOut className="size-3.5" />
+              <span className="sr-only">Déconnexion</span>
+            </Button>
           </div>
         </div>
       </SidebarFooter>

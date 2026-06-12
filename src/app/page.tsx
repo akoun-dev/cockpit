@@ -1,5 +1,7 @@
 'use client';
 
+import { useSession } from 'next-auth/react';
+import { LoginForm } from '@/components/auth/LoginForm';
 import { SidebarProvider, SidebarInset, SidebarRail } from '@/components/ui/sidebar';
 import { AppSidebar, Header, DashboardAccueil, FinanceModule, GovernanceModule, OperationalModule, RHModule, RisqueModule, PTAModule } from '@/components/cockpit';
 import { AdminLayout, AdminDashboard, AdminUsers, AdminRoles, AdminDataSources, AdminLogs, AdminSettings, AdminKPI, AdminSync, AdminDocuments, AdminAlerts, AdminNotifications, AdminSecurity } from '@/components/admin';
@@ -31,8 +33,8 @@ const ADMIN_SUB_VIEWS: Record<string, React.ComponentType> = {
   admin_security: AdminSecurity,
 };
 
-export default function CockpitPage() {
-  const { activeView, activeModule, adminSubView, setActiveView } = useAppStore();
+function CockpitApp() {
+  const { activeView, activeModule, adminSubView } = useAppStore();
 
   const isAdmin = activeView === 'admin';
 
@@ -89,4 +91,21 @@ export default function CockpitPage() {
       <SidebarRail />
     </SidebarProvider>
   );
+}
+
+export default function CockpitPage() {
+  const { data: session, status } = useSession();
+
+  // Show login form if not authenticated
+  if (status === 'unauthenticated') {
+    return <LoginForm />;
+  }
+
+  // Show loading while session is being fetched (handled by AuthProvider, but just in case)
+  if (status === 'loading' || !session) {
+    return null;
+  }
+
+  // Show cockpit when authenticated
+  return <CockpitApp />;
 }

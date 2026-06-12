@@ -519,3 +519,38 @@ Stage Summary:
 - ThemeToggle hydration: fixed with dual-render opacity approach
 - Files modified: Header.tsx (major refactor), StorytellingOverlay.tsx (new)
 - Files unchanged: ImportPptxButton code preserved in /api/import/pptx route
+---
+Task ID: 1
+Agent: Main Agent
+Task: Implement user authentication system with role-based module access
+
+Work Log:
+- Installed bcryptjs for password hashing
+- Added NEXTAUTH_SECRET and NEXTAUTH_URL to .env
+- Created NextAuth v4 config (src/lib/auth.ts) with Credentials provider, JWT strategy, bcrypt password comparison
+- Created NextAuth API route (src/app/api/auth/[...nextauth]/route.ts)
+- Created AuthProvider wrapper (src/components/auth/AuthProvider.tsx) with loading state
+- Created LoginForm component (src/components/auth/LoginForm.tsx) with branded ANSUT design, demo accounts, password visibility toggle
+- Created permissions utility (src/lib/permissions.ts) with getAccessibleModules, hasModuleAccess, hasAdminAccess
+- Updated layout.tsx to wrap children with AuthProvider
+- Updated page.tsx to conditionally render LoginForm (unauthenticated) vs CockpitApp (authenticated)
+- Created seed script (prisma/seed.ts) with 7 default users, 7 roles, and 56 permission entries
+- Updated AppSidebar.tsx to filter navigation modules based on user permissions, show real user info, add logout button
+- Updated Header.tsx with UserMenu dropdown (avatar, name, email, role, department, accessible modules badges, logout)
+- Verified login flow with curl for admin, DAF, and agent users
+- Verified wrong password rejection
+
+Stage Summary:
+- Full auth system implemented with NextAuth v4 + Credentials provider
+- 7 default accounts with different role-based module access levels
+- Admin user: all modules + admin panel
+- DG user: all modules except admin (write access)
+- DAF user: finance=admin, others=read (no admin)
+- DRH user: rh=admin, others=read (no admin)
+- DCO user: operational=admin, risque=admin, pta=write (no admin)
+- PMO user: governance=write, operational=write, pta=admin (no admin)
+- Agent user: accueil+finance+governance=read only (no admin)
+- Session includes user, role, department, and full permissions map
+- Sidebar dynamically shows only accessible modules
+- Header user menu shows profile info, role, department, module access badges, and logout
+

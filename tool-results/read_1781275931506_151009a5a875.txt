@@ -1,0 +1,1178 @@
+     1→     1→'use client';
+     2→     2→
+     3→     3→import React, { useEffect, useState, useCallback } from 'react';
+     4→     4→import {
+     5→     5→  Plus,
+     6→     6→  Search,
+     7→     7→  Pencil,
+     8→     8→  Trash2,
+     9→     9→  Loader2,
+    10→    10→  Users,
+    11→    11→  UserCheck,
+    12→    12→  UserX,
+    13→    13→  UserPlus,
+    14→    14→  MoreHorizontal,
+    15→    15→  KeyRound,
+    16→    16→  Lock,
+    17→    17→  Unlock,
+    18→    18→  ShieldCheck,
+    19→    19→  Power,
+    20→    20→} from 'lucide-react';
+    21→    21→import { Card, CardContent } from '@/components/ui/card';
+    22→    22→import { Badge } from '@/components/ui/badge';
+    23→    23→import { Button } from '@/components/ui/button';
+    24→    24→import { Input } from '@/components/ui/input';
+    25→    25→import { Label } from '@/components/ui/label';
+    26→    26→import { Switch } from '@/components/ui/switch';
+    27→    27→import { Skeleton } from '@/components/ui/skeleton';
+    28→    28→import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+    29→    29→import {
+    30→    30→  Dialog,
+    31→    31→  DialogContent,
+    32→    32→  DialogDescription,
+    33→    33→  DialogFooter,
+    34→    34→  DialogHeader,
+    35→    35→  DialogTitle,
+    36→    36→} from '@/components/ui/dialog';
+    37→    37→import {
+    38→    38→  AlertDialog,
+    39→    39→  AlertDialogAction,
+    40→    40→  AlertDialogCancel,
+    41→    41→  AlertDialogContent,
+    42→    42→  AlertDialogDescription,
+    43→    43→  AlertDialogFooter,
+    44→    44→  AlertDialogHeader,
+    45→    45→  AlertDialogTitle,
+    46→    46→} from '@/components/ui/alert-dialog';
+    47→    47→import {
+    48→    48→  Table,
+    49→    49→  TableBody,
+    50→    50→  TableCell,
+    51→    51→  TableHead,
+    52→    52→  TableHeader,
+    53→    53→  TableRow,
+    54→    54→} from '@/components/ui/table';
+    55→    55→import {
+    56→    56→  Select,
+    57→    57→  SelectContent,
+    58→    58→  SelectItem,
+    59→    59→  SelectTrigger,
+    60→    60→  SelectValue,
+    61→    61→} from '@/components/ui/select';
+    62→    62→import {
+    63→    63→  DropdownMenu,
+    64→    64→  DropdownMenuContent,
+    65→    65→  DropdownMenuItem,
+    66→    66→  DropdownMenuSeparator,
+    67→    67→  DropdownMenuTrigger,
+    68→    68→} from '@/components/ui/dropdown-menu';
+    69→    69→import { useToast } from '@/hooks/use-toast';
+    70→    70→
+    71→    71→interface Role {
+    72→    72→  id: string;
+    73→    73→  name: string;
+    74→    74→  label: string;
+    75→    75→  color: string;
+    76→    76→}
+    77→    77→
+    78→    78→interface Department {
+    79→    79→  id: string;
+    80→    80→  name: string;
+    81→    81→}
+    82→    82→
+    83→    83→interface User {
+    84→    84→  id: string;
+    85→    85→  name: string;
+    86→    86→  email: string;
+    87→    87→  matricule?: string | null;
+    88→    88→  fonction?: string | null;
+    89→    89→  roleId: string;
+    90→    90→  roleName: string;
+    91→    91→  roleColor?: string;
+    92→    92→  departmentId: string;
+    93→    93→  departmentName: string;
+    94→    94→  isActive: boolean;
+    95→    95→  mustChangePassword?: boolean;
+    96→    96→  isLocked?: boolean;
+    97→    97→  lastLogin: string | null;
+    98→    98→  avatarUrl?: string;
+    99→    99→}
+   100→   100→
+   101→   101→interface UserFormData {
+   102→   102→  name: string;
+   103→   103→  email: string;
+   104→   104→  password: string;
+   105→   105→  matricule: string;
+   106→   106→  fonction: string;
+   107→   107→  roleId: string;
+   108→   108→  departmentId: string;
+   109→   109→  isActive: boolean;
+   110→   110→}
+   111→   111→
+   112→   112→const EMPTY_FORM: UserFormData = {
+   113→   113→  name: '',
+   114→   114→  email: '',
+   115→   115→  password: '',
+   116→   116→  matricule: '',
+   117→   117→  fonction: '',
+   118→   118→  roleId: '',
+   119→   119→  departmentId: '',
+   120→   120→  isActive: true,
+   121→   121→};
+   122→   122→
+   123→   123→function formatFrenchDate(date: string | null): string {
+   124→   124→  if (!date) return 'Jamais';
+   125→   125→  return new Date(date).toLocaleDateString('fr-FR', {
+   126→   126→    day: 'numeric',
+   127→   127→    month: 'short',
+   128→   128→    year: 'numeric',
+   129→   129→    hour: '2-digit',
+   130→   130→    minute: '2-digit',
+   131→   131→  });
+   132→   132→}
+   133→   133→
+   134→   134→function getInitials(name: string): string {
+   135→   135→  return name
+   136→   136→    .split(' ')
+   137→   137→    .map((n) => n[0])
+   138→   138→    .join('')
+   139→   139→    .toUpperCase()
+   140→   140→    .slice(0, 2);
+   141→   141→}
+   142→   142→
+   143→   143→export function AdminUsers() {
+   144→   144→  const [users, setUsers] = useState<User[]>([]);
+   145→   145→  const [roles, setRoles] = useState<Role[]>([]);
+   146→   146→  const [departments, setDepartments] = useState<Department[]>([]);
+   147→   147→  const [loading, setLoading] = useState(true);
+   148→   148→  const [saving, setSaving] = useState(false);
+   149→   149→  const [search, setSearch] = useState('');
+   150→   150→  const [error, setError] = useState<string | null>(null);
+   151→   151→  const { toast } = useToast();
+   152→   152→
+   153→   153→  // Dialog state
+   154→   154→  const [dialogOpen, setDialogOpen] = useState(false);
+   155→   155→  const [editingUser, setEditingUser] = useState<User | null>(null);
+   156→   156→  const [formData, setFormData] = useState<UserFormData>(EMPTY_FORM);
+   157→   157→  const [formErrors, setFormErrors] = useState<Partial<Record<keyof UserFormData, string>>>({});
+   158→   158→
+   159→   159→  // Delete dialog state
+   160→   160→  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+   161→   161→  const [deletingUser, setDeletingUser] = useState<User | null>(null);
+   162→   162→
+   163→   163→  // Toggle state
+   164→   164→  const [togglingId, setTogglingId] = useState<string | null>(null);
+   165→   165→  // Action loading state for dropdown actions
+   166→   166→  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+   167→   167→
+   168→   168→  // ---------- Statistics ----------
+   169→   169→  const totalUsers = users.length;
+   170→   170→  const activeUsers = users.filter((u) => u.isActive).length;
+   171→   171→  const inactiveUsers = users.filter((u) => !u.isActive).length;
+   172→   172→  const newThisMonth = users.filter((u) => {
+   173→   173→    if (!u.lastLogin) return false;
+   174→   174→    const loginDate = new Date(u.lastLogin);
+   175→   175→    const now = new Date();
+   176→   176→    return (
+   177→   177→      loginDate.getMonth() === now.getMonth() &&
+   178→   178→      loginDate.getFullYear() === now.getFullYear()
+   179→   179→    );
+   180→   180→  }).length;
+   181→   181→
+   182→   182→  const fetchUsers = useCallback(async () => {
+   183→   183→    setLoading(true);
+   184→   184→    setError(null);
+   185→   185→    try {
+   186→   186→      const res = await fetch('/api/admin/users');
+   187→   187→      if (res.ok) {
+   188→   188→        const data = await res.json();
+   189→   189→        const rawUsers = Array.isArray(data) ? data : data.data || data.users || [];
+   190→   190→        setUsers(rawUsers.map((u: Record<string, unknown>) => ({
+   191→   191→          id: u.id,
+   192→   192→          name: u.name,
+   193→   193→          email: u.email,
+   194→   194→          matricule: u.matricule,
+   195→   195→          fonction: u.fonction,
+   196→   196→          roleId: u.roleId || (u.role as Record<string, string>)?.id || '',
+   197→   197→          roleName: (u.role as Record<string, string>)?.label || u.roleName || '',
+   198→   198→          roleColor: (u.role as Record<string, string>)?.color || u.roleColor,
+   199→   199→          departmentId: u.departmentId || (u.department as Record<string, string>)?.id || '',
+   200→   200→          departmentName: (u.department as Record<string, string>)?.name || u.departmentName || '',
+   201→   201→          isActive: u.isActive,
+   202→   202→          mustChangePassword: u.mustChangePassword,
+   203→   203→          isLocked: u.isLocked,
+   204→   204→          lastLogin: u.lastLogin,
+   205→   205→        })));
+   206→   206→      } else {
+   207→   207→        // Fallback users
+   208→   208→        setUsers([
+   209→   209→          {
+   210→   210→            id: '1',
+   211→   211→            name: 'Admin Principal',
+   212→   212→            email: 'admin@ansut.cd',
+   213→   213→            matricule: 'ANSUT-001',
+   214→   214→            fonction: 'Directeur Général',
+   215→   215→            roleId: 'admin',
+   216→   216→            roleName: 'Administrateur',
+   217→   217→            roleColor: '#ef4444',
+   218→   218→            departmentId: 'direction',
+   219→   219→            departmentName: 'Direction Générale',
+   220→   220→            isActive: true,
+   221→   221→            mustChangePassword: false,
+   222→   222→            isLocked: false,
+   223→   223→            lastLogin: new Date().toISOString(),
+   224→   224→          },
+   225→   225→          {
+   226→   226→            id: '2',
+   227→   227→            name: 'Marie Dupont',
+   228→   228→            email: 'marie.dupont@ansut.cd',
+   229→   229→            matricule: 'ANSUT-002',
+   230→   230→            fonction: 'Chef de Département Finance',
+   231→   231→            roleId: 'analyst',
+   232→   232→            roleName: 'Analyste',
+   233→   233→            roleColor: '#3b82f6',
+   234→   234→            departmentId: 'finance',
+   235→   235→            departmentName: 'Finance & Comptabilité',
+   236→   236→            isActive: true,
+   237→   237→            mustChangePassword: true,
+   238→   238→            isLocked: false,
+   239→   239→            lastLogin: new Date(Date.now() - 86400000).toISOString(),
+   240→   240→          },
+   241→   241→          {
+   242→   242→            id: '3',
+   243→   243→            name: 'Jean Martin',
+   244→   244→            email: 'jean.martin@ansut.cd',
+   245→   245→            matricule: 'ANSUT-003',
+   246→   246→            fonction: 'Responsable RH',
+   247→   247→            roleId: 'viewer',
+   248→   248→            roleName: 'Observateur',
+   249→   249→            roleColor: '#64748b',
+   250→   250→            departmentId: 'rh',
+   251→   251→            departmentName: 'Ressources Humaines',
+   252→   252→            isActive: false,
+   253→   253→            mustChangePassword: false,
+   254→   254→            isLocked: true,
+   255→   255→            lastLogin: new Date(Date.now() - 604800000).toISOString(),
+   256→   256→          },
+   257→   257→          {
+   258→   258→            id: '4',
+   259→   259→            name: 'Pierre Leroy',
+   260→   260→            email: 'pierre.leroy@ansut.cd',
+   261→   261→            matricule: 'ANSUT-004',
+   262→   262→            fonction: 'Chef de Département Opérations',
+   263→   263→            roleId: 'manager',
+   264→   264→            roleName: 'Gestionnaire',
+   265→   265→            roleColor: '#f18120',
+   266→   266→            departmentId: 'ops',
+   267→   267→            departmentName: 'Opérations',
+   268→   268→            isActive: true,
+   269→   269→            mustChangePassword: false,
+   270→   270→            isLocked: false,
+   271→   271→            lastLogin: new Date(Date.now() - 172800000).toISOString(),
+   272→   272→          },
+   273→   273→          {
+   274→   274→            id: '5',
+   275→   275→            name: 'Sophie Bernard',
+   276→   276→            email: 'sophie.bernard@ansut.cd',
+   277→   277→            matricule: 'ANSUT-005',
+   278→   278→            fonction: 'Chargée de Gouvernance',
+   279→   279→            roleId: 'analyst',
+   280→   280→            roleName: 'Analyste',
+   281→   281→            roleColor: '#3b82f6',
+   282→   282→            departmentId: 'governance',
+   283→   283→            departmentName: 'Gouvernance',
+   284→   284→            isActive: true,
+   285→   285→            mustChangePassword: false,
+   286→   286→            isLocked: false,
+   287→   287→            lastLogin: new Date(Date.now() - 259200000).toISOString(),
+   288→   288→          },
+   289→   289→        ]);
+   290→   290→      }
+   291→   291→    } catch {
+   292→   292→      setError('Erreur lors du chargement des utilisateurs');
+   293→   293→    } finally {
+   294→   294→      setLoading(false);
+   295→   295→    }
+   296→   296→  }, []);
+   297→   297→
+   298→   298→  const fetchRoles = useCallback(async () => {
+   299→   299→    try {
+   300→   300→      const res = await fetch('/api/admin/roles');
+   301→   301→      if (res.ok) {
+   302→   302→        const data = await res.json();
+   303→   303→        const rawRoles = Array.isArray(data) ? data : data.data || data.roles || [];
+   304→   304→        setRoles(rawRoles.map((r: Record<string, unknown>) => ({
+   305→   305→          id: r.id,
+   306→   306→          name: r.name,
+   307→   307→          label: r.label,
+   308→   308→          color: r.color,
+   309→   309→        })));
+   310→   310→      } else {
+   311→   311→        setRoles([
+   312→   312→          { id: 'admin', name: 'admin', label: 'Administrateur', color: '#ef4444' },
+   313→   313→          { id: 'manager', name: 'manager', label: 'Gestionnaire', color: '#f18120' },
+   314→   314→          { id: 'analyst', name: 'analyst', label: 'Analyste', color: '#3b82f6' },
+   315→   315→          { id: 'viewer', name: 'viewer', label: 'Observateur', color: '#64748b' },
+   316→   316→        ]);
+   317→   317→      }
+   318→   318→    } catch {
+   319→   319→      // silent
+   320→   320→    }
+   321→   321→  }, []);
+   322→   322→
+   323→   323→  const fetchDepartments = useCallback(async () => {
+   324→   324→    try {
+   325→   325→      const res = await fetch('/api/departments');
+   326→   326→      if (res.ok) {
+   327→   327→        const data = await res.json();
+   328→   328→        setDepartments(Array.isArray(data) ? data : data.departments || []);
+   329→   329→      } else {
+   330→   330→        setDepartments([
+   331→   331→          { id: 'direction', name: 'Direction Générale' },
+   332→   332→          { id: 'finance', name: 'Finance & Comptabilité' },
+   333→   333→          { id: 'rh', name: 'Ressources Humaines' },
+   334→   334→          { id: 'ops', name: 'Opérations' },
+   335→   335→          { id: 'governance', name: 'Gouvernance' },
+   336→   336→          { id: 'it', name: 'Technologie' },
+   337→   337→          { id: 'juridique', name: 'Juridique' },
+   338→   338→          { id: 'communication', name: 'Communication' },
+   339→   339→        ]);
+   340→   340→      }
+   341→   341→    } catch {
+   342→   342→      // silent
+   343→   343→    }
+   344→   344→  }, []);
+   345→   345→
+   346→   346→  useEffect(() => {
+   347→   347→    Promise.all([fetchUsers(), fetchRoles(), fetchDepartments()]);
+   348→   348→  }, [fetchUsers, fetchRoles, fetchDepartments]);
+   349→   349→
+   350→   350→  // Filter users by search
+   351→   351→  const filteredUsers = users.filter((u) => {
+   352→   352→    if (!search.trim()) return true;
+   353→   353→    const q = search.toLowerCase();
+   354→   354→    return (
+   355→   355→      u.name.toLowerCase().includes(q) ||
+   356→   356→      u.email.toLowerCase().includes(q) ||
+   357→   357→      (u.matricule?.toLowerCase().includes(q) ?? false) ||
+   358→   358→      (u.fonction?.toLowerCase().includes(q) ?? false) ||
+   359→   359→      u.roleName.toLowerCase().includes(q) ||
+   360→   360→      u.departmentName.toLowerCase().includes(q)
+   361→   361→    );
+   362→   362→  });
+   363→   363→
+   364→   364→  // Form validation
+   365→   365→  function validateForm(data: UserFormData, isEdit: boolean): boolean {
+   366→   366→    const errors: Partial<Record<keyof UserFormData, string>> = {};
+   367→   367→    if (!data.name.trim()) errors.name = 'Le nom est requis';
+   368→   368→    if (!data.email.trim()) errors.email = "L'e-mail est requis";
+   369→   369→    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email))
+   370→   370→      errors.email = "Format d'e-mail invalide";
+   371→   371→    if (!isEdit && !data.password.trim())
+   372→   372→      errors.password = 'Le mot de passe est requis';
+   373→   373→    else if (!isEdit && data.password.length < 6)
+   374→   374→      errors.password = 'Le mot de passe doit contenir au moins 6 caractères';
+   375→   375→    if (!data.roleId) errors.roleId = 'Le rôle est requis';
+   376→   376→    if (!data.departmentId) errors.departmentId = 'Le département est requis';
+   377→   377→    setFormErrors(errors);
+   378→   378→    return Object.keys(errors).length === 0;
+   379→   379→  }
+   380→   380→
+   381→   381→  // Open dialog for create
+   382→   382→  function handleCreate() {
+   383→   383→    setEditingUser(null);
+   384→   384→    setFormData(EMPTY_FORM);
+   385→   385→    setFormErrors({});
+   386→   386→    setDialogOpen(true);
+   387→   387→  }
+   388→   388→
+   389→   389→  // Open dialog for edit
+   390→   390→  function handleEdit(user: User) {
+   391→   391→    setEditingUser(user);
+   392→   392→    setFormData({
+   393→   393→      name: user.name,
+   394→   394→      email: user.email,
+   395→   395→      password: '',
+   396→   396→      matricule: user.matricule || '',
+   397→   397→      fonction: user.fonction || '',
+   398→   398→      roleId: user.roleId,
+   399→   399→      departmentId: user.departmentId,
+   400→   400→      isActive: user.isActive,
+   401→   401→    });
+   402→   402→    setFormErrors({});
+   403→   403→    setDialogOpen(true);
+   404→   404→  }
+   405→   405→
+   406→   406→  // Save user (create or update)
+   407→   407→  async function handleSave() {
+   408→   408→    const isEdit = !!editingUser;
+   409→   409→    if (!validateForm(formData, isEdit)) return;
+   410→   410→
+   411→   411→    setSaving(true);
+   412→   412→    setError(null);
+   413→   413→    try {
+   414→   414→      const url = isEdit
+   415→   415→        ? `/api/admin/users/${editingUser.id}`
+   416→   416→        : '/api/admin/users';
+   417→   417→      const method = isEdit ? 'PUT' : 'POST';
+   418→   418→      const body = isEdit
+   419→   419→        ? {
+   420→   420→            name: formData.name,
+   421→   421→            email: formData.email,
+   422→   422→            matricule: formData.matricule || null,
+   423→   423→            fonction: formData.fonction || null,
+   424→   424→            roleId: formData.roleId,
+   425→   425→            departmentId: formData.departmentId,
+   426→   426→            isActive: formData.isActive,
+   427→   427→            ...(formData.password ? { password: formData.password } : {}),
+   428→   428→          }
+   429→   429→        : formData;
+   430→   430→
+   431→   431→      const res = await fetch(url, {
+   432→   432→        method,
+   433→   433→        headers: { 'Content-Type': 'application/json' },
+   434→   434→        body: JSON.stringify(body),
+   435→   435→      });
+   436→   436→
+   437→   437→      if (res.ok) {
+   438→   438→        setDialogOpen(false);
+   439→   439→        await fetchUsers();
+   440→   440→        if (isEdit) {
+   441→   441→          toast({
+   442→   442→            title: 'Utilisateur mis à jour',
+   443→   443→            description: `Les informations de ${formData.name} ont été mises à jour avec succès.`,
+   444→   444→          });
+   445→   445→        } else {
+   446→   446→          toast({
+   447→   447→            title: 'Utilisateur créé avec succès',
+   448→   448→            description: `${formData.name} a été ajouté à la plateforme.`,
+   449→   449→          });
+   450→   450→        }
+   451→   451→      } else {
+   452→   452→        const data = await res.json().catch(() => ({}));
+   453→   453→        setError(data.error || 'Erreur lors de la sauvegarde');
+   454→   454→      }
+   455→   455→    } catch {
+   456→   456→      setError('Erreur réseau lors de la sauvegarde');
+   457→   457→    } finally {
+   458→   458→      setSaving(false);
+   459→   459→    }
+   460→   460→  }
+   461→   461→
+   462→   462→  // Delete user
+   463→   463→  async function handleDelete() {
+   464→   464→    if (!deletingUser) return;
+   465→   465→    setSaving(true);
+   466→   466→    setError(null);
+   467→   467→    try {
+   468→   468→      const res = await fetch(`/api/admin/users/${deletingUser.id}`, {
+   469→   469→        method: 'DELETE',
+   470→   470→      });
+   471→   471→      if (res.ok) {
+   472→   472→        const deletedName = deletingUser.name;
+   473→   473→        setDeleteDialogOpen(false);
+   474→   474→        setDeletingUser(null);
+   475→   475→        await fetchUsers();
+   476→   476→        toast({
+   477→   477→          title: 'Utilisateur supprimé',
+   478→   478→          description: `${deletedName} a été supprimé de la plateforme.`,
+   479→   479→        });
+   480→   480→      } else {
+   481→   481→        const data = await res.json().catch(() => ({}));
+   482→   482→        setError(data.error || 'Erreur lors de la suppression');
+   483→   483→      }
+   484→   484→    } catch {
+   485→   485→      setError('Erreur réseau lors de la suppression');
+   486→   486→    } finally {
+   487→   487→      setSaving(false);
+   488→   488→    }
+   489→   489→  }
+   490→   490→
+   491→   491→  // Toggle active status
+   492→   492→  async function handleToggleActive(user: User) {
+   493→   493→    setTogglingId(user.id);
+   494→   494→    try {
+   495→   495→      const res = await fetch(`/api/admin/users/${user.id}`, {
+   496→   496→        method: 'PUT',
+   497→   497→        headers: { 'Content-Type': 'application/json' },
+   498→   498→        body: JSON.stringify({ isActive: !user.isActive }),
+   499→   499→      });
+   500→   500→      if (res.ok) {
+   501→   501→        await fetchUsers();
+   502→   502→        toast({
+   503→   503→          title: `Statut de ${user.name} mis à jour`,
+   504→   504→          description: user.isActive
+   505→   505→            ? 'Le compte a été désactivé.'
+   506→   506→            : 'Le compte a été activé.',
+   507→   507→        });
+   508→   508→      }
+   509→   509→    } catch {
+   510→   510→      // silent
+   511→   511→    } finally {
+   512→   512→      setTogglingId(null);
+   513→   513→    }
+   514→   514→  }
+   515→   515→
+   516→   516→  // Reset password (simulated)
+   517→   517→  async function handleResetPassword(user: User) {
+   518→   518→    setActionLoadingId(user.id);
+   519→   519→    try {
+   520→   520→      await fetch(`/api/admin/users/${user.id}`, {
+   521→   521→        method: 'PUT',
+   522→   522→        headers: { 'Content-Type': 'application/json' },
+   523→   523→        body: JSON.stringify({ password: 'ansut2025' }),
+   524→   524→      });
+   525→   525→      toast({
+   526→   526→        title: 'Mot de passe réinitialisé',
+   527→   527→        description: `Mot de passe réinitialisé pour ${user.name}`,
+   528→   528→      });
+   529→   529→    } catch {
+   530→   530→      toast({
+   531→   531→        title: 'Erreur',
+   532→   532→        description: 'Impossible de réinitialiser le mot de passe.',
+   533→   533→        variant: 'destructive',
+   534→   534→      });
+   535→   535→    } finally {
+   536→   536→      setActionLoadingId(null);
+   537→   537→    }
+   538→   538→  }
+   539→   539→
+   540→   540→  // Toggle mustChangePassword
+   541→   541→  async function handleToggleMustChangePassword(user: User) {
+   542→   542→    setActionLoadingId(user.id);
+   543→   543→    try {
+   544→   544→      const res = await fetch(`/api/admin/users/${user.id}`, {
+   545→   545→        method: 'PUT',
+   546→   546→        headers: { 'Content-Type': 'application/json' },
+   547→   547→        body: JSON.stringify({ mustChangePassword: !user.mustChangePassword }),
+   548→   548→      });
+   549→   549→      if (res.ok) {
+   550→   550→        await fetchUsers();
+   551→   551→        toast({
+   552→   552→          title: user.mustChangePassword ? 'Changement mdp non forcé' : 'Changement mdp forcé',
+   553→   553→          description: user.mustChangePassword
+   554→   554→            ? `${user.name} ne sera plus obligé de changer son mot de passe.`
+   555→   555→            : `${user.name} devra changer son mot de passe à la prochaine connexion.`,
+   556→   556→        });
+   557→   557→      }
+   558→   558→    } catch {
+   559→   559→      toast({
+   560→   560→        title: 'Erreur',
+   561→   561→        description: 'Impossible de modifier le paramètre.',
+   562→   562→        variant: 'destructive',
+   563→   563→      });
+   564→   564→    } finally {
+   565→   565→      setActionLoadingId(null);
+   566→   566→    }
+   567→   567→  }
+   568→   568→
+   569→   569→  // Toggle isLocked
+   570→   570→  async function handleToggleLock(user: User) {
+   571→   571→    setActionLoadingId(user.id);
+   572→   572→    try {
+   573→   573→      const res = await fetch(`/api/admin/users/${user.id}`, {
+   574→   574→        method: 'PUT',
+   575→   575→        headers: { 'Content-Type': 'application/json' },
+   576→   576→        body: JSON.stringify({ isLocked: !user.isLocked }),
+   577→   577→      });
+   578→   578→      if (res.ok) {
+   579→   579→        await fetchUsers();
+   580→   580→        toast({
+   581→   581→          title: user.isLocked ? 'Compte déverrouillé' : 'Compte verrouillé',
+   582→   582→          description: user.isLocked
+   583→   583→            ? `Le compte de ${user.name} a été déverrouillé.`
+   584→   584→            : `Le compte de ${user.name} a été verrouillé.`,
+   585→   585→        });
+   586→   586→      }
+   587→   587→    } catch {
+   588→   588→      toast({
+   589→   589→        title: 'Erreur',
+   590→   590→        description: 'Impossible de modifier le statut de verrouillage.',
+   591→   591→        variant: 'destructive',
+   592→   592→      });
+   593→   593→    } finally {
+   594→   594→      setActionLoadingId(null);
+   595→   595→    }
+   596→   596→  }
+   597→   597→
+   598→   598→  // Open delete confirmation
+   599→   599→  function handleDeleteClick(user: User) {
+   600→   600→    setDeletingUser(user);
+   601→   601→    setDeleteDialogOpen(true);
+   602→   602→  }
+   603→   603→
+   604→   604→  // Dropdown menu renderer
+   605→   605→  function UserActionMenu({ user }: { user: User }) {
+   606→   606→    return (
+   607→   607→      <DropdownMenu>
+   608→   608→        <DropdownMenuTrigger asChild>
+   609→   609→          <Button
+   610→   610→            variant="ghost"
+   611→   611→            size="icon"
+   612→   612→            className="size-8 hover:bg-muted"
+   613→   613→            aria-label={`Actions pour ${user.name}`}
+   614→   614→            disabled={actionLoadingId === user.id}
+   615→   615→          >
+   616→   616→            {actionLoadingId === user.id ? (
+   617→   617→              <Loader2 className="size-3.5 animate-spin" />
+   618→   618→            ) : (
+   619→   619→              <MoreHorizontal className="size-4" />
+   620→   620→            )}
+   621→   621→          </Button>
+   622→   622→        </DropdownMenuTrigger>
+   623→   623→        <DropdownMenuContent align="end" className="w-56">
+   624→   624→          {/* Modifier */}
+   625→   625→          <DropdownMenuItem onClick={() => handleEdit(user)}>
+   626→   626→            <Pencil className="mr-2 size-4" />
+   627→   627→            Modifier
+   628→   628→          </DropdownMenuItem>
+   629→   629→
+   630→   630→          {/* Désactiver / Activer */}
+   631→   631→          <DropdownMenuItem onClick={() => handleToggleActive(user)}>
+   632→   632→            <Power className="mr-2 size-4" />
+   633→   633→            {user.isActive ? 'Désactiver' : 'Activer'}
+   634→   634→          </DropdownMenuItem>
+   635→   635→
+   636→   636→          <DropdownMenuSeparator />
+   637→   637→
+   638→   638→          {/* Réinitialiser mot de passe */}
+   639→   639→          <DropdownMenuItem onClick={() => handleResetPassword(user)}>
+   640→   640→            <KeyRound className="mr-2 size-4" />
+   641→   641→            Réinitialiser mot de passe
+   642→   642→          </DropdownMenuItem>
+   643→   643→
+   644→   644→          {/* Forcer changement mdp */}
+   645→   645→          <DropdownMenuItem onClick={() => handleToggleMustChangePassword(user)}>
+   646→   646→            <ShieldCheck className="mr-2 size-4" />
+   647→   647→            {user.mustChangePassword ? 'Annuler forçage mdp' : 'Forcer changement mdp'}
+   648→   648→          </DropdownMenuItem>
+   649→   649→
+   650→   650→          <DropdownMenuSeparator />
+   651→   651→
+   652→   652→          {/* Verrouiller / Déverrouiller */}
+   653→   653→          {user.isLocked ? (
+   654→   654→            <DropdownMenuItem onClick={() => handleToggleLock(user)}>
+   655→   655→              <Unlock className="mr-2 size-4" />
+   656→   656→              Déverrouiller compte
+   657→   657→            </DropdownMenuItem>
+   658→   658→          ) : (
+   659→   659→            <DropdownMenuItem onClick={() => handleToggleLock(user)}>
+   660→   660→              <Lock className="mr-2 size-4" />
+   661→   661→              Verrouiller compte
+   662→   662→            </DropdownMenuItem>
+   663→   663→          )}
+   664→   664→
+   665→   665→          <DropdownMenuSeparator />
+   666→   666→
+   667→   667→          {/* Supprimer */}
+   668→   668→          <DropdownMenuItem
+   669→   669→            onClick={() => handleDeleteClick(user)}
+   670→   670→            className="text-destructive focus:text-destructive"
+   671→   671→          >
+   672→   672→            <Trash2 className="mr-2 size-4" />
+   673→   673→            Supprimer
+   674→   674→          </DropdownMenuItem>
+   675→   675→        </DropdownMenuContent>
+   676→   676→      </DropdownMenu>
+   677→   677→    );
+   678→   678→  }
+   679→   679→
+   680→   680→  // Status badges for user
+   681→   681→  function UserStatusBadges({ user }: { user: User }) {
+   682→   682→    return (
+   683→   683→      <div className="flex flex-wrap gap-1">
+   684→   684→        {user.isLocked && (
+   685→   685→          <Badge variant="destructive" className="text-[10px] px-1.5 py-0 gap-1">
+   686→   686→            <Lock className="size-2.5" />
+   687→   687→            Verrouillé
+   688→   688→          </Badge>
+   689→   689→        )}
+   690→   690→        {user.mustChangePassword && (
+   691→   691→          <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-1 border-amber-400 text-amber-600">
+   692→   692→            <ShieldCheck className="size-2.5" />
+   693→   693→            Changer mdp
+   694→   694→          </Badge>
+   695→   695→        )}
+   696→   696→      </div>
+   697→   697→    );
+   698→   698→  }
+   699→   699→
+   700→   700→  return (
+   701→   701→    <div className="space-y-6">
+   702→   702→      {/* Header */}
+   703→   703→      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+   704→   704→        <div>
+   705→   705→          <h1 className="text-2xl font-bold tracking-tight">
+   706→   706→            Gestion des Utilisateurs
+   707→   707→          </h1>
+   708→   708→          <p className="text-sm text-muted-foreground">
+   709→   709→            Gérer les comptes utilisateurs et leurs accès
+   710→   710→          </p>
+   711→   711→        </div>
+   712→   712→        <Button onClick={handleCreate} className="gap-2 w-full sm:w-auto bg-fun-blue hover:bg-fun-blue-dark">
+   713→   713→          <Plus className="size-4" />
+   714→   714→          Ajouter
+   715→   715→        </Button>
+   716→   716→      </div>
+   717→   717→
+   718→   718→      {/* Statistics Cards */}
+   719→   719→      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+   720→   720→        <Card className="p-4">
+   721→   721→          <div className="flex items-center gap-3">
+   722→   722→            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-fun-blue/10">
+   723→   723→              <Users className="size-5 text-fun-blue" />
+   724→   724→            </div>
+   725→   725→            <div className="min-w-0">
+   726→   726→              <p className="text-xs font-medium text-muted-foreground">
+   727→   727→                Total Utilisateurs
+   728→   728→              </p>
+   729→   729→              <p className="text-2xl font-bold">{totalUsers}</p>
+   730→   730→            </div>
+   731→   731→          </div>
+   732→   732→        </Card>
+   733→   733→
+   734→   734→        <Card className="p-4">
+   735→   735→          <div className="flex items-center gap-3">
+   736→   736→            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10">
+   737→   737→              <UserCheck className="size-5 text-emerald-600" />
+   738→   738→            </div>
+   739→   739→            <div className="min-w-0">
+   740→   740→              <p className="text-xs font-medium text-muted-foreground">
+   741→   741→                Utilisateurs Actifs
+   742→   742→              </p>
+   743→   743→              <p className="text-2xl font-bold text-emerald-600">{activeUsers}</p>
+   744→   744→            </div>
+   745→   745→          </div>
+   746→   746→        </Card>
+   747→   747→
+   748→   748→        <Card className="p-4">
+   749→   749→          <div className="flex items-center gap-3">
+   750→   750→            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-gray-500/10">
+   751→   751→              <UserX className="size-5 text-gray-500" />
+   752→   752→            </div>
+   753→   753→            <div className="min-w-0">
+   754→   754→              <p className="text-xs font-medium text-muted-foreground">
+   755→   755→                Utilisateurs Inactifs
+   756→   756→              </p>
+   757→   757→              <p className="text-2xl font-bold text-gray-500">{inactiveUsers}</p>
+   758→   758→            </div>
+   759→   759→          </div>
+   760→   760→        </Card>
+   761→   761→
+   762→   762→        <Card className="p-4">
+   763→   763→          <div className="flex items-center gap-3">
+   764→   764→            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10">
+   765→   765→              <UserPlus className="size-5 text-amber-600" />
+   766→   766→            </div>
+   767→   767→            <div className="min-w-0">
+   768→   768→              <p className="text-xs font-medium text-muted-foreground">
+   769→   769→                Nouveaux ce mois
+   770→   770→              </p>
+   771→   771→              <p className="text-2xl font-bold text-amber-600">{newThisMonth}</p>
+   772→   772→            </div>
+   773→   773→          </div>
+   774→   774→        </Card>
+   775→   775→      </div>
+   776→   776→
+   777→   777→      {/* Search bar - full width on mobile */}
+   778→   778→      <div className="relative">
+   779→   779→        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+   780→   780→        <Input
+   781→   781→          placeholder="Rechercher par nom, email, matricule, fonction, rôle, département..."
+   782→   782→          value={search}
+   783→   783→          onChange={(e) => setSearch(e.target.value)}
+   784→   784→          className="w-full pl-9 sm:max-w-sm"
+   785→   785→        />
+   786→   786→      </div>
+   787→   787→
+   788→   788→      {/* Error */}
+   789→   789→      {error && (
+   790→   790→        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+   791→   791→          {error}
+   792→   792→        </div>
+   793→   793→      )}
+   794→   794→
+   795→   795→      {/* Users table (desktop) + Card view (mobile) */}
+   796→   796→      <Card>
+   797→   797→        <CardContent className="p-0">
+   798→   798→          {loading ? (
+   799→   799→            <div className="space-y-3 p-6">
+   800→   800→              {Array.from({ length: 5 }).map((_, i) => (
+   801→   801→                <div key={i} className="flex items-center gap-4">
+   802→   802→                  <Skeleton className="size-10 rounded-full" />
+   803→   803→                  <div className="flex-1 space-y-1.5">
+   804→   804→                    <Skeleton className="h-4 w-40" />
+   805→   805→                    <Skeleton className="h-3 w-56" />
+   806→   806→                  </div>
+   807→   807→                  <Skeleton className="h-6 w-24 rounded-full" />
+   808→   808→                  <Skeleton className="h-6 w-5 rounded-full" />
+   809→   809→                </div>
+   810→   810→              ))}
+   811→   811→            </div>
+   812→   812→          ) : filteredUsers.length === 0 ? (
+   813→   813→            <div className="py-12 text-center text-muted-foreground">
+   814→   814→              {search ? 'Aucun utilisateur trouvé' : 'Aucun utilisateur'}
+   815→   815→            </div>
+   816→   816→          ) : (
+   817→   817→            <>
+   818→   818→              {/* Mobile Card View */}
+   819→   819→              <div className="md:hidden divide-y">
+   820→   820→                {filteredUsers.map((user) => (
+   821→   821→                  <div key={user.id} className="p-4 space-y-3">
+   822→   822→                    {/* Top row: Avatar + Name + Status + Actions */}
+   823→   823→                    <div className="flex items-center gap-3">
+   824→   824→                      <Avatar className="size-10">
+   825→   825→                        <AvatarFallback className="bg-fun-blue/10 text-xs text-fun-blue">
+   826→   826→                          {getInitials(user.name)}
+   827→   827→                        </AvatarFallback>
+   828→   828→                      </Avatar>
+   829→   829→                      <div className="flex-1 min-w-0">
+   830→   830→                        <p className="truncate text-sm font-medium">{user.name}</p>
+   831→   831→                        <p className="truncate text-xs text-muted-foreground">
+   832→   832→                          {user.email}
+   833→   833→                        </p>
+   834→   834→                      </div>
+   835→   835→                      <UserActionMenu user={user} />
+   836→   836→                    </div>
+   837→   837→
+   838→   838→                    {/* Matricule + Fonction */}
+   839→   839→                    <div className="flex flex-wrap items-center gap-2 pl-[52px]">
+   840→   840→                      {user.matricule && (
+   841→   841→                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-mono">
+   842→   842→                          {user.matricule}
+   843→   843→                        </Badge>
+   844→   844→                      )}
+   845→   845→                      {user.fonction && (
+   846→   846→                        <span className="text-xs text-muted-foreground">{user.fonction}</span>
+   847→   847→                      )}
+   848→   848→                    </div>
+   849→   849→
+   850→   850→                    {/* Details row: Role + Department + Status badges */}
+   851→   851→                    <div className="flex flex-wrap items-center gap-2 pl-[52px]">
+   852→   852→                      <Badge
+   853→   853→                        variant="secondary"
+   854→   854→                        className="text-xs"
+   855→   855→                        style={{
+   856→   856→                          backgroundColor: `${user.roleColor || '#64748b'}15`,
+   857→   857→                          color: user.roleColor || '#64748b',
+   858→   858→                        }}
+   859→   859→                      >
+   860→   860→                        {user.roleName}
+   861→   861→                      </Badge>
+   862→   862→                      <span className="text-xs text-muted-foreground">
+   863→   863→                        {user.departmentName}
+   864→   864→                      </span>
+   865→   865→                    </div>
+   866→   866→
+   867→   867→                    {/* Status badges + Active toggle + Last login */}
+   868→   868→                    <div className="flex items-center justify-between pl-[52px]">
+   869→   869→                      <div className="flex items-center gap-2">
+   870→   870→                        <Switch
+   871→   871→                          checked={user.isActive}
+   872→   872→                          disabled={togglingId === user.id}
+   873→   873→                          onCheckedChange={() => handleToggleActive(user)}
+   874→   874→                          aria-label={`Statut de ${user.name}`}
+   875→   875→                        />
+   876→   876→                        <UserStatusBadges user={user} />
+   877→   877→                      </div>
+   878→   878→                      <span className="text-xs text-muted-foreground">
+   879→   879→                        {formatFrenchDate(user.lastLogin)}
+   880→   880→                      </span>
+   881→   881→                    </div>
+   882→   882→                  </div>
+   883→   883→                ))}
+   884→   884→              </div>
+   885→   885→
+   886→   886→              {/* Desktop Table View */}
+   887→   887→              <div className="hidden md:block">
+   888→   888→                <Table>
+   889→   889→                  <TableHeader>
+   890→   890→                    <TableRow>
+   891→   891→                      <TableHead>Utilisateur</TableHead>
+   892→   892→                      <TableHead className="w-[110px]">Matricule</TableHead>
+   893→   893→                      <TableHead className="w-[170px]">Fonction</TableHead>
+   894→   894→                      <TableHead className="w-[120px]">Rôle</TableHead>
+   895→   895→                      <TableHead className="hidden w-[160px] lg:table-cell">Département</TableHead>
+   896→   896→                      <TableHead className="w-[90px] text-center">Statut</TableHead>
+   897→   897→                      <TableHead className="hidden w-[160px] xl:table-cell">Dernière connexion</TableHead>
+   898→   898→                      <TableHead className="w-[60px] text-center">Actions</TableHead>
+   899→   899→                    </TableRow>
+   900→   900→                  </TableHeader>
+   901→   901→                  <TableBody>
+   902→   902→                    {filteredUsers.map((user) => (
+   903→   903→                      <TableRow key={user.id}>
+   904→   904→                        {/* Avatar + Name + Email */}
+   905→   905→                        <TableCell>
+   906→   906→                          <div className="flex items-center gap-3">
+   907→   907→                            <Avatar className="size-9">
+   908→   908→                              <AvatarFallback className="bg-fun-blue/10 text-xs text-fun-blue">
+   909→   909→                                {getInitials(user.name)}
+   910→   910→                              </AvatarFallback>
+   911→   911→                            </Avatar>
+   912→   912→                            <div className="min-w-0">
+   913→   913→                              <div className="flex items-center gap-1.5">
+   914→   914→                                <p className="truncate text-sm font-medium">{user.name}</p>
+   915→   915→                                {user.isLocked && (
+   916→   916→                                  <Lock className="size-3 text-destructive shrink-0" />
+   917→   917→                                )}
+   918→   918→                              </div>
+   919→   919→                              <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+   920→   920→                              <UserStatusBadges user={user} />
+   921→   921→                            </div>
+   922→   922→                          </div>
+   923→   923→                        </TableCell>
+   924→   924→                        {/* Matricule */}
+   925→   925→                        <TableCell className="font-mono text-xs text-muted-foreground">
+   926→   926→                          {user.matricule || '—'}
+   927→   927→                        </TableCell>
+   928→   928→                        {/* Fonction */}
+   929→   929→                        <TableCell className="text-sm">
+   930→   930→                          {user.fonction || '—'}
+   931→   931→                        </TableCell>
+   932→   932→                        {/* Role badge */}
+   933→   933→                        <TableCell>
+   934→   934→                          <Badge
+   935→   935→                            variant="secondary"
+   936→   936→                            className="text-xs"
+   937→   937→                            style={{
+   938→   938→                              backgroundColor: `${user.roleColor || '#64748b'}15`,
+   939→   939→                              color: user.roleColor || '#64748b',
+   940→   940→                            }}
+   941→   941→                          >
+   942→   942→                            {user.roleName}
+   943→   943→                          </Badge>
+   944→   944→                        </TableCell>
+   945→   945→                        {/* Department */}
+   946→   946→                        <TableCell className="hidden text-sm lg:table-cell">
+   947→   947→                          {user.departmentName}
+   948→   948→                        </TableCell>
+   949→   949→                        {/* Active switch */}
+   950→   950→                        <TableCell className="text-center">
+   951→   951→                          <div className="flex justify-center">
+   952→   952→                            <Switch
+   953→   953→                              checked={user.isActive}
+   954→   954→                              disabled={togglingId === user.id}
+   955→   955→                              onCheckedChange={() => handleToggleActive(user)}
+   956→   956→                            />
+   957→   957→                          </div>
+   958→   958→                        </TableCell>
+   959→   959→                        {/* Last login */}
+   960→   960→                        <TableCell className="hidden text-xs text-muted-foreground xl:table-cell">
+   961→   961→                          {formatFrenchDate(user.lastLogin)}
+   962→   962→                        </TableCell>
+   963→   963→                        {/* Actions */}
+   964→   964→                        <TableCell>
+   965→   965→                          <div className="flex justify-center">
+   966→   966→                            <UserActionMenu user={user} />
+   967→   967→                          </div>
+   968→   968→                        </TableCell>
+   969→   969→                      </TableRow>
+   970→   970→                    ))}
+   971→   971→                  </TableBody>
+   972→   972→                </Table>
+   973→   973→              </div>
+   974→   974→            </>
+   975→   975→          )}
+   976→   976→        </CardContent>
+   977→   977→      </Card>
+   978→   978→
+   979→   979→      {/* Create / Edit Dialog */}
+   980→   980→      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+   981→   981→        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+   982→   982→          <DialogHeader>
+   983→   983→            <DialogTitle>
+   984→   984→              {editingUser ? 'Modifier l\'utilisateur' : 'Ajouter un utilisateur'}
+   985→   985→            </DialogTitle>
+   986→   986→            <DialogDescription>
+   987→   987→              {editingUser
+   988→   988→                ? 'Modifier les informations de l\'utilisateur.'
+   989→   989→                : 'Remplissez les informations pour créer un nouveau compte.'}
+   990→   990→            </DialogDescription>
+   991→   991→          </DialogHeader>
+   992→   992→
+   993→   993→          <div className="space-y-4 py-2">
+   994→   994→            {/* Name */}
+   995→   995→            <div className="space-y-2">
+   996→   996→              <Label htmlFor="user-name">Nom complet</Label>
+   997→   997→              <Input
+   998→   998→                id="user-name"
+   999→   999→                placeholder="Nom complet"
+  1000→  1000→                value={formData.name}
+  1001→  1001→                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+  1002→  1002→              />
+  1003→  1003→              {formErrors.name && (
+  1004→  1004→                <p className="text-xs text-destructive">{formErrors.name}</p>
+  1005→  1005→              )}
+  1006→  1006→            </div>
+  1007→  1007→
+  1008→  1008→            {/* Email */}
+  1009→  1009→            <div className="space-y-2">
+  1010→  1010→              <Label htmlFor="user-email">E-mail</Label>
+  1011→  1011→              <Input
+  1012→  1012→                id="user-email"
+  1013→  1013→                type="email"
+  1014→  1014→                placeholder="email@ansut.cd"
+  1015→  1015→                value={formData.email}
+  1016→  1016→                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+  1017→  1017→              />
+  1018→  1018→              {formErrors.email && (
+  1019→  1019→                <p className="text-xs text-destructive">{formErrors.email}</p>
+  1020→  1020→              )}
+  1021→  1021→            </div>
+  1022→  1022→
+  1023→  1023→            {/* Matricule */}
+  1024→  1024→            <div className="space-y-2">
+  1025→  1025→              <Label htmlFor="user-matricule">Matricule</Label>
+  1026→  1026→              <Input
+  1027→  1027→                id="user-matricule"
+  1028→  1028→                placeholder="ANSUT-001"
+  1029→  1029→                value={formData.matricule}
+  1030→  1030→                onChange={(e) => setFormData({ ...formData, matricule: e.target.value })}
+  1031→  1031→              />
+  1032→  1032→              {formErrors.matricule && (
+  1033→  1033→                <p className="text-xs text-destructive">{formErrors.matricule}</p>
+  1034→  1034→              )}
+  1035→  1035→            </div>
+  1036→  1036→
+  1037→  1037→            {/* Fonction */}
+  1038→  1038→            <div className="space-y-2">
+  1039→  1039→              <Label htmlFor="user-fonction">Fonction</Label>
+  1040→  1040→              <Input
+  1041→  1041→                id="user-fonction"
+  1042→  1042→                placeholder="Directeur Général, Chef de Département..."
+  1043→  1043→                value={formData.fonction}
+  1044→  1044→                onChange={(e) => setFormData({ ...formData, fonction: e.target.value })}
+  1045→  1045→              />
+  1046→  1046→              {formErrors.fonction && (
+  1047→  1047→                <p className="text-xs text-destructive">{formErrors.fonction}</p>
+  1048→  1048→              )}
+  1049→  1049→            </div>
+  1050→  1050→
+  1051→  1051→            {/* Password (only for create, optional for edit) */}
+  1052→  1052→            <div className="space-y-2">
+  1053→  1053→              <Label htmlFor="user-password">
+  1054→  1054→                Mot de passe {editingUser && '(laisser vide pour ne pas modifier)'}
+  1055→  1055→              </Label>
+  1056→  1056→              <Input
+  1057→  1057→                id="user-password"
+  1058→  1058→                type="password"
+  1059→  1059→                placeholder={editingUser ? '••••••••' : 'Minimum 6 caractères'}
+  1060→  1060→                value={formData.password}
+  1061→  1061→                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+  1062→  1062→              />
+  1063→  1063→              {formErrors.password && (
+  1064→  1064→                <p className="text-xs text-destructive">{formErrors.password}</p>
+  1065→  1065→              )}
+  1066→  1066→            </div>
+  1067→  1067→
+  1068→  1068→            {/* Role */}
+  1069→  1069→            <div className="space-y-2">
+  1070→  1070→              <Label>Rôle</Label>
+  1071→  1071→              <Select
+  1072→  1072→                value={formData.roleId}
+  1073→  1073→                onValueChange={(val) => setFormData({ ...formData, roleId: val })}
+  1074→  1074→              >
+  1075→  1075→                <SelectTrigger>
+  1076→  1076→                  <SelectValue placeholder="Sélectionner un rôle" />
+  1077→  1077→                </SelectTrigger>
+  1078→  1078→                <SelectContent>
+  1079→  1079→                  {roles.map((role) => (
+  1080→  1080→                    <SelectItem key={role.id} value={role.id}>
+  1081→  1081→                      {role.label}
+  1082→  1082→                    </SelectItem>
+  1083→  1083→                  ))}
+  1084→  1084→                </SelectContent>
+  1085→  1085→              </Select>
+  1086→  1086→              {formErrors.roleId && (
+  1087→  1087→                <p className="text-xs text-destructive">{formErrors.roleId}</p>
+  1088→  1088→              )}
+  1089→  1089→            </div>
+  1090→  1090→
+  1091→  1091→            {/* Department */}
+  1092→  1092→            <div className="space-y-2">
+  1093→  1093→              <Label>Département</Label>
+  1094→  1094→              <Select
+  1095→  1095→                value={formData.departmentId}
+  1096→  1096→                onValueChange={(val) => setFormData({ ...formData, departmentId: val })}
+  1097→  1097→              >
+  1098→  1098→                <SelectTrigger>
+  1099→  1099→                  <SelectValue placeholder="Sélectionner un département" />
+  1100→  1100→                </SelectTrigger>
+  1101→  1101→                <SelectContent>
+  1102→  1102→                  {departments.map((dept) => (
+  1103→  1103→                    <SelectItem key={dept.id} value={dept.id}>
+  1104→  1104→                      {dept.name}
+  1105→  1105→                    </SelectItem>
+  1106→  1106→                  ))}
+  1107→  1107→                </SelectContent>
+  1108→  1108→              </Select>
+  1109→  1109→              {formErrors.departmentId && (
+  1110→  1110→                <p className="text-xs text-destructive">{formErrors.departmentId}</p>
+  1111→  1111→              )}
+  1112→  1112→            </div>
+  1113→  1113→
+  1114→  1114→            {/* Active toggle */}
+  1115→  1115→            <div className="flex items-center justify-between rounded-lg border p-3">
+  1116→  1116→              <div>
+  1117→  1117→                <Label htmlFor="user-active">Compte actif</Label>
+  1118→  1118→                <p className="text-xs text-muted-foreground">
+  1119→  1119→                  Un compte inactif ne peut pas se connecter
+  1120→  1120→                </p>
+  1121→  1121→              </div>
+  1122→  1122→              <Switch
+  1123→  1123→                id="user-active"
+  1124→  1124→                checked={formData.isActive}
+  1125→  1125→                onCheckedChange={(checked) =>
+  1126→  1126→                  setFormData({ ...formData, isActive: checked })
+  1127→  1127→                }
+  1128→  1128→              />
+  1129→  1129→            </div>
+  1130→  1130→          </div>
+  1131→  1131→
+  1132→  1132→          <DialogFooter>
+  1133→  1133→            <Button
+  1134→  1134→              variant="outline"
+  1135→  1135→              onClick={() => setDialogOpen(false)}
+  1136→  1136→              disabled={saving}
+  1137→  1137→            >
+  1138→  1138→              Annuler
+  1139→  1139→            </Button>
+  1140→  1140→            <Button
+  1141→  1141→              onClick={handleSave}
+  1142→  1142→              disabled={saving}
+  1143→  1143→              className="gap-2 bg-fun-blue hover:bg-fun-blue-dark"
+  1144→  1144→            >
+  1145→  1145→              {saving && <Loader2 className="size-4 animate-spin" />}
+  1146→  1146→              {editingUser ? 'Enregistrer' : 'Créer'}
+  1147→  1147→            </Button>
+  1148→  1148→          </DialogFooter>
+  1149→  1149→        </DialogContent>
+  1150→  1150→      </Dialog>
+  1151→  1151→
+  1152→  1152→      {/* Delete AlertDialog */}
+  1153→  1153→      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+  1154→  1154→        <AlertDialogContent>
+  1155→  1155→          <AlertDialogHeader>
+  1156→  1156→            <AlertDialogTitle>Supprimer l&apos;utilisateur</AlertDialogTitle>
+  1157→  1157→            <AlertDialogDescription>
+  1158→  1158→              Êtes-vous sûr de vouloir supprimer l&apos;utilisateur{' '}
+  1159→  1159→              <span className="font-semibold text-foreground">{deletingUser?.name}</span>
+  1160→  1160→              ? Cette action est irréversible.
+  1161→  1161→            </AlertDialogDescription>
+  1162→  1162→          </AlertDialogHeader>
+  1163→  1163→          <AlertDialogFooter>
+  1164→  1164→            <AlertDialogCancel disabled={saving}>Annuler</AlertDialogCancel>
+  1165→  1165→            <AlertDialogAction
+  1166→  1166→              onClick={handleDelete}
+  1167→  1167→              disabled={saving}
+  1168→  1168→              className="gap-2 bg-destructive hover:bg-destructive/90"
+  1169→  1169→            >
+  1170→  1170→              {saving && <Loader2 className="size-4 animate-spin" />}
+  1171→  1171→              Supprimer
+  1172→  1172→            </AlertDialogAction>
+  1173→  1173→          </AlertDialogFooter>
+  1174→  1174→        </AlertDialogContent>
+  1175→  1175→      </AlertDialog>
+  1176→  1176→    </div>
+  1177→  1177→  );
+  1178→  1178→}
