@@ -621,6 +621,7 @@ export function KpiModuleView({ domain }: KpiModuleViewProps) {
   const defaultTab = subDomainKeys[0] || '';
 
   // Track user's manual tab selection; highlight overrides it temporarily
+  // highlightSubDomain persists until user manually clicks a tab (cleared in onValueChange)
   const [manualTab, setManualTab] = useState<string | null>(null);
 
   const activeTab = useMemo(() => {
@@ -711,7 +712,7 @@ export function KpiModuleView({ domain }: KpiModuleViewProps) {
 
       {/* ── Sub-domain Tabs (controlled for highlight navigation) ── */}
       {subDomainKeys.length > 0 && (
-        <Tabs value={activeTab} onValueChange={setManualTab} className="space-y-4">
+        <Tabs value={activeTab} onValueChange={(v) => { setManualTab(v); setHighlightSubDomain(null); }} className="space-y-4">
           <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
             {subDomainKeys.map((key) => (
               <TabsTrigger

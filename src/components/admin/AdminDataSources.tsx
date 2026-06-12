@@ -72,7 +72,7 @@ const MODULE_LABELS: Record<string, string> = {
   operational: 'Opérationnel',
   rh: 'Ressources Humaines',
   risque: 'Cadre de Risque',
-  pta: 'PTA',
+  pta: 'Plan de Travail Annuel',
   admin: 'Administration',
 };
 

@@ -66,7 +66,7 @@ export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       activeModule: 'accueil',
-      setActiveModule: (module) => set({ activeView: module, activeModule: module }),
+      setActiveModule: (module) => set({ activeView: module, activeModule: module, highlightSubDomain: null, highlightIndicatorId: null }),
       filters: initialState,
       setFilters: (filters) =>
         set((state) => ({

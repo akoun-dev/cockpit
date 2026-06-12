@@ -7,7 +7,7 @@ const DOMAIN_LABELS: Record<string, string> = {
   operational: 'Opérationnel',
   rh: 'Ressources Humaines',
   risque: 'Cadre de Risque',
-  pta: "Plan Triennal d'Actions",
+  pta: 'Plan de Travail Annuel',
 };
 
 const DOMAIN_COLORS: Record<string, string> = {

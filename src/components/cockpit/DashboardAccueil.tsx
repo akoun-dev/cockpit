@@ -129,7 +129,7 @@ const DOMAIN_META: Record<
   operational: { key: 'operational', label: 'Opérationnel', icon: Settings, color: '#f18120', bgLight: '#f1812010' },
   rh: { key: 'rh', label: 'Ressources Humaines', icon: Users, color: '#22c55e', bgLight: '#22c55e10' },
   risque: { key: 'risque', label: 'Cadre de Risque', icon: ShieldAlert, color: '#ef4444', bgLight: '#ef444410' },
-  pta: { key: 'pta', label: 'Plan Triennal', icon: Target, color: '#f59e0b', bgLight: '#f59e0b10' },
+  pta: { key: 'pta', label: 'Plan de Travail Annuel', icon: Target, color: '#f59e0b', bgLight: '#f59e0b10' },
 };
 
 const STATUS_LABELS: Record<string, string> = {

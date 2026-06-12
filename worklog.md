@@ -443,3 +443,24 @@ Stage Summary:
 - Sub-domain aware navigation: search result carries subDomain info, KpiModuleView auto-switches to correct tab
 - Controlled Tabs pattern using derived value (no lint violations)
 - Files modified: `globals.css`, `store.ts`, `api/search/route.ts`, `Header.tsx`, `KpiModuleView.tsx`
+
+---
+Task ID: fix-tab-sticky-hydration-pta-import
+Agent: Main
+Task: Fix tab reverting after highlight clears, fix hydration error, correct PTA label, add PowerPoint import
+
+Work Log:
+- **Tab persistence**: Changed `highlightSubDomain` to persist (not cleared by timeout). Only `highlightIndicatorId` clears after 2.5s for the animation. `highlightSubDomain` is cleared when: (a) user manually clicks a tab via `onValueChange`, (b) user clicks sidebar module via `setActiveModule`, (c) user searches for a module. Used `useState(manualTab)` set only from `onValueChange` event handler (lint-safe).
+- **Hydration error**: ThemeToggle used `theme` (differs SSR vs client). Fixed by using `resolvedTheme` from next-themes which is `undefined` during SSR, rendering a placeholder `<div>` that matches both server and client.
+- **PTA label**: Changed "Plan Triennal d'Actions" → "Plan de Travail Annuel" in: Header.tsx MODULE_LABELS, DashboardAccueil.tsx DOMAIN_META, AdminDataSources.tsx MODULE_LABELS, api/search/route.ts DOMAIN_LABELS. Sidebar keeps short "PTA" label.
+- **PowerPoint import**: Added `jszip` package. Created `/api/import/pptx` route with POST (analyze) and PUT (apply) handlers. POST parses PPTX ZIP, extracts tables from slides, matches KPI codes (regex `CODE-XXX`), returns preview. PUT upserts indicator values in DB. Added `ImportPptxButton` component in Header.tsx with file picker, analyze preview table, and apply button.
+- Store `setActiveModule` now clears `highlightSubDomain` and `highlightIndicatorId` to prevent stale highlights.
+
+Stage Summary:
+- Tab stays on correct sub-module after search highlight animation ends
+- No more hydration mismatch errors from ThemeToggle
+- PTA = "Plan de Travail Annuel" across all labels
+- PowerPoint import button in header with analyze → preview → apply workflow
+- Files modified: store.ts, Header.tsx, KpiModuleView.tsx, DashboardAccueil.tsx, AdminDataSources.tsx, api/search/route.ts
+- Files created: api/import/pptx/route.ts
+- Package added: jszip
