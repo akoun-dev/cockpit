@@ -81,7 +81,7 @@ function CockpitApp() {
         <footer className="mt-auto border-t border-border bg-card px-6 py-3">
           <div className="flex flex-col items-center justify-between gap-1 text-xs text-muted-foreground sm:flex-row">
             <div className="flex items-center gap-2">
-              <img src="/logo-ansut.png" alt="" className="size-4 rounded object-cover opacity-60" />
+              <img src="/logo-ansut-square.png" alt="" className="size-4 rounded opacity-60" />
               <span>© {new Date().getFullYear()} ANSUT — Agence Nationale des Services Universels des Télécommunications</span>
             </div>
             <span>Cockpit DG v1.0 — Données mises à jour en temps réel</span>

@@ -91,7 +91,7 @@ interface SettingsState {
 
 const DEFAULT_SETTINGS: SettingsState = {
   appName: 'ANSUT Cockpit DG',
-  logoUrl: '/logo-ansut.png',
+  logoUrl: '/logo-ansut-square.png',
   version: '1.0.0',
   defaultLanguage: 'fr',
   timezone: 'Africa/Kinshasa',
@@ -377,7 +377,7 @@ export function AdminSettings() {
                 id="logoUrl"
                 value={settings.logoUrl}
                 onChange={(e) => handleChange('logoUrl', e.target.value)}
-                placeholder="/logo-ansut.png"
+                placeholder="/logo-ansut-square.png"
                 className="h-9"
               />
             </div>
