@@ -1,0 +1,834 @@
+     1→     1→'use client';
+     2→     2→
+     3→     3→import React, { useEffect, useState, useMemo } from 'react';
+     4→     4→import {
+     5→     5→  PieChart,
+     6→     6→  Pie,
+     7→     7→  Cell,
+     8→     8→  BarChart,
+     9→     9→  Bar,
+    10→    10→  XAxis,
+    11→    11→  YAxis,
+    12→    12→  CartesianGrid,
+    13→    13→} from 'recharts';
+    14→    14→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+    15→    15→import { Badge } from '@/components/ui/badge';
+    16→    16→import { Skeleton } from '@/components/ui/skeleton';
+    17→    17→import { Progress } from '@/components/ui/progress';
+    18→    18→import {
+    19→    19→  ChartContainer,
+    20→    20→  ChartTooltip,
+    21→    21→  ChartTooltipContent,
+    22→    22→  ChartLegend,
+    23→    23→  ChartLegendContent,
+    24→    24→  type ChartConfig,
+    25→    25→} from '@/components/ui/chart';
+    26→    26→import { StatusBadge } from '@/components/cockpit/StatusBadge';
+    27→    27→import { useAppStore, type ModuleKey } from '@/lib/store';
+    28→    28→import { cn } from '@/lib/utils';
+    29→    29→import {
+    30→    30→  Wallet,
+    31→    31→  Landmark,
+    32→    32→  Settings,
+    33→    33→  Users,
+    34→    34→  ShieldAlert,
+    35→    35→  Target,
+    36→    36→  AlertTriangle,
+    37→    37→  FolderKanban,
+    38→    38→  CheckCircle2,
+    39→    39→  Clock,
+    40→    40→  CalendarClock,
+    41→    41→  Banknote,
+    42→    42→  Activity,
+    43→    43→  Star,
+    44→    44→  TrendingUp,
+    45→    45→  CircleDot,
+    46→    46→} from 'lucide-react';
+    47→    47→
+    48→    48→// ── Types ──────────────────────────────────────────────────────────────────
+    49→    49→
+    50→    50→interface IndicatorSummary {
+    51→    51→  id: string;
+    52→    52→  name: string;
+    53→    53→  code: string;
+    54→    54→  subDomain: string | null;
+    55→    55→  unit: string;
+    56→    56→  targetValue: number | null;
+    57→    57→  value: number;
+    58→    58→  trend: string;
+    59→    59→}
+    60→    60→
+    61→    61→interface TopPriorityIndicator {
+    62→    62→  id: string;
+    63→    63→  name: string;
+    64→    64→  code: string;
+    65→    65→  unit: string;
+    66→    66→  targetValue: number | null;
+    67→    67→  value: number;
+    68→    68→  domain: string;
+    69→    69→  status: string;
+    70→    70→  achievementPct: number;
+    71→    71→}
+    72→    72→
+    73→    73→interface DomainSummary {
+    74→    74→  count: number;
+    75→    75→  atteint: number;
+    76→    76→  partiel: number;
+    77→    77→  non_atteint: number;
+    78→    78→  performance: number;
+    79→    79→  indicators: IndicatorSummary[];
+    80→    80→}
+    81→    81→
+    82→    82→interface ProjectSummary {
+    83→    83→  total: number;
+    84→    84→  en_cours: number;
+    85→    85→  termine: number;
+    86→    86→  planifie: number;
+    87→    87→  avgProgress: number;
+    88→    88→  totalBudget: number;
+    89→    89→  totalSpent: number;
+    90→    90→}
+    91→    91→
+    92→    92→interface DashboardData {
+    93→    93→  summary: Record<string, DomainSummary>;
+    94→    94→  globalPerformance: number;
+    95→    95→  totalIndicators: number;
+    96→    96→  statusCounts: { atteint: number; partiel: number; non_atteint: number };
+    97→    97→  priorityStats: { total: number; atteint: number; partiel: number; non_atteint: number };
+    98→    98→  topPriorityIndicators: TopPriorityIndicator[];
+    99→    99→  projectSummary: ProjectSummary;
+   100→   100→  lastUpdated: string;
+   101→   101→}
+   102→   102→
+   103→   103→// ── Constants ──────────────────────────────────────────────────────────────
+   104→   104→
+   105→   105→const DOMAIN_META: Record<
+   106→   106→  string,
+   107→   107→  { key: ModuleKey; label: string; icon: React.ElementType; color: string; bgLight: string }
+   108→   108→> = {
+   109→   109→  finance: { key: 'finance', label: 'Finance', icon: Wallet, color: '#1c55a3', bgLight: '#1c55a310' },
+   110→   110→  governance: { key: 'governance', label: 'Gouvernance', icon: Landmark, color: '#205eb3', bgLight: '#205eb310' },
+   111→   111→  operational: { key: 'operational', label: 'Opérationnel', icon: Settings, color: '#f18120', bgLight: '#f1812010' },
+   112→   112→  rh: { key: 'rh', label: 'Ressources Humaines', icon: Users, color: '#22c55e', bgLight: '#22c55e10' },
+   113→   113→  risque: { key: 'risque', label: 'Cadre de Risque', icon: ShieldAlert, color: '#ef4444', bgLight: '#ef444410' },
+   114→   114→  pta: { key: 'pta', label: 'Plan Triennal', icon: Target, color: '#f59e0b', bgLight: '#f59e0b10' },
+   115→   115→};
+   116→   116→
+   117→   117→const STATUS_LABELS: Record<string, string> = {
+   118→   118→  atteint: 'Atteint',
+   119→   119→  partiel: 'Partiel',
+   120→   120→  non_atteint: 'Non atteint',
+   121→   121→};
+   122→   122→
+   123→   123→// ── Helpers ────────────────────────────────────────────────────────────────
+   124→   124→
+   125→   125→function getPerformanceColor(pct: number): string {
+   126→   126→  if (pct >= 80) return '#22c55e';
+   127→   127→  if (pct >= 60) return '#f59e0b';
+   128→   128→  return '#ef4444';
+   129→   129→}
+   130→   130→
+   131→   131→function getPerformanceBg(pct: number): string {
+   132→   132→  if (pct >= 80) return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400';
+   133→   133→  if (pct >= 60) return 'bg-amber-500/10 text-amber-600 dark:text-amber-400';
+   134→   134→  return 'bg-red-500/10 text-red-600 dark:text-red-400';
+   135→   135→}
+   136→   136→
+   137→   137→function formatCurrency(n: number): string {
+   138→   138→  if (n >= 1_000_000_000) {
+   139→   139→    const val = n / 1_000_000_000;
+   140→   140→    return `${val.toFixed(1).replace('.', ' ')} Mrd`;
+   141→   141→  }
+   142→   142→  if (n >= 1_000_000) {
+   143→   143→    const val = n / 1_000_000;
+   144→   144→    return `${val.toFixed(1).replace('.', ' ')} M`;
+   145→   145→  }
+   146→   146→  return n.toLocaleString('fr-FR');
+   147→   147→}
+   148→   148→
+   149→   149→// ── Chart configs ─────────────────────────────────────────────────────────
+   150→   150→
+   151→   151→const domainChartConfig = {
+   152→   152→  performance: { label: 'Performance', color: '#205eb3' },
+   153→   153→} satisfies ChartConfig;
+   154→   154→
+   155→   155→const statusChartConfig = {
+   156→   156→  atteint: { label: 'Atteint', color: '#22c55e' },
+   157→   157→  partiel: { label: 'Partiel', color: '#f59e0b' },
+   158→   158→  non_atteint: { label: 'Non atteint', color: '#ef4444' },
+   159→   159→} satisfies ChartConfig;
+   160→   160→
+   161→   161→// ═══════════════════════════════════════════════════════════════════════════
+   162→   162→// ── SECTION 1: Domain KPI Cards ───────────────────────────────────────────
+   163→   163→// ═══════════════════════════════════════════════════════════════════════════
+   164→   164→
+   165→   165→const DOMAIN_CARD_LABELS: Record<string, string> = {
+   166→   166→  governance: 'Suivi des indicateurs de gouvernance',
+   167→   167→  finance: 'Suivi des indicateurs financiers',
+   168→   168→  operational: 'Suivi des indicateurs opérationnels',
+   169→   169→  rh: 'Suivi des indicateurs de ressources humaines',
+   170→   170→  risque: "Suivi des indicateurs du cadre d'appétence aux risques",
+   171→   171→  pta: 'Suivi de plan de travail',
+   172→   172→};
+   173→   173→
+   174→   174→function DomainKpiCard({
+   175→   175→  domainKey,
+   176→   176→  summary,
+   177→   177→  priorityCodes,
+   178→   178→  onNavigate,
+   179→   179→  lastUpdated,
+   180→   180→}: {
+   181→   181→  domainKey: string;
+   182→   182→  summary: DomainSummary;
+   183→   183→  priorityCodes: string[];
+   184→   184→  onNavigate: (module: ModuleKey) => void;
+   185→   185→  lastUpdated: string;
+   186→   186→}) {
+   187→   187→  const meta = DOMAIN_META[domainKey];
+   188→   188→  if (!meta) return null;
+   189→   189→  const Icon = meta.icon;
+   190→   190→
+   191→   191→  // Pick the top 2 priority indicators, or first 2 if none
+   192→   192→  const priorityIndicators = summary.indicators.filter(
+   193→   193→    (ind) => ind.code && priorityCodes.includes(ind.code),
+   194→   194→  );
+   195→   195→  const topIndicators = priorityIndicators.length >= 2
+   196→   196→    ? priorityIndicators.slice(0, 2)
+   197→   197→    : summary.indicators.slice(0, 2);
+   198→   198→
+   199→   199→  const primary = topIndicators[0];
+   200→   200→  const secondary = topIndicators[1];
+   201→   201→
+   202→   202→  const formattedDate = new Date(lastUpdated).toLocaleDateString('fr-FR', {
+   203→   203→    day: '2-digit',
+   204→   204→    month: '2-digit',
+   205→   205→    year: 'numeric',
+   206→   206→  });
+   207→   207→
+   208→   208→  return (
+   209→   209→    <Card
+   210→   210→      className="group cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 overflow-hidden"
+   211→   211→      onClick={() => onNavigate(meta.key)}
+   212→   212→    >
+   213→   213→      {/* Top color bar */}
+   214→   214→      <div className="h-1" style={{ backgroundColor: meta.color }} />
+   215→   215→      <CardContent className="p-4 flex flex-col gap-3">
+   216→   216→        {/* Header: icon + domain name */}
+   217→   217→        <div className="flex items-center gap-2.5">
+   218→   218→          <div
+   219→   219→            className="flex size-9 shrink-0 items-center justify-center rounded-lg"
+   220→   220→            style={{ backgroundColor: meta.bgLight, color: meta.color }}
+   221→   221→          >
+   222→   222→            <Icon className="size-4.5" />
+   223→   223→          </div>
+   224→   224→          <h3 className="text-sm font-semibold text-foreground leading-tight">{meta.label}</h3>
+   225→   225→        </div>
+   226→   226→
+   227→   227→        {/* Metric 1 (Primary) */}
+   228→   228→        {primary && (
+   229→   229→          <div className="space-y-0.5">
+   230→   230→            <p className="text-xs text-muted-foreground leading-snug line-clamp-2 min-h-[2rem]">
+   231→   231→              {primary.name}
+   232→   232→            </p>
+   233→   233→            <div className="flex items-baseline gap-1">
+   234→   234→              <span className="text-xl font-bold text-foreground" style={{ color: meta.color }}>
+   235→   235→                {primary.value}
+   236→   236→              </span>
+   237→   237→              {primary.unit && (
+   238→   238→                <span className="text-xs text-muted-foreground font-medium">{primary.unit}</span>
+   239→   239→              )}
+   240→   240→            </div>
+   241→   241→          </div>
+   242→   242→        )}
+   243→   243→
+   244→   244→        {/* Metric 2 (Secondary) */}
+   245→   245→        {secondary && (
+   246→   246→          <div className="space-y-0.5">
+   247→   247→            <p className="text-xs text-muted-foreground leading-snug line-clamp-2 min-h-[2rem]">
+   248→   248→              {secondary.name}
+   249→   249→            </p>
+   250→   250→            <div className="flex items-baseline gap-1">
+   251→   251→              <span className="text-lg font-bold text-foreground">
+   252→   252→                {secondary.value}
+   253→   253→              </span>
+   254→   254→              {secondary.unit && (
+   255→   255→                <span className="text-xs text-muted-foreground font-medium">{secondary.unit}</span>
+   256→   256→              )}
+   257→   257→            </div>
+   258→   258→          </div>
+   259→   259→        )}
+   260→   260→
+   261→   261→        {/* Footer: date + category */}
+   262→   262→        <div className="mt-auto pt-2 border-t border-border">
+   263→   263→          <p className="text-[10px] text-muted-foreground">
+   264→   264→            Date de dernière mise à jour : {formattedDate}
+   265→   265→          </p>
+   266→   266→          <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+   267→   267→            {DOMAIN_CARD_LABELS[domainKey] || ''}
+   268→   268→          </p>
+   269→   269→        </div>
+   270→   270→      </CardContent>
+   271→   271→    </Card>
+   272→   272→  );
+   273→   273→}
+   274→   274→
+   275→   275→function ExecutiveStrip({
+   276→   276→  data,
+   277→   277→  onNavigate,
+   278→   278→}: {
+   279→   279→  data: DashboardData;
+   280→   280→  onNavigate: (module: ModuleKey) => void;
+   281→   281→}) {
+   282→   282→  const priorityCodes = useMemo(
+   283→   283→    () => data.topPriorityIndicators.map((i) => i.code),
+   284→   284→    [data.topPriorityIndicators],
+   285→   285→  );
+   286→   286→
+   287→   287→  return (
+   288→   288→    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   289→   289→      {Object.entries(DOMAIN_META).map(([key]) => {
+   290→   290→        const domainSummary = data.summary[key];
+   291→   291→        if (!domainSummary) return null;
+   292→   292→        return (
+   293→   293→          <DomainKpiCard
+   294→   294→            key={key}
+   295→   295→            domainKey={key}
+   296→   296→            summary={domainSummary}
+   297→   297→            priorityCodes={priorityCodes}
+   298→   298→            onNavigate={onNavigate}
+   299→   299→            lastUpdated={data.lastUpdated}
+   300→   300→          />
+   301→   301→        );
+   302→   302→      })}
+   303→   303→    </div>
+   304→   304→  );
+   305→   305→}
+   306→   306→
+   307→   307→// ═══════════════════════════════════════════════════════════════════════════
+   308→   308→// ── SECTION 2: Domain Performance Bar Chart ───────────────────────────────
+   309→   309→// ═══════════════════════════════════════════════════════════════════════════
+   310→   310→
+   311→   311→function DomainPerformanceChart({
+   312→   312→  summary,
+   313→   313→  onDomainClick,
+   314→   314→}: {
+   315→   315→  summary: Record<string, DomainSummary>;
+   316→   316→  onDomainClick: (module: ModuleKey) => void;
+   317→   317→}) {
+   318→   318→  const data = useMemo(() => {
+   319→   319→    return Object.entries(DOMAIN_META)
+   320→   320→      .map(([key, meta]) => {
+   321→   321→        const d = summary[key];
+   322→   322→        if (!d) return null;
+   323→   323→        return {
+   324→   324→          name: meta.label,
+   325→   325→          shortName: meta.label.length > 12 ? meta.label.substring(0, 12) + '…' : meta.label,
+   326→   326→          performance: d.performance,
+   327→   327→          atteint: d.atteint,
+   328→   328→          partiel: d.partiel,
+   329→   329→          non_atteint: d.non_atteint,
+   330→   330→          total: d.count,
+   331→   331→          color: meta.color,
+   332→   332→          domainKey: key,
+   333→   333→        };
+   334→   334→      })
+   335→   335→      .filter(Boolean)
+   336→   336→      .sort((a, b) => (b as NonNullable<typeof a>).performance - (a as NonNullable<typeof a>).performance);
+   337→   337→  }, [summary]);
+   338→   338→
+   339→   339→  if (data.length === 0) return null;
+   340→   340→
+   341→   341→  return (
+   342→   342→    <Card className="h-full">
+   343→   343→      <CardHeader className="pb-2">
+   344→   344→        <div className="flex items-center justify-between">
+   345→   345→          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   346→   346→            <TrendingUp className="size-4 text-fun-blue" />
+   347→   347→            Performance par Domaine
+   348→   348→          </CardTitle>
+   349→   349→          <span className="text-[10px] text-muted-foreground">Atteint = 100% · Partiel = 50%</span>
+   350→   350→        </div>
+   351→   351→      </CardHeader>
+   352→   352→      <CardContent className="p-4 pt-0">
+   353→   353→        <ChartContainer config={domainChartConfig} className="h-[260px] w-full">
+   354→   354→          <BarChart data={data as unknown as Array<Record<string, unknown>>} layout="vertical" margin={{ left: 0, right: 16, top: 4, bottom: 4 }}>
+   355→   355→            <CartesianGrid strokeDasharray="3 3" horizontal={false} vertical strokeDashoffset={3} className="stroke-border/50" />
+   356→   356→            <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}%`} className="text-muted-foreground" />
+   357→   357→            <YAxis
+   358→   358→              type="category"
+   359→   359→              dataKey="shortName"
+   360→   360→              width={110}
+   361→   361→              tick={{ fontSize: 11 }}
+   362→   362→              className="text-muted-foreground"
+   363→   363→              tickLine={false}
+   364→   364→            />
+   365→   365→            <ChartTooltip
+   366→   366→              content={
+   367→   367→                <ChartTooltipContent
+   368→   368→                  formatter={(value: number, name: string, item: { payload?: Record<string, unknown> }) => {
+   369→   369→                    const p = item?.payload as Record<string, unknown> | undefined;
+   370→   370→                    if (!p) return [`${value}%`, name];
+   371→   371→                    return [
+   372→   372→                      `${value}% (${(p.atteint as number)}A / ${(p.partiel as number)}P / ${(p.non_atteint as number)}NA)`,
+   373→   373→                      'Performance',
+   374→   374→                    ];
+   375→   375→                  }}
+   376→   376→                />
+   377→   377→              }
+   378→   378→            />
+   379→   379→            <Bar
+   380→   380→              dataKey="performance"
+   381→   381→              fill="var(--color-performance)"
+   382→   382→              radius={[0, 6, 6, 0]}
+   383→   383→              barSize={22}
+   384→   384→              cursor="pointer"
+   385→   385→              onClick={(entry) => {
+   386→   386→                const domainKey = (entry as unknown as Record<string, unknown>).domainKey as string;
+   387→   387→                if (domainKey) onDomainClick(domainKey as ModuleKey);
+   388→   388→              }}
+   389→   389→            />
+   390→   390→          </BarChart>
+   391→   391→        </ChartContainer>
+   392→   392→      </CardContent>
+   393→   393→    </Card>
+   394→   394→  );
+   395→   395→}
+   396→   396→
+   397→   397→// ═══════════════════════════════════════════════════════════════════════════
+   398→   398→// ── SECTION 3: Status Distribution Donut ─────────────────────────────────
+   399→   399→// ═══════════════════════════════════════════════════════════════════════════
+   400→   400→
+   401→   401→function StatusDonutSection({ data }: { data: DashboardData }) {
+   402→   402→  const { statusCounts, totalIndicators } = data;
+   403→   403→  const donutData = [
+   404→   404→    { name: 'atteint', value: statusCounts.atteint },
+   405→   405→    { name: 'partiel', value: statusCounts.partiel },
+   406→   406→    { name: 'non_atteint', value: statusCounts.non_atteint },
+   407→   407→  ].filter((d) => d.value > 0);
+   408→   408→
+   409→   409→  const scorePct =
+   410→   410→    totalIndicators > 0
+   411→   411→      ? Math.round(((statusCounts.atteint + statusCounts.partiel * 0.5) / totalIndicators) * 100)
+   412→   412→      : 0;
+   413→   413→
+   414→   414→  return (
+   415→   415→    <Card className="h-full">
+   416→   416→      <CardHeader className="pb-2">
+   417→   417→        <div className="flex items-center justify-between">
+   418→   418→          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   419→   419→            <CircleDot className="size-4 text-fun-blue" />
+   420→   420→            Répartition par Statut
+   421→   421→          </CardTitle>
+   422→   422→          <span
+   423→   423→            className={cn('text-xl font-bold', getPerformanceBg(scorePct).split(' ').pop())}
+   424→   424→          >
+   425→   425→            {scorePct}%
+   426→   426→          </span>
+   427→   427→        </div>
+   428→   428→      </CardHeader>
+   429→   429→      <CardContent className="flex items-center gap-4 pt-0">
+   430→   430→        <ChartContainer config={statusChartConfig} className="mx-auto aspect-square h-[160px] w-[160px] shrink-0">
+   431→   431→          <PieChart>
+   432→   432→            <Pie
+   433→   433→              data={donutData}
+   434→   434→              dataKey="value"
+   435→   435→              nameKey="name"
+   436→   436→              cx="50%"
+   437→   437→              cy="50%"
+   438→   438→              innerRadius="55%"
+   439→   439→              outerRadius="80%"
+   440→   440→              strokeWidth={2}
+   441→   441→              stroke="var(--color-card)"
+   442→   442→            >
+   443→   443→              {donutData.map((entry) => (
+   444→   444→                <Cell key={entry.name} fill={`var(--color-${entry.name})`} />
+   445→   445→              ))}
+   446→   446→            </Pie>
+   447→   447→            <ChartTooltip content={<ChartTooltipContent />} />
+   448→   448→          </PieChart>
+   449→   449→        </ChartContainer>
+   450→   450→        <div className="space-y-3 text-sm min-w-0 flex-1">
+   451→   451→          {(['atteint', 'partiel', 'non_atteint'] as const).map((key) => {
+   452→   452→            const count = statusCounts[key];
+   453→   453→            const pct = totalIndicators > 0 ? Math.round((count / totalIndicators) * 100) : 0;
+   454→   454→            const colorMap = { atteint: 'bg-emerald-500', partiel: 'bg-amber-500', non_atteint: 'bg-red-500' };
+   455→   455→            return (
+   456→   456→              <div key={key} className="flex items-center gap-2.5">
+   457→   457→                <span className={cn('size-3 rounded-full shrink-0', colorMap[key])} />
+   458→   458→                <span className="text-muted-foreground text-xs sm:text-sm min-w-0 truncate">
+   459→   459→                  {STATUS_LABELS[key]}
+   460→   460→                </span>
+   461→   461→                <div className="flex items-center gap-2 ml-auto">
+   462→   462→                  <Progress value={pct} className="h-1.5 w-12 sm:w-16" />
+   463→   463→                  <span className="font-bold text-xs sm:text-sm tabular-nums w-6 text-right">
+   464→   464→                    {count}
+   465→   465→                  </span>
+   466→   466→                </div>
+   467→   467→              </div>
+   468→   468→            );
+   469→   469→          })}
+   470→   470→          <div className="pt-1.5 border-t border-border flex items-center justify-between">
+   471→   471→            <span className="text-xs text-muted-foreground">Total</span>
+   472→   472→            <span className="font-bold text-xs sm:text-sm tabular-nums">{totalIndicators}</span>
+   473→   473→          </div>
+   474→   474→        </div>
+   475→   475→      </CardContent>
+   476→   476→    </Card>
+   477→   477→  );
+   478→   478→}
+   479→   479→
+   480→   480→// ═══════════════════════════════════════════════════════════════════════════
+   481→   481→// ── SECTION 4: Top Priority KPIs ─────────────────────────────────────────
+   482→   482→// ═══════════════════════════════════════════════════════════════════════════
+   483→   483→
+   484→   484→function TopPriorityKpis({
+   485→   485→  indicators,
+   486→   486→  onNavigate,
+   487→   487→}: {
+   488→   488→  indicators: TopPriorityIndicator[];
+   489→   489→  onNavigate: (module: ModuleKey) => void;
+   490→   490→}) {
+   491→   491→  if (indicators.length === 0) return null;
+   492→   492→
+   493→   493→  return (
+   494→   494→    <Card>
+   495→   495→      <CardHeader className="pb-2">
+   496→   496→        <div className="flex items-center justify-between">
+   497→   497→          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   498→   498→            <Star className="size-4 text-tango fill-tango" />
+   499→   499→            KPI Lot 1 (DG) — Points d&apos;Attention
+   500→   500→          </CardTitle>
+   501→   501→          <Badge variant="outline" className="text-[10px] border-tango/30 text-tango bg-tango/5">
+   502→   502→            Pire atteintes
+   503→   503→          </Badge>
+   504→   504→        </div>
+   505→   505→      </CardHeader>
+   506→   506→      <CardContent className="p-4 pt-0">
+   507→   507→        <div className="space-y-2.5">
+   508→   508→          {indicators.map((ind) => {
+   509→   509→            const domainMeta = DOMAIN_META[ind.domain];
+   510→   510→            const pct = Math.min(ind.achievementPct, 100);
+   511→   511→            const barColor = pct >= 80 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444';
+   512→   512→            const statusLabel = STATUS_LABELS[ind.status] || ind.status;
+   513→   513→
+   514→   514→            return (
+   515→   515→              <div
+   516→   516→                key={ind.id}
+   517→   517→                className="group flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+   518→   518→                onClick={() => domainMeta && onNavigate(domainMeta.key)}
+   519→   519→              >
+   520→   520→                {/* Code + Name */}
+   521→   521→                <div className="min-w-0 flex-1">
+   522→   522→                  <div className="flex items-center gap-1.5">
+   523→   523→                    <span className="font-mono text-[10px] text-muted-foreground shrink-0">{ind.code}</span>
+   524→   524→                    {domainMeta && (
+   525→   525→                      <span
+   526→   526→                        className="size-1.5 rounded-full shrink-0"
+   527→   527→                        style={{ backgroundColor: domainMeta.color }}
+   528→   528→                      />
+   529→   529→                    )}
+   530→   530→                    <p className="text-xs font-medium text-foreground truncate">{ind.name}</p>
+   531→   531→                  </div>
+   532→   532→                  {/* Progress bar */}
+   533→   533→                  <div className="flex items-center gap-2 mt-1.5">
+   534→   534→                    <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+   535→   535→                      <div
+   536→   536→                        className="h-full rounded-full transition-all duration-700"
+   537→   537→                        style={{ width: `${pct}%`, backgroundColor: barColor }}
+   538→   538→                      />
+   539→   539→                    </div>
+   540→   540→                    <span className="text-[10px] font-semibold tabular-nums w-7 text-right" style={{ color: barColor }}>
+   541→   541→                      {pct}%
+   542→   542→                    </span>
+   543→   543→                  </div>
+   544→   544→                </div>
+   545→   545→
+   546→   546→                {/* Value / Target */}
+   547→   547→                <div className="hidden sm:flex flex-col items-end shrink-0">
+   548→   548→                  <span className="text-xs font-bold text-foreground tabular-nums">{ind.value}</span>
+   549→   549→                  <span className="text-[10px] text-muted-foreground">/ {ind.targetValue}</span>
+   550→   550→                </div>
+   551→   551→
+   552→   552→                {/* Status badge */}
+   553→   553→                <StatusBadge status={ind.status} label={statusLabel} />
+   554→   554→              </div>
+   555→   555→            );
+   556→   556→          })}
+   557→   557→        </div>
+   558→   558→      </CardContent>
+   559→   559→    </Card>
+   560→   560→  );
+   561→   561→}
+   562→   562→
+   563→   563→// ═══════════════════════════════════════════════════════════════════════════
+   564→   564→// ── SECTION 5: Projects Overview ─────────────────────────────────────────
+   565→   565→// ═══════════════════════════════════════════════════════════════════════════
+   566→   566→
+   567→   567→function ProjectsOverview({ projects }: { projects: ProjectSummary }) {
+   568→   568→  const budgetPct = projects.totalBudget > 0 ? Math.round((projects.totalSpent / projects.totalBudget) * 100) : 0;
+   569→   569→
+   570→   570→  return (
+   571→   571→    <Card>
+   572→   572→      <CardHeader className="pb-2">
+   573→   573→        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   574→   574→          <FolderKanban className="size-4 text-fun-blue" />
+   575→   575→          Aperçu des Projets
+   576→   576→        </CardTitle>
+   577→   577→      </CardHeader>
+   578→   578→      <CardContent className="p-4 pt-0 space-y-4">
+   579→   579→        {/* Project stats row */}
+   580→   580→        <div className="grid grid-cols-4 gap-2">
+   581→   581→          {[
+   582→   582→            { label: 'Total', value: projects.total, icon: FolderKanban, color: '#205eb3' },
+   583→   583→            { label: 'En Cours', value: projects.en_cours, icon: Clock, color: '#f59e0b' },
+   584→   584→            { label: 'Terminés', value: projects.termine, icon: CheckCircle2, color: '#22c55e' },
+   585→   585→            { label: 'Planifiés', value: projects.planifie, icon: CalendarClock, color: '#94a3b8' },
+   586→   586→          ].map((item) => {
+   587→   587→            const Icon = item.icon;
+   588→   588→            return (
+   589→   589→              <div key={item.label} className="flex flex-col items-center gap-1 py-2 rounded-lg bg-muted/30">
+   590→   590→                <Icon className="size-4" style={{ color: item.color }} />
+   591→   591→                <span className="text-base font-bold text-foreground tabular-nums">{item.value}</span>
+   592→   592→                <span className="text-[9px] text-muted-foreground text-center leading-tight">{item.label}</span>
+   593→   593→              </div>
+   594→   594→            );
+   595→   595→          })}
+   596→   596→        </div>
+   597→   597→
+   598→   598→        {/* Average progress */}
+   599→   599→        <div className="space-y-1.5">
+   600→   600→          <div className="flex items-center justify-between text-xs">
+   601→   601→            <span className="text-muted-foreground">Progression Moyenne</span>
+   602→   602→            <span className="font-bold text-foreground">{projects.avgProgress}%</span>
+   603→   603→          </div>
+   604→   604→          <Progress value={projects.avgProgress} className="h-2" />
+   605→   605→        </div>
+   606→   606→
+   607→   607→        {/* Budget */}
+   608→   608→        <div className="space-y-2.5 rounded-lg bg-muted/30 p-3">
+   609→   609→          <div className="flex items-center gap-2">
+   610→   610→            <Banknote className="size-3.5 text-tango" />
+   611→   611→            <span className="text-xs font-medium text-muted-foreground">Consommation Budgétaire</span>
+   612→   612→          </div>
+   613→   613→          <div className="grid grid-cols-2 gap-2">
+   614→   614→            <div>
+   615→   615→              <p className="text-[10px] text-muted-foreground">Budget</p>
+   616→   616→              <p className="text-sm font-bold text-fun-blue">{formatCurrency(projects.totalBudget)}</p>
+   617→   617→            </div>
+   618→   618→            <div>
+   619→   619→              <p className="text-[10px] text-muted-foreground">Dépensé</p>
+   620→   620→              <p className="text-sm font-bold text-tango">{formatCurrency(projects.totalSpent)}</p>
+   621→   621→            </div>
+   622→   622→          </div>
+   623→   623→          <div className="flex items-center justify-between text-xs">
+   624→   624→            <span className="text-muted-foreground">Taux de consommation</span>
+   625→   625→            <span
+   626→   626→              className={cn(
+   627→   627→                'font-semibold',
+   628→   628→                budgetPct > 90 ? 'text-danger' : budgetPct > 70 ? 'text-warning' : 'text-success',
+   629→   629→              )}
+   630→   630→            >
+   631→   631→              {budgetPct}%
+   632→   632→            </span>
+   633→   633→          </div>
+   634→   634→          <Progress value={budgetPct} className="h-1.5" />
+   635→   635→        </div>
+   636→   636→      </CardContent>
+   637→   637→    </Card>
+   638→   638→  );
+   639→   639→}
+   640→   640→
+   641→   641→// ═══════════════════════════════════════════════════════════════════════════
+   642→   642→// ── SECTION 6: Alerts ───────────────────────────────────────────────────
+   643→   643→// ═══════════════════════════════════════════════════════════════════════════
+   644→   644→
+   645→   645→function AlertsSection({ summary }: { summary: Record<string, DomainSummary> }) {
+   646→   646→  const allAlerts = useMemo(() => {
+   647→   647→    const alerts: Array<{
+   648→   648→      domain: string;
+   649→   649→      domainLabel: string;
+   650→   650→      color: string;
+   651→   651→      indicator: IndicatorSummary;
+   652→   652→      achievement: number;
+   653→   653→    }> = [];
+   654→   654→
+   655→   655→    Object.entries(summary).forEach(([domainKey, domain]) => {
+   656→   656→      const meta = DOMAIN_META[domainKey];
+   657→   657→      if (!meta) return;
+   658→   658→      domain.indicators.forEach((ind) => {
+   659→   659→        const achievement = ind.targetValue && ind.targetValue > 0 ? (ind.value / ind.targetValue) * 100 : ind.value > 0 ? 0 : 100;
+   660→   660→        if (achievement < 60) {
+   661→   661→          alerts.push({
+   662→   662→            domain: domainKey,
+   663→   663→            domainLabel: meta.label,
+   664→   664→            color: meta.color,
+   665→   665→            indicator: ind,
+   666→   666→            achievement,
+   667→   667→          });
+   668→   668→        }
+   669→   669→      });
+   670→   670→    });
+   671→   671→
+   672→   672→    return alerts.sort((a, b) => a.achievement - b.achievement);
+   673→   673→  }, [summary]);
+   674→   674→
+   675→   675→  if (allAlerts.length === 0) {
+   676→   676→    return (
+   677→   677→      <Card>
+   678→   678→        <CardContent className="flex flex-col items-center justify-center py-6 text-center">
+   679→   679→          <CheckCircle2 className="size-8 text-success mb-2" />
+   680→   680→          <p className="text-sm font-medium text-foreground">Aucune alerte critique</p>
+   681→   681→          <p className="text-xs text-muted-foreground mt-0.5">
+   682→   682→            Tous les indicateurs sont au-dessus de 60% de leur objectif.
+   683→   683→          </p>
+   684→   684→        </CardContent>
+   685→   685→      </Card>
+   686→   686→    );
+   687→   687→  }
+   688→   688→
+   689→   689→  return (
+   690→   690→    <div>
+   691→   691→      <div className="flex items-center justify-between mb-3">
+   692→   692→        <div className="flex items-center gap-2">
+   693→   693→          <AlertTriangle className="size-4 text-danger" />
+   694→   694→          <h2 className="text-sm font-semibold text-foreground">
+   695→   695→            Alertes Critiques
+   696→   696→          </h2>
+   697→   697→        </div>
+   698→   698→        <Badge variant="destructive" className="text-[10px]">
+   699→   699→          {allAlerts.length}
+   700→   700→        </Badge>
+   701→   701→      </div>
+   702→   702→      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+   703→   703→        {allAlerts.slice(0, 6).map((alert, idx) => (
+   704→   704→          <Card
+   705→   705→            key={`${alert.domain}-${alert.indicator.code}-${idx}`}
+   706→   706→            className="border-l-2 hover:shadow-sm transition-shadow"
+   707→   707→            style={{ borderLeftColor: '#ef4444' }}
+   708→   708→          >
+   709→   709→            <CardContent className="p-3">
+   710→   710→              <div className="flex items-start justify-between gap-2 mb-1.5">
+   711→   711→                <div className="min-w-0">
+   712→   712→                  <p className="text-xs font-semibold text-foreground truncate">{alert.indicator.name}</p>
+   713→   713→                  <div className="flex items-center gap-1.5 mt-0.5">
+   714→   714→                    <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: alert.color }} />
+   715→   715→                    <span className="text-[10px] text-muted-foreground">{alert.domainLabel}</span>
+   716→   716→                    <span className="text-[10px] text-muted-foreground">&middot; {alert.indicator.code}</span>
+   717→   717→                  </div>
+   718→   718→                </div>
+   719→   719→                <Badge variant="destructive" className="shrink-0 text-[10px] px-1.5 py-0">
+   720→   720→                  {Math.round(alert.achievement)}%
+   721→   721→                </Badge>
+   722→   722→              </div>
+   723→   723→              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+   724→   724→                <span>Réalisé: <strong className="text-foreground">{alert.indicator.value}</strong> {alert.indicator.unit}</span>
+   725→   725→                <span>/ Cible: <strong className="text-foreground">{alert.indicator.targetValue}</strong></span>
+   726→   726→              </div>
+   727→   727→              <Progress value={Math.min(alert.achievement, 100)} className="h-1 mt-1.5" />
+   728→   728→            </CardContent>
+   729→   729→          </Card>
+   730→   730→        ))}
+   731→   731→      </div>
+   732→   732→    </div>
+   733→   733→  );
+   734→   734→}
+   735→   735→
+   736→   736→// ═══════════════════════════════════════════════════════════════════════════
+   737→   737→// ── Loading Skeleton ─────────────────────────────────────────────────────
+   738→   738→// ═══════════════════════════════════════════════════════════════════════════
+   739→   739→
+   740→   740→function DashboardSkeleton() {
+   741→   741→  return (
+   742→   742→    <div className="space-y-6">
+   743→   743→      {/* Executive strip */}
+   744→   744→      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+   745→   745→        {Array.from({ length: 6 }).map((_, i) => (
+   746→   746→          <Skeleton key={i} className="h-[80px] rounded-lg" />
+   747→   747→        ))}
+   748→   748→      </div>
+   749→   749→      {/* Charts */}
+   750→   750→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   751→   751→        <Skeleton className="h-[340px] rounded-lg" />
+   752→   752→        <Skeleton className="h-[340px] rounded-lg" />
+   753→   753→      </div>
+   754→   754→      {/* Domain cards */}
+   755→   755→      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+   756→   756→        {Array.from({ length: 6 }).map((_, i) => (
+   757→   757→          <Skeleton key={i} className="h-[120px] rounded-lg" />
+   758→   758→        ))}
+   759→   759→      </div>
+   760→   760→      {/* Priority + Projects */}
+   761→   761→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   762→   762→        <Skeleton className="h-[300px] rounded-lg" />
+   763→   763→        <Skeleton className="h-[300px] rounded-lg" />
+   764→   764→      </div>
+   765→   765→    </div>
+   766→   766→  );
+   767→   767→}
+   768→   768→
+   769→   769→// ═══════════════════════════════════════════════════════════════════════════
+   770→   770→// ── Main Component ───────────────────────────────────────────────────────
+   771→   771→// ═══════════════════════════════════════════════════════════════════════════
+   772→   772→
+   773→   773→export function DashboardAccueil() {
+   774→   774→  const { setActiveModule, filters } = useAppStore();
+   775→   775→  const [data, setData] = useState<DashboardData | null>(null);
+   776→   776→  const [loading, setLoading] = useState(true);
+   777→   777→
+   778→   778→  const handleNavigate = (module: ModuleKey) => setActiveModule(module);
+   779→   779→
+   780→   780→  useEffect(() => {
+   781→   781→    let cancelled = false;
+   782→   782→
+   783→   783→    async function fetchDashboard() {
+   784→   784→      try {
+   785→   785→        setLoading(true);
+   786→   786→        const params = new URLSearchParams({ year: String(filters.year || 2025) });
+   787→   787→        if (filters.quarter) params.set('quarter', String(filters.quarter));
+   788→   788→
+   789→   789→        const res = await fetch(`/api/dashboard?${params}`);
+   790→   790→        if (res.ok) {
+   791→   791→          const json = await res.json();
+   792→   792→          if (!cancelled) setData(json);
+   793→   793→        }
+   794→   794→      } catch {
+   795→   795→        // Silently fail - dashboard will stay in loading state
+   796→   796→      } finally {
+   797→   797→        if (!cancelled) setLoading(false);
+   798→   798→      }
+   799→   799→    }
+   800→   800→
+   801→   801→    fetchDashboard();
+   802→   802→    return () => { cancelled = true; };
+   803→   803→  }, [filters.year, filters.quarter]);
+   804→   804→
+   805→   805→  if (loading) return <DashboardSkeleton />;
+   806→   806→  if (!data) return null;
+   807→   807→
+   808→   808→  return (
+   809→   809→    <div className="space-y-6">
+   810→   810→      {/* ── 1. Executive Summary Strip ─────────────────────────────────── */}
+   811→   811→      <ExecutiveStrip data={data} onNavigate={handleNavigate} />
+   812→   812→
+   813→   813→      {/* ── 2. Performance Charts Row ──────────────────────────────────── */}
+   814→   814→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   815→   815→        <DomainPerformanceChart summary={data.summary} onDomainClick={handleNavigate} />
+   816→   816→        <StatusDonutSection data={data} />
+   817→   817→      </div>
+   818→   818→
+   819→   819→      {/* ── 4. Priority KPIs + Projects ────────────────────────────────── */}
+   820→   820→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   821→   821→        <TopPriorityKpis indicators={data.topPriorityIndicators} onNavigate={handleNavigate} />
+   822→   822→        <ProjectsOverview projects={data.projectSummary} />
+   823→   823→      </div>
+   824→   824→
+   825→   825→      {/* ── 5. Critical Alerts ─────────────────────────────────────────── */}
+   826→   826→      <AlertsSection summary={data.summary} />
+   827→   827→
+   828→   828→      {/* ── Last updated footer ─────────────────────────────────────────── */}
+   829→   829→      <p className="text-[10px] text-muted-foreground text-center pb-2">
+   830→   830→        Dernière mise à jour : {new Date(data.lastUpdated).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+   831→   831→      </p>
+   832→   832→    </div>
+   833→   833→  );
+   834→   834→}

@@ -224,3 +224,106 @@ Stage Summary:
 - Uses real API data (no more mock fallback) with weighted performance scoring
 - Files rewritten: src/components/cockpit/DashboardAccueil.tsx
 - Files modified: src/app/api/dashboard/route.ts (enhanced by subagent)
+
+---
+Task ID: 6
+Agent: Explore
+Task: Investigate KPI-module bug — "KPIs assignés à un module depuis 'Indicateurs KPI' n'apparaissent pas sur la vue module"
+
+Work Log:
+- Read worklog for full project context (Tasks 1–6, 2 subagent tasks)
+- Analyzed Prisma schema: Indicator has `domain` field (String) and `isActive` (Boolean @default true). No explicit relation/link table between indicators and modules — assignment is purely via the `domain` field.
+- Analyzed AdminKPI.tsx: The admin "Indicateurs KPI" page creates/edits KPIs via POST/PUT to `/api/admin/indicators`. The `domain` field is set via a Select dropdown with 6 English keys: governance, finance, operational, rh, risque, pta. These match exactly the ModuleKey type in store.ts.
+- Analyzed 6 module wrappers (GovernanceModule, FinanceModule, OperationalModule, RHModule, RisqueModule, PTAModule): All are thin wrappers that pass a hardcoded `domain` string to both `ModuleHeroSection` and `KpiModuleView`.
+- Analyzed KpiModuleView.tsx: Fetches `/api/indicators/domain?domain=X&year=Y` in useEffect. Parses `data.indicators`. Groups by `subDomain`, creates tabs, renders table/cards. Returns null if indicators.length === 0.
+- Analyzed ModuleHeroSection.tsx: Also fetches `/api/indicators/domain?domain=X&year=Y`. Shows hero cards (hardcoded codes or priority fallback), donut chart, bar chart. Returns null if indicators.length === 0.
+- Analyzed `/api/indicators/domain/route.ts`: Queries `db.indicator.findMany({ where: { domain, isActive: true } })` with included values filtered by year/quarter/month. Returns `{ indicators: [...] }`.
+- Analyzed `/api/admin/indicators/route.ts` (POST): Creates indicator with the provided domain. Does NOT set isActive explicitly — relies on Prisma default (true).
+- Analyzed `/api/admin/indicators/[id]/route.ts` (PUT): Can update domain, isActive, isPriority, etc.
+- Verified domain key consistency: Admin DOMAIN_LABELS keys, module wrapper domain props, and API queries all use identical English keys (governance, finance, operational, rh, risque, pta).
+- Verified DB state: 116 indicators, all isActive=true, all with valid domain keys matching the 6 modules.
+- Verified with live API test: Created a test KPI via POST `/api/admin/indicators` with domain="governance". Confirmed it appeared in GET `/api/indicators/domain?domain=governance`. Then cleaned up.
+- Checked for caching: No Next.js route caching config, no service worker, no middleware. Route handlers use `request` param (auto-dynamic). Client-side fetch in useEffect (not cached).
+- Checked Header.tsx filters: Year, Quarter, Month, Period, Department filters. Department filter is set in store but NOT passed to module view API calls (dead filter — minor issue, not root cause).
+- Checked page.tsx navigation: AnimatePresence with mode="wait", key changes between admin/module views trigger proper remount.
+
+Root Cause Analysis:
+After exhaustive investigation, the core data flow is CORRECT — there is no code-level bug preventing KPIs from appearing. The domain field consistently links admin-created KPIs to module views. However, the following factors likely contribute to the user's perception of this bug:
+
+1. **PRIMARY ISSUE — No values entry mechanism in AdminKPI**: When a KPI is created from AdminKPI, it has ZERO IndicatorValue records. The KPI appears in the module view with "—" for all values and "Non atteint" status. There is NO UI in the admin to add values. The module view correctly renders the KPI row, but it shows no data, making it appear "empty" or "not really there" to the user.
+
+2. **No explicit "module assignment" feedback**: The admin form uses a generic `domain` dropdown. There is no visual confirmation like "This KPI will appear on the Gouvernance module" or a link to navigate to that module after saving. The user has no clear understanding that setting the domain IS the assignment.
+
+3. **ModuleHeroSection uses hardcoded hero codes**: Only specific KPIs (e.g., GOV-001, GOV-008, GOV-009, GOV-010 for governance) appear in the prominent hero cards at the top. A newly created KPI will NOT appear in the hero section unless it matches a hardcoded code or is marked as priority. It will only appear in the lower KpiModuleView table — which the user may not scroll to.
+
+4. **Department filter is dead code**: The Header has a Département filter that updates `filters.departmentId` in the store, but neither KpiModuleView nor ModuleHeroSection pass `departmentId` to their API calls. If a user sets a department filter expecting it to affect the module view, nothing happens.
+
+What needs to be fixed:
+- Add a values/saisie entry mechanism in AdminKPI or create a separate "Saisie des valeurs" admin page so KPIs can have actual data
+- Add post-save navigation or confirmation linking to the target module view
+- Consider making the hero section dynamic (auto-select based on priority or recent values) rather than hardcoded codes
+- Either implement the department filter in the module view APIs or remove it from the Header for module views
+- Consider adding a visible "assigned module" badge/indicator in the admin KPI list to make the domain→module mapping explicit
+
+Files investigated (not modified):
+- src/components/admin/AdminKPI.tsx
+- src/components/cockpit/KpiModuleView.tsx
+- src/components/cockpit/ModuleHeroSection.tsx
+- src/components/cockpit/GovernanceModule.tsx (and 5 other module wrappers)
+- src/app/api/indicators/domain/route.ts
+- src/app/api/indicators/route.ts
+- src/app/api/admin/indicators/route.ts
+- src/app/api/admin/indicators/[id]/route.ts
+- src/app/api/dashboard/route.ts
+- src/app/page.tsx
+- src/components/cockpit/AppSidebar.tsx
+- src/components/cockpit/Header.tsx
+- src/lib/store.ts
+- prisma/schema.prisma
+- prisma/seed-kpi.ts
+- next.config.ts
+---
+Task ID: 2-a
+Agent: Main
+Task: Replace homepage KPI cards with specific indicators from user's reference image
+
+Work Log:
+- Analyzed user's uploaded image to extract desired KPIs per domain (6 domains × 2 KPIs each)
+- Queried DB to find matching indicator codes:
+  - governance: GOV-011 (Tenue des AG), GOV-015 (Taux exécution marchés publics)
+  - finance: FIN-001 (Taux exécution CA), FIN-002 (Taux exécution charges)
+  - operational: OP-001 (Localités couvertes), OP-003 (Lignes backbone KM)
+  - rh: RH-007 (Objectifs stratégiques), RH-006 (Croissance effectifs)
+  - risque: RIS-002 (Projets en retard), RIS-005 (Résolution incidents RNHD)
+  - pta: PTA-005 (FO déployé exploitable), PTA-007 (e-services déployés)
+- Added HOMEPAGE_KPI_CODES constant mapping domain → [code1, code2]
+- Updated DomainKpiCard to filter by HOMEPAGE_KPI_CODES (maintaining defined order)
+- Removed priorityCodes prop (no longer needed)
+- Hidden "nb" unit from display (not meaningful to users)
+- Verified via Agent Browser: all 6 cards show correct KPIs in correct order
+
+Stage Summary:
+- File: src/components/cockpit/DashboardAccueil.tsx
+- Added HOMEPAGE_KPI_CODES constant with 12 specific indicator codes
+- DomainKpiCard now uses code-based selection instead of priority-based
+- "nb" unit hidden from display, "km" and "%" units shown
+
+---
+Task ID: 2-b
+Agent: Main
+Task: Fix KPI↔module bug — ModuleHeroSection had wrong indicator codes
+
+Work Log:
+- Investigated root cause: DOMAIN_CONFIG.heroCodes used wrong prefixes
+  - operational: OPS-001→OP-001, OPS-002→OP-003, etc.
+  - rh: HR-001→RH-006, HR-002→RH-007, etc.
+  - risque: RSK-001→RIS-002, RSK-002→RIS-003, etc.
+  - pta: was empty → added PTA-003, PTA-005, PTA-006, PTA-007
+- Fixed all heroCodes to use correct DB indicator codes
+- Verified via Agent Browser: Opérationnel shows OP-001/OP-003/OP-004/OP-005, PTA shows PTA-003/PTA-005/PTA-006/PTA-007
+- Secondary finding: newly created KPIs don't appear in hero section (expected — they have no values). They DO appear in the KpiModuleView table.
+
+Stage Summary:
+- File: src/components/cockpit/ModuleHeroSection.tsx
+- Fixed 4 domain configs (operational, rh, risque, pta) with correct indicator codes
+- PTA hero section now has 4 indicators instead of 0

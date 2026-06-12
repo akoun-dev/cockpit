@@ -171,16 +171,24 @@ const DOMAIN_CARD_LABELS: Record<string, string> = {
   pta: 'Suivi de plan de travail',
 };
 
+// Codes spécifiques des 2 KPIs à afficher par domaine sur la page d'accueil
+const HOMEPAGE_KPI_CODES: Record<string, [string, string]> = {
+  governance: ['GOV-011', 'GOV-015'],
+  finance: ['FIN-001', 'FIN-002'],
+  operational: ['OP-001', 'OP-003'],
+  rh: ['RH-007', 'RH-006'],
+  risque: ['RIS-002', 'RIS-005'],
+  pta: ['PTA-005', 'PTA-007'],
+};
+
 function DomainKpiCard({
   domainKey,
   summary,
-  priorityCodes,
   onNavigate,
   lastUpdated,
 }: {
   domainKey: string;
   summary: DomainSummary;
-  priorityCodes: string[];
   onNavigate: (module: ModuleKey) => void;
   lastUpdated: string;
 }) {
@@ -188,16 +196,20 @@ function DomainKpiCard({
   if (!meta) return null;
   const Icon = meta.icon;
 
-  // Pick the top 2 priority indicators, or first 2 if none
-  const priorityIndicators = summary.indicators.filter(
-    (ind) => ind.code && priorityCodes.includes(ind.code),
-  );
-  const topIndicators = priorityIndicators.length >= 2
-    ? priorityIndicators.slice(0, 2)
-    : summary.indicators.slice(0, 2);
+  // Pick the 2 specific homepage KPIs for this domain, in defined order
+  const codes = HOMEPAGE_KPI_CODES[domainKey] || [];
+  const topIndicators = codes
+    .map((code) => summary.indicators.find((ind) => ind.code === code))
+    .filter(Boolean) as typeof summary.indicators;
+  // Fallback: if none found, take first 2
+  const displayIndicators = topIndicators.length >= 2
+    ? topIndicators
+    : topIndicators.length > 0
+      ? [...topIndicators, ...summary.indicators.filter((i) => !topIndicators.includes(i))].slice(0, 2)
+      : summary.indicators.slice(0, 2);
 
-  const primary = topIndicators[0];
-  const secondary = topIndicators[1];
+  const primary = displayIndicators[0];
+  const secondary = displayIndicators[1];
 
   const formattedDate = new Date(lastUpdated).toLocaleDateString('fr-FR', {
     day: '2-digit',
@@ -234,7 +246,7 @@ function DomainKpiCard({
               <span className="text-xl font-bold text-foreground" style={{ color: meta.color }}>
                 {primary.value}
               </span>
-              {primary.unit && (
+              {primary.unit && !['nb'].includes(primary.unit) && (
                 <span className="text-xs text-muted-foreground font-medium">{primary.unit}</span>
               )}
             </div>
@@ -251,7 +263,7 @@ function DomainKpiCard({
               <span className="text-lg font-bold text-foreground">
                 {secondary.value}
               </span>
-              {secondary.unit && (
+              {secondary.unit && !['nb'].includes(secondary.unit) && (
                 <span className="text-xs text-muted-foreground font-medium">{secondary.unit}</span>
               )}
             </div>
@@ -279,11 +291,6 @@ function ExecutiveStrip({
   data: DashboardData;
   onNavigate: (module: ModuleKey) => void;
 }) {
-  const priorityCodes = useMemo(
-    () => data.topPriorityIndicators.map((i) => i.code),
-    [data.topPriorityIndicators],
-  );
-
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {Object.entries(DOMAIN_META).map(([key]) => {
@@ -294,7 +301,6 @@ function ExecutiveStrip({
             key={key}
             domainKey={key}
             summary={domainSummary}
-            priorityCodes={priorityCodes}
             onNavigate={onNavigate}
             lastUpdated={data.lastUpdated}
           />
