@@ -34,6 +34,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   FileSpreadsheet,
   FileText,
+  Presentation,
   Download,
   Upload,
   Moon,
@@ -295,6 +296,45 @@ function ExportDropdown({ className }: { className?: string }) {
     URL.revokeObjectURL(url);
   };
 
+  const handleExportPptx = async () => {
+    if (exporting) return;
+    setExporting('pptx');
+    try {
+      const params = new URLSearchParams();
+      params.set('module', activeView === 'accueil' ? 'governance' : activeView);
+      if (filters.year) params.set('year', String(filters.year));
+      if (filters.quarter) params.set('quarter', String(filters.quarter));
+      if (filters.month) params.set('month', String(filters.month));
+
+      const res = await fetch(`/api/export/pptx?${params.toString()}`);
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const mod = activeView === 'accueil' ? 'governance' : activeView;
+      a.download = `cockpit_${mod}_${new Date().toISOString().slice(0, 10)}.pptx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: 'Export PowerPoint réussi',
+        description: `Présentation générée pour ${MODULE_LABELS[activeView] ?? activeView}.`,
+      });
+    } catch {
+      toast({
+        title: "Erreur d'export",
+        description: 'Impossible de générer le PowerPoint. Veuillez réessayer.',
+        variant: 'destructive',
+      });
+    } finally {
+      setExporting(null);
+    }
+  };
+
   const handleExport = async (format: 'excel' | 'pdf') => {
     if (exporting) return;
     setExporting(format);
@@ -365,6 +405,19 @@ function ExportDropdown({ className }: { className?: string }) {
           <FileText className={cn('size-4', defaultFormat === 'pdf' ? 'text-red-600' : 'text-red-600/70')} />
           <span className="flex-1">Exporter PDF</span>
           {defaultFormat === 'pdf' && (
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 gap-0.5">
+              <Star className="size-2 text-tango" /> Par défaut
+            </Badge>
+          )}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={handleExportPptx}
+          disabled={!!exporting}
+          className="gap-2 cursor-pointer"
+        >
+          <Presentation className={cn('size-4', defaultFormat === 'pptx' ? 'text-tango' : 'text-tango/70')} />
+          <span className="flex-1">Exporter PowerPoint</span>
+          {defaultFormat === 'pptx' && (
             <Badge variant="secondary" className="text-[10px] px-1.5 py-0 gap-0.5">
               <Star className="size-2 text-tango" /> Par défaut
             </Badge>

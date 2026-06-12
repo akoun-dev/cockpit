@@ -464,3 +464,28 @@ Stage Summary:
 - Files modified: store.ts, Header.tsx, KpiModuleView.tsx, DashboardAccueil.tsx, AdminDataSources.tsx, api/search/route.ts
 - Files created: api/import/pptx/route.ts
 - Package added: jszip
+
+---
+Task ID: 28
+Agent: Main
+Task: Ajouter l'export .pptx (PowerPoint)
+
+Work Log:
+- Installed pptxgenjs locally (`bun add pptxgenjs`)
+- Created `/api/export/pptx/route.ts` API route that generates real .pptx files using pptxgenjs
+- PPTX structure: Title slide (ANSUT branding, module, period, counts) → Synthesis slide (KPI summary cards + sub-domain breakdown table) → One slide per sub-domain with detailed KPI table
+- ANSUT branding: Fun Blue (#205eb3) header/footer bars, Tango (#f18120) accent bars, status colors (green/amber/red)
+- Each KPI slide shows: Code, Indicateur, Unité, Cible, Valeur, Écart (color-coded), Statut, Période
+- Pagination: sub-domains with >12 indicators get continuation slides
+- Added "Exporter PowerPoint" menu item in ExportDropdown (Header.tsx) with Presentation icon
+- Added `handleExportPptx` handler that fetches binary blob and triggers download
+- Verified via curl: API returns 200 with valid 436KB ZIP/PPTX file
+- Verified via markitdown: all 6 slides rendered correctly with proper data
+- Verified via Agent Browser + VLM screenshot: dropdown shows all 3 options (Excel, PDF, PowerPoint)
+
+Stage Summary:
+- PPTX export fully functional: `/api/export/pptx?module=X&year=Y&quarter=Q`
+- File: `src/app/api/export/pptx/route.ts` (new)
+- File: `src/components/cockpit/Header.tsx` (modified: added handleExportPptx + menu item)
+- Package added: `pptxgenjs@4.0.1`
+- Lint passes cleanly, no runtime errors

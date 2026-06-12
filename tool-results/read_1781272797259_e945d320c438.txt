@@ -1,0 +1,756 @@
+     1→     1→'use client';
+     2→     2→
+     3→     3→import React, { useState, useEffect, useMemo, useCallback } from 'react';
+     4→     4→import {
+     5→     5→  DndContext,
+     6→     6→  closestCenter,
+     7→     7→  KeyboardSensor,
+     8→     8→  PointerSensor,
+     9→     9→  useSensor,
+    10→    10→  useSensors,
+    11→    11→  DragEndEvent,
+    12→    12→  DragStartEvent,
+    13→    13→  DragOverlay,
+    14→    14→} from '@dnd-kit/core';
+    15→    15→import {
+    16→    16→  SortableContext,
+    17→    17→  sortableKeyboardCoordinates,
+    18→    18→  verticalListSortingStrategy,
+    19→    19→  useSortable,
+    20→    20→  arrayMove,
+    21→    21→} from '@dnd-kit/sortable';
+    22→    22→import { CSS } from '@dnd-kit/utilities';
+    23→    23→import { getUserId } from '@/lib/user-id';
+    24→    24→import {
+    25→    25→  Card,
+    26→    26→  CardContent,
+    27→    27→  CardHeader,
+    28→    28→  CardTitle,
+    29→    29→} from '@/components/ui/card';
+    30→    30→import { Badge } from '@/components/ui/badge';
+    31→    31→import { Button } from '@/components/ui/button';
+    32→    32→import {
+    33→    33→  Tabs,
+    34→    34→  TabsContent,
+    35→    35→  TabsList,
+    36→    36→  TabsTrigger,
+    37→    37→} from '@/components/ui/tabs';
+    38→    38→import {
+    39→    39→  Table,
+    40→    40→  TableBody,
+    41→    41→  TableCell,
+    42→    42→  TableHead,
+    43→    43→  TableHeader,
+    44→    44→  TableRow,
+    45→    45→} from '@/components/ui/table';
+    46→    46→import { Skeleton } from '@/components/ui/skeleton';
+    47→    47→import {
+    48→    48→  Tooltip,
+    49→    49→  TooltipContent,
+    50→    50→  TooltipTrigger,
+    51→    51→} from '@/components/ui/tooltip';
+    52→    52→import { cn } from '@/lib/utils';
+    53→    53→import { useAppStore } from '@/lib/store';
+    54→    54→import { useIsMobile } from '@/hooks/use-mobile';
+    55→    55→import {
+    56→    56→  Star,
+    57→    57→  GripVertical,
+    58→    58→  RotateCcw,
+    59→    59→  TableProperties,
+    60→    60→} from 'lucide-react';
+    61→    61→
+    62→    62→// ─── Types ──────────────────────────────────────────────────────────────────
+    63→    63→
+    64→    64→interface PeriodValue {
+    65→    65→  value: number;
+    66→    66→  period: string;
+    67→    67→  year: number;
+    68→    68→  month?: number;
+    69→    69→  quarter?: number;
+    70→    70→}
+    71→    71→
+    72→    72→interface Indicator {
+    73→    73→  id: string;
+    74→    74→  name: string;
+    75→    75→  code: string;
+    76→    76→  subDomain: string;
+    77→    77→  unit: string;
+    78→    78→  targetValue: number | null;
+    79→    79→  alertValue: number | null;
+    80→    80→  criticalValue: number | null;
+    81→    81→  isPriority: boolean;
+    82→    82→  values: PeriodValue[];
+    83→    83→  order: number;
+    84→    84→}
+    85→    85→
+    86→    86→type StatusType = 'atteint' | 'partiel' | 'non_atteint';
+    87→    87→
+    88→    88→interface KpiModuleViewProps {
+    89→    89→  domain: string;
+    90→    90→}
+    91→    91→
+    92→    92→// ─── Constants ──────────────────────────────────────────────────────────────
+    93→    93→
+    94→    94→const SUB_DOMAIN_LABELS: Record<string, string> = {
+    95→    95→  reporting_reglementaire: 'Reporting réglementaire',
+    96→    96→  gouvernance_ethique: 'Gouvernance & Éthique',
+    97→    97→  marches_publics: 'Passation des Marchés Publics',
+    98→    98→  relations_publiques: 'Dons, Honoraires & Relations Publiques',
+    99→    99→  execution_budgetaire: 'Exécution budgétaire',
+   100→   100→  rentabilite: 'Rentabilité & Performance',
+   101→   101→  ressources_specifiques: 'Ressources Spécifiques',
+   102→   102→  dette: 'Endettement',
+   103→   103→  deploiement_infra: 'Déploiement Infrastructures',
+   104→   104→  relations_operateurs: 'Relations Opérateurs',
+   105→   105→  service_universel: 'Service Universel',
+   106→   106→  projets_programmes: 'Projets & Programmes',
+   107→   107→  effectifs: 'Effectifs & Organisation',
+   108→   108→  performance: 'Performance & Productivité',
+   109→   109→  competences: 'Développement Compétences',
+   110→   110→  couts_rh: 'Maîtrise Coûts RH',
+   111→   111→  risque_strategique: 'Risque Stratégique',
+   112→   112→  risque_financier: 'Risque Financier',
+   113→   113→  risque_operationnel: 'Risque Opérationnel',
+   114→   114→  risque_technologique: 'Risque Technologique',
+   115→   115→  risque_gouvernance: 'Risque Gouvernance',
+   116→   116→  pta_gouvernance: 'Gouvernance',
+   117→   117→  pta_operationnel: 'Opérationnel',
+   118→   118→  pta_finance: 'Finance',
+   119→   119→};
+   120→   120→
+   121→   121→const STATUS_CONFIG: Record<StatusType, { label: string; className: string }> = {
+   122→   122→  atteint: {
+   123→   123→    label: 'Atteint',
+   124→   124→    className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400',
+   125→   125→  },
+   126→   126→  partiel: {
+   127→   127→    label: 'Partiel',
+   128→   128→    className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
+   129→   129→  },
+   130→   130→  non_atteint: {
+   131→   131→    label: 'Non atteint',
+   132→   132→    className: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400',
+   133→   133→  },
+   134→   134→};
+   135→   135→
+   136→   136→// ─── Helpers ────────────────────────────────────────────────────────────────
+   137→   137→
+   138→   138→function formatValue(value: number | null | undefined, unit: string): string {
+   139→   139→  if (value == null) return '—';
+   140→   140→  if (unit === 'nb' || unit === 'km' || unit === 'h' || unit === 'jours')
+   141→   141→    return Math.round(value).toLocaleString('fr-FR');
+   142→   142→  if (unit === 'Mds FCFA') return `${value.toFixed(2)} Mds`;
+   143→   143→  if (unit === 'ratio') return value.toFixed(2);
+   144→   144→  return `${value.toFixed(1)}${unit === '%' ? '%' : ''}`;
+   145→   145→}
+   146→   146→
+   147→   147→function isLowerBetter(unit: string): boolean {
+   148→   148→  return unit === 'jours' || unit === 'nb' || unit === 'h' || unit === 'ratio';
+   149→   149→}
+   150→   150→
+   151→   151→function getLatestValue(indicator: Indicator): number | null {
+   152→   152→  if (!indicator.values?.length) return null;
+   153→   153→  return indicator.values[indicator.values.length - 1].value;
+   154→   154→}
+   155→   155→
+   156→   156→function computeStatus(
+   157→   157→  value: number | null,
+   158→   158→  target: number | null,
+   159→   159→  unit: string
+   160→   160→): StatusType {
+   161→   161→  if (value == null || target == null || target === 0) return 'non_atteint';
+   162→   162→  const lower = isLowerBetter(unit);
+   163→   163→  if (lower) {
+   164→   164→    if (value <= target) return 'atteint';
+   165→   165→    if (value <= target * 1.5) return 'partiel';
+   166→   166→    return 'non_atteint';
+   167→   167→  } else {
+   168→   168→    if (value >= target) return 'atteint';
+   169→   169→    if (value >= target * 0.8) return 'partiel';
+   170→   170→    return 'non_atteint';
+   171→   171→  }
+   172→   172→}
+   173→   173→
+   174→   174→function computeEcart(
+   175→   175→  value: number | null,
+   176→   176→  target: number | null,
+   177→   177→  unit: string
+   178→   178→): { text: string; positive: boolean } | null {
+   179→   179→  if (value == null || target == null) return null;
+   180→   180→  const ecart = value - target;
+   181→   181→  const lower = isLowerBetter(unit);
+   182→   182→  const positive = lower ? ecart <= 0 : ecart >= 0;
+   183→   183→  const sign = ecart >= 0 ? '+' : '';
+   184→   184→  let suffix = '';
+   185→   185→  if (unit === '%') suffix = ' pts';
+   186→   186→  else if (unit === 'Mds FCFA') suffix = ' Mds';
+   187→   187→  else if (unit === 'jours') suffix = ' j';
+   188→   188→  else if (unit === 'h') suffix = ' h';
+   189→   189→  else if (unit === 'km') suffix = ' km';
+   190→   190→  else if (unit === 'ratio') suffix = '';
+   191→   191→  else if (unit === 'nb') suffix = '';
+   192→   192→  else suffix = unit ? ` ${unit}` : '';
+   193→   193→  return {
+   194→   194→    text: `${sign}${ecart.toFixed(unit === 'ratio' || unit === 'Mds FCFA' ? 2 : 1)}${suffix}`,
+   195→   195→    positive,
+   196→   196→  };
+   197→   197→}
+   198→   198→
+   199→   199→// ─── Status Badge ───────────────────────────────────────────────────────────
+   200→   200→
+   201→   201→function StatusBadge({ status }: { status: StatusType }) {
+   202→   202→  const config = STATUS_CONFIG[status];
+   203→   203→  return (
+   204→   204→    <Badge
+   205→   205→      variant="secondary"
+   206→   206→      className={`text-xs font-medium px-2 py-0.5 ${config.className}`}
+   207→   207→    >
+   208→   208→      {config.label}
+   209→   209→    </Badge>
+   210→   210→  );
+   211→   211→}
+   212→   212→
+   213→   213→// ─── Priority Badge ─────────────────────────────────────────────────────────
+   214→   214→
+   215→   215→function PriorityBadge() {
+   216→   216→  return (
+   217→   217→    <span className="inline-flex items-center gap-0.5 rounded-full bg-tango/15 text-tango px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wider">
+   218→   218→      <Star className="size-2.5 fill-tango text-tango" />
+   219→   219→      Lot 1
+   220→   220→    </span>
+   221→   221→  );
+   222→   222→}
+   223→   223→
+   224→   224→// ─── Sortable Desktop Table Row ────────────────────────────────────────────
+   225→   225→
+   226→   226→function SortableTableRow({ ind }: { ind: Indicator }) {
+   227→   227→  const {
+   228→   228→    attributes,
+   229→   229→    listeners,
+   230→   230→    setNodeRef,
+   231→   231→    transform,
+   232→   232→    transition,
+   233→   233→    isDragging,
+   234→   234→  } = useSortable({ id: ind.id });
+   235→   235→
+   236→   236→  const style = {
+   237→   237→    transform: CSS.Transform.toString(transform),
+   238→   238→    transition,
+   239→   239→    zIndex: isDragging ? 50 : undefined,
+   240→   240→    position: 'relative' as const,
+   241→   241→  };
+   242→   242→
+   243→   243→  const value = getLatestValue(ind);
+   244→   244→  const status = computeStatus(value, ind.targetValue, ind.unit);
+   245→   245→  const ecart = computeEcart(value, ind.targetValue, ind.unit);
+   246→   246→
+   247→   247→  return (
+   248→   248→    <TableRow
+   249→   249→      id={`ind-${ind.id}`}
+   250→   250→      ref={setNodeRef}
+   251→   251→      style={style}
+   252→   252→      className={cn(
+   253→   253→        ind.isPriority && 'bg-tango/[0.03]',
+   254→   254→        isDragging && 'opacity-40 shadow-lg',
+   255→   255→      )}
+   256→   256→    >
+   257→   257→      {/* Drag handle */}
+   258→   258→      <TableCell className="w-[40px] p-1">
+   259→   259→        <Tooltip>
+   260→   260→          <TooltipTrigger asChild>
+   261→   261→            <button
+   262→   262→              {...attributes}
+   263→   263→              {...listeners}
+   264→   264→              className="cursor-grab active:cursor-grabbing p-1.5 rounded-md hover:bg-muted touch-none"
+   265→   265→              aria-label={`Réordonner ${ind.name}`}
+   266→   266→            >
+   267→   267→              <GripVertical className="size-3.5 text-muted-foreground/60" />
+   268→   268→            </button>
+   269→   269→          </TooltipTrigger>
+   270→   270→          <TooltipContent side="top" className="text-xs">
+   271→   271→            Glisser pour réordonner
+   272→   272→          </TooltipContent>
+   273→   273→        </Tooltip>
+   274→   274→      </TableCell>
+   275→   275→      <TableCell className="font-mono text-xs text-muted-foreground">
+   276→   276→        {ind.code}
+   277→   277→      </TableCell>
+   278→   278→      <TableCell className="font-medium text-sm">{ind.name}</TableCell>
+   279→   279→      <TableCell className="text-center">
+   280→   280→        {ind.isPriority ? <PriorityBadge /> : <span className="text-muted-foreground/30">—</span>}
+   281→   281→      </TableCell>
+   282→   282→      <TableCell className="text-center text-xs text-muted-foreground">
+   283→   283→        {ind.unit}
+   284→   284→      </TableCell>
+   285→   285→      <TableCell className="text-right text-sm">
+   286→   286→        {formatValue(ind.targetValue, ind.unit)}
+   287→   287→      </TableCell>
+   288→   288→      <TableCell className="text-right text-sm font-semibold">
+   289→   289→        {formatValue(value, ind.unit)}
+   290→   290→      </TableCell>
+   291→   291→      <TableCell className="text-right text-sm font-medium">
+   292→   292→        {ecart ? (
+   293→   293→          <span
+   294→   294→            className={
+   295→   295→              ecart.positive
+   296→   296→                ? 'text-emerald-600 dark:text-emerald-400'
+   297→   297→                : 'text-red-600 dark:text-red-400'
+   298→   298→            }
+   299→   299→          >
+   300→   300→            {ecart.text}
+   301→   301→          </span>
+   302→   302→        ) : (
+   303→   303→          <span className="text-muted-foreground">—</span>
+   304→   304→        )}
+   305→   305→      </TableCell>
+   306→   306→      <TableCell className="text-center">
+   307→   307→        <StatusBadge status={status} />
+   308→   308→      </TableCell>
+   309→   309→    </TableRow>
+   310→   310→  );
+   311→   311→}
+   312→   312→
+   313→   313→// ─── Sortable Mobile Card ──────────────────────────────────────────────────
+   314→   314→
+   315→   315→function SortableMobileCard({ ind }: { ind: Indicator }) {
+   316→   316→  const {
+   317→   317→    attributes,
+   318→   318→    listeners,
+   319→   319→    setNodeRef,
+   320→   320→    transform,
+   321→   321→    transition,
+   322→   322→    isDragging,
+   323→   323→  } = useSortable({ id: ind.id });
+   324→   324→
+   325→   325→  const style = {
+   326→   326→    transform: CSS.Transform.toString(transform),
+   327→   327→    transition,
+   328→   328→    zIndex: isDragging ? 50 : undefined,
+   329→   329→    position: 'relative' as const,
+   330→   330→  };
+   331→   331→
+   332→   332→  const value = getLatestValue(ind);
+   333→   333→  const status = computeStatus(value, ind.targetValue, ind.unit);
+   334→   334→  const ecart = computeEcart(value, ind.targetValue, ind.unit);
+   335→   335→
+   336→   336→  return (
+   337→   337→    <div id={`ind-${ind.id}`} ref={setNodeRef} style={style} className={cn(isDragging && 'opacity-40')}>
+   338→   338→      <Card className={cn(
+   339→   339→        'p-4',
+   340→   340→        ind.isPriority && 'border-l-4 border-l-tango',
+   341→   341→      )}>
+   342→   342→        <div className="flex items-start justify-between gap-2 mb-3">
+   343→   343→          <div className="flex items-start gap-2 min-w-0 flex-1">
+   344→   344→            <button
+   345→   345→              {...attributes}
+   346→   346→              {...listeners}
+   347→   347→              className="cursor-grab active:cursor-grabbing p-1 rounded-md hover:bg-muted mt-0.5 shrink-0 touch-none"
+   348→   348→              aria-label={`Réordonner ${ind.name}`}
+   349→   349→            >
+   350→   350→              <GripVertical className="size-4 text-muted-foreground/50" />
+   351→   351→            </button>
+   352→   352→            <div className="min-w-0">
+   353→   353→              <div className="flex items-center gap-1.5 flex-wrap">
+   354→   354→                <p className="text-[10px] font-mono text-muted-foreground">{ind.code}</p>
+   355→   355→                {ind.isPriority && <PriorityBadge />}
+   356→   356→              </div>
+   357→   357→              <p className="text-sm font-medium leading-tight mt-0.5">{ind.name}</p>
+   358→   358→            </div>
+   359→   359→          </div>
+   360→   360→          <StatusBadge status={status} />
+   361→   361→        </div>
+   362→   362→        <div className="grid grid-cols-3 gap-2 text-center">
+   363→   363→          <div>
+   364→   364→            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Valeur</p>
+   365→   365→            <p className="text-sm font-semibold mt-0.5">
+   366→   366→              {formatValue(value, ind.unit)}
+   367→   367→            </p>
+   368→   368→          </div>
+   369→   369→          <div>
+   370→   370→            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Cible</p>
+   371→   371→            <p className="text-sm font-semibold mt-0.5">
+   372→   372→              {formatValue(ind.targetValue, ind.unit)}
+   373→   373→            </p>
+   374→   374→          </div>
+   375→   375→          <div>
+   376→   376→            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Écart</p>
+   377→   377→            <p
+   378→   378→              className={`text-sm font-semibold mt-0.5 ${
+   379→   379→                ecart
+   380→   380→                  ? ecart.positive
+   381→   381→                    ? 'text-emerald-600 dark:text-emerald-400'
+   382→   382→                    : 'text-red-600 dark:text-red-400'
+   383→   383→                  : 'text-muted-foreground'
+   384→   384→              }`}
+   385→   385→            >
+   386→   386→              {ecart?.text ?? '—'}
+   387→   387→            </p>
+   388→   388→          </div>
+   389→   389→        </div>
+   390→   390→      </Card>
+   391→   391→    </div>
+   392→   392→  );
+   393→   393→}
+   394→   394→
+   395→   395→// ─── Drag Overlay Content ──────────────────────────────────────────────────
+   396→   396→
+   397→   397→function DragOverlayRow({ ind }: { ind: Indicator }) {
+   398→   398→  const value = getLatestValue(ind);
+   399→   399→  return (
+   400→   400→    <div className="rounded-lg border-2 border-fun-blue/40 bg-card p-3 shadow-xl opacity-90">
+   401→   401→      <div className="flex items-center gap-2">
+   402→   402→        <GripVertical className="size-4 text-muted-foreground" />
+   403→   403→        <span className="font-mono text-xs text-muted-foreground">{ind.code}</span>
+   404→   404→        <span className="text-sm font-medium flex-1 truncate">{ind.name}</span>
+   405→   405→        <span className="text-sm font-bold">{formatValue(value, ind.unit)}</span>
+   406→   406→      </div>
+   407→   407→    </div>
+   408→   408→  );
+   409→   409→}
+   410→   410→
+   411→   411→
+   412→   412→
+   413→   413→// ─── Loading Skeleton ───────────────────────────────────────────────────────
+   414→   414→
+   415→   415→function ModuleSkeleton() {
+   416→   416→  return (
+   417→   417→    <div className="space-y-4">
+   418→   418→      <div className="flex items-center gap-2">
+   419→   419→        <TableProperties className="size-4 text-fun-blue" />
+   420→   420→        <Skeleton className="h-5 w-48" />
+   421→   421→      </div>
+   422→   422→      <Skeleton className="h-10 w-full rounded-lg" />
+   423→   423→      <Card>
+   424→   424→        <CardContent className="p-4">
+   425→   425→          <div className="space-y-3">
+   426→   426→            {Array.from({ length: 6 }).map((_, i) => (
+   427→   427→              <Skeleton key={i} className="h-12 w-full" />
+   428→   428→            ))}
+   429→   429→          </div>
+   430→   430→        </CardContent>
+   431→   431→      </Card>
+   432→   432→    </div>
+   433→   433→  );
+   434→   434→}
+   435→   435→
+   436→   436→// ─── Custom scrollbar style ─────────────────────────────────────────────────
+   437→   437→
+   438→   438→const SCROLLBAR_STYLE = `
+   439→   439→  .kpi-module-scroll::-webkit-scrollbar { width: 6px; }
+   440→   440→  .kpi-module-scroll::-webkit-scrollbar-track { background: transparent; }
+   441→   441→  .kpi-module-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+   442→   442→  .kpi-module-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+   443→   443→`;
+   444→   444→
+   445→   445→// ─── SubDomain Content with DnD ────────────────────────────────────────────
+   446→   446→
+   447→   447→function SubDomainContent({
+   448→   448→  indicators,
+   449→   449→  domain,
+   450→   450→  subDomain,
+   451→   451→}: {
+   452→   452→  indicators: Indicator[];
+   453→   453→  domain: string;
+   454→   454→  subDomain: string;
+   455→   455→}) {
+   456→   456→  const isMobile = useIsMobile();
+   457→   457→  const { cardOrder, setCardOrder, resetCardOrder } = useAppStore();
+   458→   458→  const orderKey = `${getUserId()}__${domain}__${subDomain}`;
+   459→   459→  const savedOrder = cardOrder[orderKey];
+   460→   460→  const [activeId, setActiveId] = useState<string | null>(null);
+   461→   461→
+   462→   462→  // Apply custom order
+   463→   463→  const orderedIndicators = useMemo(() => {
+   464→   464→    if (!savedOrder || savedOrder.length === 0) return indicators;
+   465→   465→    const orderMap = new Map(savedOrder.map((id, idx) => [id, idx]));
+   466→   466→    return [...indicators].sort((a, b) => {
+   467→   467→      const aIdx = orderMap.get(a.id) ?? Infinity;
+   468→   468→      const bIdx = orderMap.get(b.id) ?? Infinity;
+   469→   469→      return aIdx - bIdx;
+   470→   470→    });
+   471→   471→  }, [indicators, savedOrder]);
+   472→   472→
+   473→   473→  const itemIds = useMemo(
+   474→   474→    () => orderedIndicators.map((i) => i.id),
+   475→   475→    [orderedIndicators],
+   476→   476→  );
+   477→   477→
+   478→   478→  const sensors = useSensors(
+   479→   479→    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+   480→   480→    useSensor(KeyboardSensor, {
+   481→   481→      coordinateGetter: sortableKeyboardCoordinates,
+   482→   482→    }),
+   483→   483→  );
+   484→   484→
+   485→   485→  const activeIndicator = useMemo(
+   486→   486→    () => (activeId ? indicators.find((i) => i.id === activeId) : null),
+   487→   487→    [activeId, indicators],
+   488→   488→  );
+   489→   489→
+   490→   490→  const handleDragStart = useCallback((event: DragStartEvent) => {
+   491→   491→    setActiveId(String(event.active.id));
+   492→   492→  }, []);
+   493→   493→
+   494→   494→  const handleDragEnd = useCallback(
+   495→   495→    (event: DragEndEvent) => {
+   496→   496→      setActiveId(null);
+   497→   497→      const { active, over } = event;
+   498→   498→      if (over && active.id !== over.id) {
+   499→   499→        const oldIndex = orderedIndicators.findIndex((i) => i.id === active.id);
+   500→   500→        const newIndex = orderedIndicators.findIndex((i) => i.id === over.id);
+   501→   501→        if (oldIndex !== -1 && newIndex !== -1) {
+   502→   502→          const newOrder = arrayMove(orderedIndicators, oldIndex, newIndex).map(
+   503→   503→            (i) => i.id,
+   504→   504→          );
+   505→   505→          setCardOrder(orderKey, newOrder);
+   506→   506→        }
+   507→   507→      }
+   508→   508→    },
+   509→   509→    [orderedIndicators, orderKey, setCardOrder],
+   510→   510→  );
+   511→   511→
+   512→   512→  const handleDragCancel = useCallback(() => {
+   513→   513→    setActiveId(null);
+   514→   514→  }, []);
+   515→   515→
+   516→   516→  const hasCustomOrder = savedOrder && savedOrder.length > 0;
+   517→   517→
+   518→   518→  if (indicators.length === 0) {
+   519→   519→    return (
+   520→   520→      <Card className="p-8 text-center">
+   521→   521→        <p className="text-sm text-muted-foreground">
+   522→   522→          Aucun indicateur dans ce sous-domaine
+   523→   523→        </p>
+   524→   524→      </Card>
+   525→   525→    );
+   526→   526→  }
+   527→   527→
+   528→   528→  return (
+   529→   529→    <div className="relative">
+   530→   530→      {/* Reset order button */}
+   531→   531→      {hasCustomOrder && (
+   532→   532→        <div className="flex justify-end mb-2">
+   533→   533→          <Button
+   534→   534→            variant="ghost"
+   535→   535→            size="sm"
+   536→   536→            className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+   537→   537→            onClick={() => resetCardOrder(orderKey)}
+   538→   538→          >
+   539→   539→            <RotateCcw className="size-3" />
+   540→   540→            Réinitialiser l&apos;ordre
+   541→   541→          </Button>
+   542→   542→        </div>
+   543→   543→      )}
+   544→   544→
+   545→   545→      <DndContext
+   546→   546→        sensors={sensors}
+   547→   547→        collisionDetection={closestCenter}
+   548→   548→        onDragStart={handleDragStart}
+   549→   549→        onDragEnd={handleDragEnd}
+   550→   550→        onDragCancel={handleDragCancel}
+   551→   551→      >
+   552→   552→        <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
+   553→   553→          {isMobile ? (
+   554→   554→            /* ── Mobile: Card-based layout ── */
+   555→   555→            <div className="space-y-3">
+   556→   556→              {orderedIndicators.map((ind) => (
+   557→   557→                <SortableMobileCard key={ind.id} ind={ind} />
+   558→   558→              ))}
+   559→   559→            </div>
+   560→   560→          ) : (
+   561→   561→            /* ── Desktop: Table layout ── */
+   562→   562→            <div className="max-h-[600px] overflow-y-auto overflow-x-auto kpi-module-scroll">
+   563→   563→              <Table>
+   564→   564→                <TableHeader>
+   565→   565→                  <TableRow>
+   566→   566→                    <TableHead className="w-[40px] p-1" />
+   567→   567→                    <TableHead className="w-[100px]">Code</TableHead>
+   568→   568→                    <TableHead>Indicateur</TableHead>
+   569→   569→                    <TableHead className="w-[60px] text-center">Priorité</TableHead>
+   570→   570→                    <TableHead className="w-[80px] text-center">Unité</TableHead>
+   571→   571→                    <TableHead className="w-[100px] text-right">Cible</TableHead>
+   572→   572→                    <TableHead className="w-[100px] text-right">Valeur</TableHead>
+   573→   573→                    <TableHead className="w-[120px] text-right">Écart</TableHead>
+   574→   574→                    <TableHead className="w-[120px] text-center">Statut</TableHead>
+   575→   575→                  </TableRow>
+   576→   576→                </TableHeader>
+   577→   577→                <TableBody>
+   578→   578→                  {orderedIndicators.map((ind) => (
+   579→   579→                    <SortableTableRow key={ind.id} ind={ind} />
+   580→   580→                  ))}
+   581→   581→                </TableBody>
+   582→   582→              </Table>
+   583→   583→            </div>
+   584→   584→          )}
+   585→   585→        </SortableContext>
+   586→   586→
+   587→   587→        {/* Drag overlay */}
+   588→   588→        <DragOverlay dropAnimation={null}>
+   589→   589→          {activeIndicator ? <DragOverlayRow ind={activeIndicator} /> : null}
+   590→   590→        </DragOverlay>
+   591→   591→      </DndContext>
+   592→   592→    </div>
+   593→   593→  );
+   594→   594→}
+   595→   595→
+   596→   596→// ─── Main Component ─────────────────────────────────────────────────────────
+   597→   597→
+   598→   598→export function KpiModuleView({ domain }: KpiModuleViewProps) {
+   599→   599→  const { filters, highlightIndicatorId, highlightSubDomain } = useAppStore();
+   600→   600→  const [indicators, setIndicators] = useState<Indicator[]>([]);
+   601→   601→  const [loading, setLoading] = useState(true);
+   602→   602→
+   603→   603→  // ── Active tab state (controlled Tabs for highlight navigation) ──
+   604→   604→  const subDomains = useMemo(() => {
+   605→   605→    const map = new Map<string, Indicator[]>();
+   606→   606→    indicators.forEach((ind) => {
+   607→   607→      const key = ind.subDomain || 'autre';
+   608→   608→      if (!map.has(key)) map.set(key, []);
+   609→   609→      map.get(key)!.push(ind);
+   610→   610→    });
+   611→   611→    for (const arr of map.values()) {
+   612→   612→      arr.sort((a, b) => {
+   613→   613→        if (a.isPriority !== b.isPriority) return a.isPriority ? -1 : 1;
+   614→   614→        return a.order - b.order;
+   615→   615→      });
+   616→   616→    }
+   617→   617→    return map;
+   618→   618→  }, [indicators]);
+   619→   619→
+   620→   620→  const subDomainKeys = useMemo(() => Array.from(subDomains.keys()), [subDomains]);
+   621→   621→  const defaultTab = subDomainKeys[0] || '';
+   622→   622→
+   623→   623→  // Track user's manual tab selection; highlight overrides it temporarily
+   624→   624→  // highlightSubDomain persists until user manually clicks a tab (cleared in onValueChange)
+   625→   625→  const [manualTab, setManualTab] = useState<string | null>(null);
+   626→   626→
+   627→   627→  const activeTab = useMemo(() => {
+   628→   628→    if (highlightSubDomain && subDomainKeys.includes(highlightSubDomain)) {
+   629→   629→      return highlightSubDomain;
+   630→   630→    }
+   631→   631→    if (manualTab && subDomainKeys.includes(manualTab)) {
+   632→   632→      return manualTab;
+   633→   633→    }
+   634→   634→    return defaultTab;
+   635→   635→  }, [highlightSubDomain, manualTab, subDomainKeys, defaultTab]);
+   636→   636→
+   637→   637→  // Scroll to highlighted indicator + apply highlight class via DOM
+   638→   638→  useEffect(() => {
+   639→   639→    if (!highlightIndicatorId || loading) return;
+   640→   640→    // Small delay to let the DOM render after module/tab switch
+   641→   641→    const timer = setTimeout(() => {
+   642→   642→      const el = document.getElementById(`ind-${highlightIndicatorId}`);
+   643→   643→      if (el) {
+   644→   644→        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+   645→   645→        // Apply highlight class directly to the element or its closest card/row
+   646→   646→        const target = el.closest('tr') || el;
+   647→   647→        target.classList.add('kpi-highlight-row');
+   648→   648→        // Also try card highlight
+   649→   649→        const card = el.querySelector(':scope > .p-4') || el.closest('[class*="Card"]') || el;
+   650→   650→        if (card !== target) card.classList.add('kpi-highlight');
+   651→   651→        // Remove after 2 seconds (animation duration)
+   652→   652→        setTimeout(() => {
+   653→   653→          target.classList.remove('kpi-highlight-row');
+   654→   654→          card.classList.remove('kpi-highlight');
+   655→   655→        }, 2000);
+   656→   656→      }
+   657→   657→    }, 400);
+   658→   658→    return () => clearTimeout(timer);
+   659→   659→  }, [highlightIndicatorId, loading]);
+   660→   660→
+   661→   661→  useEffect(() => {
+   662→   662→    let cancelled = false;
+   663→   663→
+   664→   664→    const params = new URLSearchParams({ domain, year: String(filters.year || 2025) });
+   665→   665→    if (filters.quarter) params.set('quarter', String(filters.quarter));
+   666→   666→    if (filters.month) params.set('month', String(filters.month));
+   667→   667→    if (filters.periodStart) params.set('periodStart', filters.periodStart);
+   668→   668→    if (filters.periodEnd) params.set('periodEnd', filters.periodEnd);
+   669→   669→
+   670→   670→    fetch(`/api/indicators/domain?${params}`)
+   671→   671→      .then((res) => res.json())
+   672→   672→      .then((data) => {
+   673→   673→        if (!cancelled) {
+   674→   674→          setIndicators(data?.indicators ?? []);
+   675→   675→          setLoading(false);
+   676→   676→        }
+   677→   677→      })
+   678→   678→      .catch(() => {
+   679→   679→        if (!cancelled) {
+   680→   680→          setIndicators([]);
+   681→   681→          setLoading(false);
+   682→   682→        }
+   683→   683→      });
+   684→   684→
+   685→   685→    return () => {
+   686→   686→      cancelled = true;
+   687→   687→    };
+   688→   688→  }, [domain, filters.year, filters.quarter, filters.month, filters.periodStart, filters.periodEnd]);
+   689→   689→
+   690→   690→  // ── Loading / Empty state ──
+   691→   691→  if (loading) return <ModuleSkeleton />;
+   692→   692→  if (indicators.length === 0) return null;
+   693→   693→
+   694→   694→  const priorityCount = indicators.filter((i) => i.isPriority).length;
+   695→   695→
+   696→   696→  return (
+   697→   697→    <div className="space-y-4">
+   698→   698→      <style>{SCROLLBAR_STYLE}</style>
+   699→   699→
+   700→   700→      {/* ── Section header ── */}
+   701→   701→      <div className="flex items-center justify-between gap-4">
+   702→   702→        <div className="flex items-center gap-2 min-w-0">
+   703→   703→          <TableProperties className="size-4 text-fun-blue shrink-0" />
+   704→   704→          <h3 className="text-sm font-semibold text-fun-blue truncate">
+   705→   705→            Détail des Indicateurs
+   706→   706→          </h3>
+   707→   707→          <span className="text-xs text-muted-foreground shrink-0">
+   708→   708→            ({priorityCount} Lot 1 / {indicators.length} total) &middot; Glisser pour réordonner
+   709→   709→          </span>
+   710→   710→        </div>
+   711→   711→      </div>
+   712→   712→
+   713→   713→      {/* ── Sub-domain Tabs (controlled for highlight navigation) ── */}
+   714→   714→      {subDomainKeys.length > 0 && (
+   715→   715→        <Tabs value={activeTab} onValueChange={(v) => { setManualTab(v); setHighlightSubDomain(null); }} className="space-y-4">
+   716→   716→          <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
+   717→   717→            {subDomainKeys.map((key) => (
+   718→   718→              <TabsTrigger
+   719→   719→                key={key}
+   720→   720→                value={key}
+   721→   721→                className="text-xs sm:text-sm data-[state=active]:bg-fun-blue data-[state=active]:text-white data-[state=active]:shadow-sm"
+   722→   722→              >
+   723→   723→                {SUB_DOMAIN_LABELS[key] || key.replace(/_/g, ' ')}
+   724→   724→                <span className="ml-1.5 text-[10px] opacity-70">
+   725→   725→                  ({subDomains.get(key)!.filter((i) => i.isPriority).length}/
+   726→   726→                  {subDomains.get(key)!.length})
+   727→   727→                </span>
+   728→   728→              </TabsTrigger>
+   729→   729→            ))}
+   730→   730→          </TabsList>
+   731→   731→
+   732→   732→          {subDomainKeys.map((key) => (
+   733→   733→            <TabsContent key={key} value={key} className="mt-4">
+   734→   734→              <Card>
+   735→   735→                <CardHeader className="pb-3">
+   736→   736→                  <div className="flex items-center justify-between">
+   737→   737→                    <CardTitle className="text-sm font-semibold text-fun-blue">
+   738→   738→                      {SUB_DOMAIN_LABELS[key] || key.replace(/_/g, ' ')}
+   739→   739→                    </CardTitle>
+   740→   740→                  </div>
+   741→   741→                </CardHeader>
+   742→   742→                <CardContent>
+   743→   743→                  <SubDomainContent
+   744→   744→                    indicators={subDomains.get(key)!}
+   745→   745→                    domain={domain}
+   746→   746→                    subDomain={key}
+   747→   747→                  />
+   748→   748→                </CardContent>
+   749→   749→              </Card>
+   750→   750→            </TabsContent>
+   751→   751→          ))}
+   752→   752→        </Tabs>
+   753→   753→      )}
+   754→   754→    </div>
+   755→   755→  );
+   756→   756→}
