@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import {
@@ -41,10 +41,19 @@ import {
   X,
   Calendar as CalendarIcon,
   Building2,
+  Search,
 } from 'lucide-react';
-import { useAppStore, type AppViewKey } from '@/lib/store';
+import { useAppStore, type AppViewKey, type ModuleKey } from '@/lib/store';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -209,6 +218,137 @@ function ActiveFilterBadges() {
   );
 }
 
+// ─── Global Search ─────────────────────────────────────────────────────────
+
+interface SearchResult {
+  type: 'module' | 'indicator';
+  id: string;
+  name: string;
+  code: string | null;
+  domain: string;
+  domainLabel: string;
+  domainColor: string;
+  value: number | null;
+  targetValue: number | null;
+  unit: string;
+  status: string | null;
+}
+
+function GlobalSearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { setActiveView, setActiveModule, filters } = useAppStore();
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const debounceRef = React.useRef<ReturnType<typeof setTimeout>>();
+
+  const doSearch = useCallback(async (q: string) => {
+    if (q.length < 2) {
+      setResults([]);
+      return;
+    }
+    try {
+      setLoading(true);
+      const params = new URLSearchParams({ q, year: String(filters.year) });
+      if (filters.quarter) params.set('quarter', String(filters.quarter));
+      const res = await fetch(`/api/search?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setResults(data.results || []);
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  }, [filters.year, filters.quarter]);
+
+  function handleValueChange(value: string) {
+    setQuery(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => doSearch(value), 250);
+  }
+
+  function handleSelect(result: SearchResult) {
+    onOpenChange(false);
+    setQuery('');
+    setResults([]);
+    if (result.type === 'module') {
+      setActiveView(result.domain as ModuleKey);
+    } else {
+      setActiveView(result.domain as ModuleKey);
+    }
+  }
+
+  // Group results by domain
+  const grouped = useMemo(() => {
+    const map = new Map<string, SearchResult[]>();
+    for (const r of results) {
+      const key = r.domainLabel;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(r);
+    }
+    return Array.from(map.entries());
+  }, [results]);
+
+  return (
+    <CommandDialog open={open} onOpenChange={onOpenChange}>
+      <CommandInput
+        placeholder="Rechercher un KPI, un indicateur, un module..."
+        value={query}
+        onValueChange={handleValueChange}
+      />
+      <CommandList>
+        <CommandEmpty>
+          {loading ? (
+            <div className="flex items-center justify-center py-6">
+              <div className="size-4 border-2 border-muted-foreground/20 border-t-muted-foreground rounded-full animate-spin" />
+            </div>
+          ) : query.length >= 2 ? (
+            'Aucun résultat trouvé'
+          ) : (
+            'Tapez au moins 2 caractères pour rechercher'
+          )}
+        </CommandEmpty>
+        {grouped.map(([domainLabel, items]) => (
+          <CommandGroup key={domainLabel} heading={domainLabel}>
+            {items.map((item) => (
+              <CommandItem
+                key={item.id}
+                value={`${item.name} ${item.code || ''} ${domainLabel}`}
+                onSelect={() => handleSelect(item)}
+                className="gap-3 py-2.5"
+              >
+                <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: item.domainColor }} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium truncate">{item.name}</span>
+                    {item.code && (
+                      <span className="text-[10px] font-mono text-muted-foreground shrink-0">{item.code}</span>
+                    )}
+                  </div>
+                  {item.type === 'indicator' && item.value !== null && (
+                    <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
+                      <span>Valeur: <strong className="text-foreground">{item.value}</strong> {item.unit}</span>
+                      {item.targetValue !== null && (
+                        <span>/ Cible: {item.targetValue}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {item.type === 'module' && (
+                  <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded shrink-0">
+                    Module
+                  </span>
+                )}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        ))}
+      </CommandList>
+    </CommandDialog>
+  );
+}
+
 // ─── Main Header ────────────────────────────────────────────────────────────
 
 export function Header() {
@@ -216,6 +356,19 @@ export function Header() {
   const isAdmin = activeView === 'admin';
   const [departments, setDepartments] = useState<Department[]>([]);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  // Keyboard shortcut: Ctrl+K / Cmd+K to open search
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     async function fetchDepartments() {
@@ -250,6 +403,19 @@ export function Header() {
       {/* ── Left: sidebar trigger + title ── */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
         <SidebarTrigger className="shrink-0 text-white hover:bg-white/10 hover:text-white" />
+        {/* Global search button — always visible */}
+        <button
+          onClick={() => setSearchOpen(true)}
+          className={cn(
+            'hidden sm:flex items-center gap-2 h-8 px-3 rounded-md text-xs text-white/60 border border-white/15 bg-white/5 hover:bg-white/15 hover:text-white/90 transition-colors min-w-[160px] lg:min-w-[220px] cursor-pointer',
+          )}
+        >
+          <Search className="size-3.5 shrink-0" />
+          <span className="flex-1 text-left truncate">Rechercher un KPI...</span>
+          <kbd className="hidden lg:inline-flex items-center gap-0.5 text-[10px] text-white/40 bg-white/10 rounded px-1.5 py-0.5 font-mono">
+            ⌘K
+          </kbd>
+        </button>
         <div className="flex flex-col min-w-0">
           <h1 className="text-sm font-bold leading-tight sm:text-base lg:text-xl truncate">
             {MODULE_LABELS[activeView]}
@@ -399,6 +565,15 @@ export function Header() {
 
             <ExportDropdown />
           </div>
+
+          {/* ── Mobile search icon ── */}
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="sm:hidden h-8 w-8 flex items-center justify-center border border-white/20 bg-white/10 text-white rounded-md hover:bg-white/20 transition-colors"
+            aria-label="Rechercher"
+          >
+            <Search className="size-3.5" />
+          </button>
 
           {/* ── Mobile filter sheet button ── */}
           <div className="md:hidden">
@@ -717,8 +892,22 @@ export function Header() {
         </div>
       )}
 
-      {/* Admin: only theme toggle */}
-      {isAdmin && <ThemeToggle />}
+      {/* Admin: search + theme toggle */}
+      {isAdmin && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="h-8 w-8 flex items-center justify-center border border-white/20 bg-white/10 text-white rounded-md hover:bg-white/20 transition-colors"
+            aria-label="Rechercher"
+          >
+            <Search className="size-3.5" />
+          </button>
+          <ThemeToggle />
+        </div>
+      )}
+
+      {/* Global Search Dialog */}
+      <GlobalSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
     </header>
   );
 }

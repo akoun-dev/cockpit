@@ -327,3 +327,40 @@ Stage Summary:
 - File: src/components/cockpit/ModuleHeroSection.tsx
 - Fixed 4 domain configs (operational, rh, risque, pta) with correct indicator codes
 - PTA hero section now has 4 indicators instead of 0
+
+---
+Task ID: 7
+Agent: Main
+Task: Fix admin sidebar scrolling, add DnD on homepage, add global search in header
+
+Work Log:
+- Fixed admin sidebar scrolling: added `h-full` to `<aside>` in AdminLayout.tsx so it constrains to parent height instead of expanding with content. The nav inside already had `overflow-y-auto`.
+- Added drag-and-drop to homepage ExecutiveStrip (DashboardAccueil.tsx):
+  - Imported @dnd-kit/core, @dnd-kit/sortable, @dnd-kit/utilities
+  - Renamed DomainKpiCard → SortableDomainKpiCard with useSortable hook
+  - Added GripVertical drag handle to each card header
+  - ExecutiveStrip wraps cards in DndContext + SortableContext
+  - Order persisted via store.cardOrder with key 'homepage-domains'
+  - Added "Glisser pour réordonner" hint text above the grid
+  - Fixed React hooks rule violation (useSortable called before early return)
+- Added global search to header (Header.tsx):
+  - Created /api/search/route.ts: searches indicators by name/code/subDomain, also searches by domain label for modules
+  - Added GlobalSearchDialog component using CommandDialog from shadcn/ui
+  - Search button in header (desktop: styled input-like button with ⌘K shortcut hint, mobile: icon button)
+  - Keyboard shortcut Ctrl+K/Cmd+K to open search
+  - Results grouped by domain with colored dots, KPI codes, values, and targets
+  - Clicking a result navigates to the corresponding module
+  - Debounced search (250ms) with loading spinner
+  - Admin view also gets search icon
+  - Fixed missing useMemo import
+- Verified all 3 features via Agent Browser:
+  - Sidebar: height=1104.5px matches parent, stays fixed when content scrolls
+  - DnD: grip handles visible on all 6 cards, "Glisser pour réordonner" text visible
+  - Search: typing "fin" shows Finance module + 12 financial KPIs, clicking a result navigates to Finance module
+
+Stage Summary:
+- Admin sidebar is now fixed (h-full prevents it from scrolling with content)
+- Homepage domain cards are draggable with persistent order
+- Global search (Ctrl+K) searches KPIs and modules with navigation
+- Files created: src/app/api/search/route.ts
+- Files modified: src/components/admin/AdminLayout.tsx, src/components/cockpit/DashboardAccueil.tsx, src/components/cockpit/Header.tsx

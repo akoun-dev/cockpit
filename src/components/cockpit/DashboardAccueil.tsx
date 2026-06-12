@@ -11,6 +11,22 @@ import {
   YAxis,
   CartesianGrid,
 } from 'recharts';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -43,6 +59,7 @@ import {
   Star,
   TrendingUp,
   CircleDot,
+  GripVertical,
 } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -181,7 +198,9 @@ const HOMEPAGE_KPI_CODES: Record<string, [string, string]> = {
   pta: ['PTA-005', 'PTA-007'],
 };
 
-function DomainKpiCard({
+const HOMEPAGE_DND_KEY = 'homepage-domains';
+
+function SortableDomainKpiCard({
   domainKey,
   summary,
   onNavigate,
@@ -193,8 +212,25 @@ function DomainKpiCard({
   lastUpdated: string;
 }) {
   const meta = DOMAIN_META[domainKey];
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: domainKey });
+
   if (!meta) return null;
   const Icon = meta.icon;
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  };
 
   // Pick the 2 specific homepage KPIs for this domain, in defined order
   const codes = HOMEPAGE_KPI_CODES[domainKey] || [];
@@ -218,20 +254,28 @@ function DomainKpiCard({
   });
 
   return (
+    <div ref={setNodeRef} style={style} {...attributes}>
     <Card
-      className="group cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 overflow-hidden"
+      className="group cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 overflow-hidden relative"
       onClick={() => onNavigate(meta.key)}
     >
       {/* Top color bar */}
       <div className="h-1" style={{ backgroundColor: meta.color }} />
       <CardContent className="p-4 flex flex-col gap-3">
-        {/* Header: icon + domain name */}
-        <div className="flex items-center gap-2.5">
+        {/* Header: drag handle + icon + domain name */}
+        <div className="flex items-center gap-2">
+          <button
+            className="shrink-0 p-0.5 rounded hover:bg-muted/80 text-muted-foreground/40 hover:text-muted-foreground transition-colors cursor-grab active:cursor-grabbing"
+            aria-label="Glisser pour réordonner"
+            {...listeners}
+          >
+            <GripVertical className="size-3.5" />
+          </button>
           <div
-            className="flex size-9 shrink-0 items-center justify-center rounded-lg"
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg"
             style={{ backgroundColor: meta.bgLight, color: meta.color }}
           >
-            <Icon className="size-4.5" />
+            <Icon className="size-4" />
           </div>
           <h3 className="text-sm font-semibold text-foreground leading-tight">{meta.label}</h3>
         </div>
@@ -281,6 +325,7 @@ function DomainKpiCard({
         </div>
       </CardContent>
     </Card>
+    </div>
   );
 }
 
@@ -291,21 +336,62 @@ function ExecutiveStrip({
   data: DashboardData;
   onNavigate: (module: ModuleKey) => void;
 }) {
+  const { cardOrder, setCardOrder } = useAppStore();
+
+  const defaultOrder = Object.keys(DOMAIN_META);
+  const savedOrder = cardOrder[HOMEPAGE_DND_KEY];
+  const domainKeys = useMemo(() => {
+    if (!savedOrder || savedOrder.length === 0) return defaultOrder;
+    // Merge saved order with any new domains not yet saved
+    const ordered = savedOrder.filter((k) => defaultOrder.includes(k));
+    const missing = defaultOrder.filter((k) => !savedOrder.includes(k));
+    return [...ordered, ...missing];
+  }, [savedOrder, defaultOrder]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor)
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = domainKeys.indexOf(active.id as string);
+      const newIndex = domainKeys.indexOf(over.id as string);
+      const newOrder = arrayMove(domainKeys, oldIndex, newIndex);
+      setCardOrder(HOMEPAGE_DND_KEY, newOrder);
+    }
+  }
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {Object.entries(DOMAIN_META).map(([key]) => {
-        const domainSummary = data.summary[key];
-        if (!domainSummary) return null;
-        return (
-          <DomainKpiCard
-            key={key}
-            domainKey={key}
-            summary={domainSummary}
-            onNavigate={onNavigate}
-            lastUpdated={data.lastUpdated}
-          />
-        );
-      })}
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <GripVertical className="size-3.5 text-muted-foreground/50" />
+        <p className="text-[11px] text-muted-foreground/70">Glisser pour réordonner</p>
+      </div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={domainKeys} strategy={horizontalListSortingStrategy}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {domainKeys.map((key) => {
+              const domainSummary = data.summary[key];
+              if (!domainSummary) return null;
+              return (
+                <SortableDomainKpiCard
+                  key={key}
+                  domainKey={key}
+                  summary={domainSummary}
+                  onNavigate={onNavigate}
+                  lastUpdated={data.lastUpdated}
+                />
+              );
+            })}
+          </div>
+        </SortableContext>
+      </DndContext>
     </div>
   );
 }

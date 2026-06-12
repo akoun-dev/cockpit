@@ -1,0 +1,724 @@
+     1→     1→'use client';
+     2→     2→
+     3→     3→import React, { useEffect, useState, useCallback } from 'react';
+     4→     4→import { SidebarTrigger } from '@/components/ui/sidebar';
+     5→     5→import { Button } from '@/components/ui/button';
+     6→     6→import {
+     7→     7→  Select,
+     8→     8→  SelectContent,
+     9→     9→  SelectItem,
+    10→    10→  SelectTrigger,
+    11→    11→  SelectValue,
+    12→    12→} from '@/components/ui/select';
+    13→    13→import {
+    14→    14→  DropdownMenu,
+    15→    15→  DropdownMenuContent,
+    16→    16→  DropdownMenuItem,
+    17→    17→  DropdownMenuTrigger,
+    18→    18→} from '@/components/ui/dropdown-menu';
+    19→    19→import {
+    20→    20→  Sheet,
+    21→    21→  SheetContent,
+    22→    22→  SheetDescription,
+    23→    23→  SheetHeader,
+    24→    24→  SheetTitle,
+    25→    25→  SheetTrigger,
+    26→    26→} from '@/components/ui/sheet';
+    27→    27→import {
+    28→    28→  Popover,
+    29→    29→  PopoverContent,
+    30→    30→  PopoverTrigger,
+    31→    31→} from '@/components/ui/popover';
+    32→    32→import { Label } from '@/components/ui/label';
+    33→    33→import { Badge } from '@/components/ui/badge';
+    34→    34→import {
+    35→    35→  FileSpreadsheet,
+    36→    36→  FileText,
+    37→    37→  Download,
+    38→    38→  Moon,
+    39→    39→  Sun,
+    40→    40→  SlidersHorizontal,
+    41→    41→  X,
+    42→    42→  Calendar as CalendarIcon,
+    43→    43→  Building2,
+    44→    44→} from 'lucide-react';
+    45→    45→import { useAppStore, type AppViewKey } from '@/lib/store';
+    46→    46→import { useTheme } from 'next-themes';
+    47→    47→import { cn } from '@/lib/utils';
+    48→    48→
+    49→    49→// ─── Constants ──────────────────────────────────────────────────────────────
+    50→    50→
+    51→    51→const MODULE_LABELS: Record<AppViewKey, string> = {
+    52→    52→  accueil: 'Tableau de Bord',
+    53→    53→  governance: 'Gouvernance',
+    54→    54→  finance: 'Finance',
+    55→    55→  operational: 'Opérationnel',
+    56→    56→  rh: 'Ressources Humaines',
+    57→    57→  risque: 'Cadre de Risque',
+    58→    58→  pta: "Plan Triennal d'Actions",
+    59→    59→  admin: 'Administration',
+    60→    60→};
+    61→    61→
+    62→    62→const YEARS = [2024, 2025];
+    63→    63→
+    64→    64→const QUARTERS = [
+    65→    65→  { value: '1', label: 'T1', full: 'T1 — Premier trimestre' },
+    66→    66→  { value: '2', label: 'T2', full: 'T2 — Deuxième trimestre' },
+    67→    67→  { value: '3', label: 'T3', full: 'T3 — Troisième trimestre' },
+    68→    68→  { value: '4', label: 'T4', full: 'T4 — Quatrième trimestre' },
+    69→    69→];
+    70→    70→
+    71→    71→const MONTHS_FR = [
+    72→    72→  { value: '1', label: 'Jan', full: 'Janvier' },
+    73→    73→  { value: '2', label: 'Fév', full: 'Février' },
+    74→    74→  { value: '3', label: 'Mar', full: 'Mars' },
+    75→    75→  { value: '4', label: 'Avr', full: 'Avril' },
+    76→    76→  { value: '5', label: 'Mai', full: 'Mai' },
+    77→    77→  { value: '6', label: 'Juin', full: 'Juin' },
+    78→    78→  { value: '7', label: 'Juil', full: 'Juillet' },
+    79→    79→  { value: '8', label: 'Août', full: 'Août' },
+    80→    80→  { value: '9', label: 'Sep', full: 'Septembre' },
+    81→    81→  { value: '10', label: 'Oct', full: 'Octobre' },
+    82→    82→  { value: '11', label: 'Nov', full: 'Novembre' },
+    83→    83→  { value: '12', label: 'Déc', full: 'Décembre' },
+    84→    84→];
+    85→    85→
+    86→    86→function formatDateShort(dateStr: string | null): string {
+    87→    87→  if (!dateStr) return '';
+    88→    88→  const d = new Date(dateStr);
+    89→    89→  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    90→    90→}
+    91→    91→
+    92→    92→interface Department {
+    93→    93→  id: string;
+    94→    94→  name: string;
+    95→    95→}
+    96→    96→
+    97→    97→// ─── Inline select styles (for the blue header) ─────────────────────────────
+    98→    98→
+    99→    99→const HEADER_SELECT =
+   100→   100→  'h-8 border-white/20 bg-white/10 text-white text-xs backdrop-blur-sm hover:bg-white/20 focus:ring-white/30';
+   101→   101→
+   102→   102→// ─── Theme Toggle ───────────────────────────────────────────────────────────
+   103→   103→
+   104→   104→function ThemeToggle() {
+   105→   105→  const { theme, setTheme } = useTheme();
+   106→   106→  return (
+   107→   107→    <Button
+   108→   108→      variant="ghost"
+   109→   109→      size="icon"
+   110→   110→      className="h-8 w-8 shrink-0 border border-white/20 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 hover:text-white"
+   111→   111→      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+   112→   112→      aria-label="Basculer le thème"
+   113→   113→    >
+   114→   114→      {theme === 'dark' ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
+   115→   115→    </Button>
+   116→   116→  );
+   117→   117→}
+   118→   118→
+   119→   119→// ─── Export Dropdown ────────────────────────────────────────────────────────
+   120→   120→
+   121→   121→function ExportDropdown({ className }: { className?: string }) {
+   122→   122→  const { activeView, filters } = useAppStore();
+   123→   123→
+   124→   124→  return (
+   125→   125→    <DropdownMenu>
+   126→   126→      <DropdownMenuTrigger asChild>
+   127→   127→        <Button
+   128→   128→          variant="ghost"
+   129→   129→          size="sm"
+   130→   130→          className={cn(
+   131→   131→            'h-8 gap-1.5 border border-white/20 bg-white/10 text-white text-xs backdrop-blur-sm hover:bg-white/20 hover:text-white',
+   132→   132→            className,
+   133→   133→          )}
+   134→   134→        >
+   135→   135→          <Download className="size-3.5" />
+   136→   136→          <span className="hidden lg:inline">Exporter</span>
+   137→   137→        </Button>
+   138→   138→      </DropdownMenuTrigger>
+   139→   139→      <DropdownMenuContent align="end" className="w-44">
+   140→   140→        <DropdownMenuItem
+   141→   141→          onClick={() => console.log('Export Excel:', { module: activeView, filters })}
+   142→   142→          className="gap-2 cursor-pointer"
+   143→   143→        >
+   144→   144→          <FileSpreadsheet className="size-4 text-green-600" />
+   145→   145→          Exporter Excel
+   146→   146→        </DropdownMenuItem>
+   147→   147→        <DropdownMenuItem
+   148→   148→          onClick={() => console.log('Export PDF:', { module: activeView, filters })}
+   149→   149→          className="gap-2 cursor-pointer"
+   150→   150→        >
+   151→   151→          <FileText className="size-4 text-red-600" />
+   152→   152→          Exporter PDF
+   153→   153→        </DropdownMenuItem>
+   154→   154→      </DropdownMenuContent>
+   155→   155→    </DropdownMenu>
+   156→   156→  );
+   157→   157→}
+   158→   158→
+   159→   159→// ─── Active filter badges (shown on mobile under title) ─────────────────────
+   160→   160→
+   161→   161→function ActiveFilterBadges() {
+   162→   162→  const { filters, setFilters } = useAppStore();
+   163→   163→  const badges: { label: string; onClear: () => void }[] = [];
+   164→   164→
+   165→   165→  if (filters.quarter) {
+   166→   166→    const q = QUARTERS.find((q) => q.value === String(filters.quarter));
+   167→   167→    badges.push({
+   168→   168→      label: q?.label || `T${filters.quarter}`,
+   169→   169→      onClear: () => setFilters({ quarter: null }),
+   170→   170→    });
+   171→   171→  }
+   172→   172→  if (filters.month) {
+   173→   173→    const m = MONTHS_FR.find((m) => m.value === String(filters.month));
+   174→   174→    badges.push({
+   175→   175→      label: m?.label || `M${filters.month}`,
+   176→   176→      onClear: () => setFilters({ month: null }),
+   177→   177→    });
+   178→   178→  }
+   179→   179→  if (filters.periodStart || filters.periodEnd) {
+   180→   180→    const from = formatDateShort(filters.periodStart);
+   181→   181→    const to = formatDateShort(filters.periodEnd);
+   182→   182→    badges.push({
+   183→   183→      label: from && to ? `${from} → ${to}` : from || to,
+   184→   184→      onClear: () => setFilters({ periodStart: null, periodEnd: null }),
+   185→   185→    });
+   186→   186→  }
+   187→   187→  if (filters.departmentId) {
+   188→   188→    badges.push({
+   189→   189→      label: 'Dept',
+   190→   190→      onClear: () => setFilters({ departmentId: null }),
+   191→   191→    });
+   192→   192→  }
+   193→   193→
+   194→   194→  if (badges.length === 0) return null;
+   195→   195→
+   196→   196→  return (
+   197→   197→    <div className="flex items-center gap-1 flex-wrap">
+   198→   198→      {badges.map((b, i) => (
+   199→   199→        <button
+   200→   200→          key={i}
+   201→   201→          onClick={b.onClear}
+   202→   202→          className="inline-flex items-center gap-0.5 rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-white/30 transition-colors"
+   203→   203→        >
+   204→   204→          {b.label}
+   205→   205→          <X className="size-2.5" />
+   206→   206→        </button>
+   207→   207→      ))}
+   208→   208→    </div>
+   209→   209→  );
+   210→   210→}
+   211→   211→
+   212→   212→// ─── Main Header ────────────────────────────────────────────────────────────
+   213→   213→
+   214→   214→export function Header() {
+   215→   215→  const { activeView, filters, setFilters } = useAppStore();
+   216→   216→  const isAdmin = activeView === 'admin';
+   217→   217→  const [departments, setDepartments] = useState<Department[]>([]);
+   218→   218→  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+   219→   219→
+   220→   220→  useEffect(() => {
+   221→   221→    async function fetchDepartments() {
+   222→   222→      try {
+   223→   223→        const res = await fetch('/api/departments');
+   224→   224→        if (res.ok) setDepartments(await res.json());
+   225→   225→      } catch {
+   226→   226→        setDepartments([
+   227→   227→          { id: 'direction', name: 'Direction Générale' },
+   228→   228→          { id: 'finance', name: 'Finance & Comptabilité' },
+   229→   229→          { id: 'rh', name: 'Ressources Humaines' },
+   230→   230→          { id: 'ops', name: 'Opérations' },
+   231→   231→          { id: 'it', name: 'Technologie' },
+   232→   232→          { id: 'juridique', name: 'Juridique' },
+   233→   233→          { id: 'communication', name: 'Communication' },
+   234→   234→        ]);
+   235→   235→      }
+   236→   236→    }
+   237→   237→    fetchDepartments();
+   238→   238→  }, []);
+   239→   239→
+   240→   240→  // Count active filters (excluding year which is always set)
+   241→   241→  const activeFilterCount = [
+   242→   242→    filters.quarter,
+   243→   243→    filters.month,
+   244→   244→    filters.periodStart || filters.periodEnd,
+   245→   245→    filters.departmentId,
+   246→   246→  ].filter(Boolean).length;
+   247→   247→
+   248→   248→  return (
+   249→   249→    <header className="sticky top-0 z-30 flex items-center justify-between bg-fun-blue px-3 py-2 sm:px-4 sm:py-2.5 lg:px-6 text-white shadow-md">
+   250→   250→      {/* ── Left: sidebar trigger + title ── */}
+   251→   251→      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+   252→   252→        <SidebarTrigger className="shrink-0 text-white hover:bg-white/10 hover:text-white" />
+   253→   253→        <div className="flex flex-col min-w-0">
+   254→   254→          <h1 className="text-sm font-bold leading-tight sm:text-base lg:text-xl truncate">
+   255→   255→            {MODULE_LABELS[activeView]}
+   256→   256→          </h1>
+   257→   257→          <div className="flex items-center gap-2 min-w-0">
+   258→   258→            <p className="hidden text-[10px] text-white/60 sm:block truncate">
+   259→   259→              {isAdmin
+   260→   260→                ? "Panneau d'administration système"
+   261→   261→                : 'Cockpit de Direction Générale'}
+   262→   262→            </p>
+   263→   263→            {/* Mobile: active filter pills */}
+   264→   264→            <div className="sm:hidden">
+   265→   265→              <ActiveFilterBadges />
+   266→   266→            </div>
+   267→   267→          </div>
+   268→   268→        </div>
+   269→   269→      </div>
+   270→   270→
+   271→   271→      {/* ── Right: filters + export + theme ── */}
+   272→   272→      {!isAdmin && (
+   273→   273→        <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 shrink-0">
+   274→   274→          {/* Desktop inline filters (md+) */}
+   275→   275→          <div className="hidden md:flex items-center gap-1.5 lg:gap-2">
+   276→   276→            {/* Year */}
+   277→   277→            <Select
+   278→   278→              value={String(filters.year)}
+   279→   279→              onValueChange={(v) => setFilters({ year: Number(v) })}
+   280→   280→            >
+   281→   281→              <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[82px]')}>
+   282→   282→                <SelectValue />
+   283→   283→              </SelectTrigger>
+   284→   284→              <SelectContent>
+   285→   285→                {YEARS.map((y) => (
+   286→   286→                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+   287→   287→                ))}
+   288→   288→              </SelectContent>
+   289→   289→            </Select>
+   290→   290→
+   291→   291→            {/* Quarter */}
+   292→   292→            <Select
+   293→   293→              value={filters.quarter ? String(filters.quarter) : 'all'}
+   294→   294→              onValueChange={(v) => setFilters({ quarter: v === 'all' ? null : Number(v) })}
+   295→   295→            >
+   296→   296→              <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[76px]')}>
+   297→   297→                <SelectValue />
+   298→   298→              </SelectTrigger>
+   299→   299→              <SelectContent>
+   300→   300→                <SelectItem value="all">Tous</SelectItem>
+   301→   301→                {QUARTERS.map((q) => (
+   302→   302→                  <SelectItem key={q.value} value={q.value}>{q.label}</SelectItem>
+   303→   303→                ))}
+   304→   304→              </SelectContent>
+   305→   305→            </Select>
+   306→   306→
+   307→   307→            {/* Month */}
+   308→   308→            <Select
+   309→   309→              value={filters.month ? String(filters.month) : 'all'}
+   310→   310→              onValueChange={(v) => setFilters({ month: v === 'all' ? null : Number(v) })}
+   311→   311→            >
+   312→   312→              <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[82px]')}>
+   313→   313→                <SelectValue />
+   314→   314→              </SelectTrigger>
+   315→   315→              <SelectContent>
+   316→   316→                <SelectItem value="all">Tous</SelectItem>
+   317→   317→                {MONTHS_FR.map((m) => (
+   318→   318→                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+   319→   319→                ))}
+   320→   320→              </SelectContent>
+   321→   321→            </Select>
+   322→   322→
+   323→   323→            {/* Period — visible on lg+ */}
+   324→   324→            <div className="hidden lg:block">
+   325→   325→              <Popover>
+   326→   326→                <PopoverTrigger asChild>
+   327→   327→                  <button
+   328→   328→                    className={cn(
+   329→   329→                      HEADER_SELECT,
+   330→   330→                      'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs whitespace-nowrap cursor-pointer',
+   331→   331→                      (filters.periodStart || filters.periodEnd) && 'bg-white/20',
+   332→   332→                    )}
+   333→   333→                  >
+   334→   334→                    <CalendarIcon className="size-3.5 shrink-0" />
+   335→   335→                    {filters.periodStart && filters.periodEnd
+   336→   336→                      ? <span>{formatDateShort(filters.periodStart)} → {formatDateShort(filters.periodEnd)}</span>
+   337→   337→                      : filters.periodStart
+   338→   338→                        ? <span>Depuis {formatDateShort(filters.periodStart)}</span>
+   339→   339→                        : filters.periodEnd
+   340→   340→                          ? <span>Jusqu'au {formatDateShort(filters.periodEnd)}</span>
+   341→   341→                          : <span className="opacity-70">Période</span>
+   342→   342→                    }
+   343→   343→                    {(filters.periodStart || filters.periodEnd) && (
+   344→   344→                      <X
+   345→   345→                        className="size-3 shrink-0 opacity-60 hover:opacity-100"
+   346→   346→                        onClick={(e) => { e.stopPropagation(); setFilters({ periodStart: null, periodEnd: null }); }}
+   347→   347→                      />
+   348→   348→                    )}
+   349→   349→                  </button>
+   350→   350→                </PopoverTrigger>
+   351→   351→                <PopoverContent className="w-auto p-3" align="end">
+   352→   352→                  <div className="flex flex-col gap-3">
+   353→   353→                    <div className="flex items-center gap-2 text-sm font-medium">
+   354→   354→                      <CalendarIcon className="size-4 text-fun-blue" />
+   355→   355→                      Période personnalisée
+   356→   356→                    </div>
+   357→   357→                    <div className="grid grid-cols-2 gap-2">
+   358→   358→                      <div className="space-y-1">
+   359→   359→                        <Label className="text-xs text-muted-foreground">Date début</Label>
+   360→   360→                        <input
+   361→   361→                          type="date"
+   362→   362→                          value={filters.periodStart || ''}
+   363→   363→                          onChange={(e) => setFilters({ periodStart: e.target.value || null })}
+   364→   364→                          className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+   365→   365→                        />
+   366→   366→                      </div>
+   367→   367→                      <div className="space-y-1">
+   368→   368→                        <Label className="text-xs text-muted-foreground">Date fin</Label>
+   369→   369→                        <input
+   370→   370→                          type="date"
+   371→   371→                          value={filters.periodEnd || ''}
+   372→   372→                          onChange={(e) => setFilters({ periodEnd: e.target.value || null })}
+   373→   373→                          className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+   374→   374→                        />
+   375→   375→                      </div>
+   376→   376→                    </div>
+   377→   377→                  </div>
+   378→   378→                </PopoverContent>
+   379→   379→              </Popover>
+   380→   380→            </div>
+   381→   381→
+   382→   382→            {/* Department — visible on xl+ */}
+   383→   383→            <div className="hidden xl:block">
+   384→   384→              <Select
+   385→   385→                value={filters.departmentId || 'all'}
+   386→   386→                onValueChange={(v) => setFilters({ departmentId: v === 'all' ? null : v })}
+   387→   387→              >
+   388→   388→                <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[190px]')}>
+   389→   389→                  <SelectValue placeholder="Tous" />
+   390→   390→                </SelectTrigger>
+   391→   391→                <SelectContent>
+   392→   392→                  <SelectItem value="all">Tous les départements</SelectItem>
+   393→   393→                  {departments.map((dept) => (
+   394→   394→                    <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+   395→   395→                  ))}
+   396→   396→                </SelectContent>
+   397→   397→              </Select>
+   398→   398→            </div>
+   399→   399→
+   400→   400→            <ExportDropdown />
+   401→   401→          </div>
+   402→   402→
+   403→   403→          {/* ── Mobile filter sheet button ── */}
+   404→   404→          <div className="md:hidden">
+   405→   405→            <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
+   406→   406→              <SheetTrigger asChild>
+   407→   407→                <Button
+   408→   408→                  variant="ghost"
+   409→   409→                  size="sm"
+   410→   410→                  className="relative h-8 w-8 p-0 border border-white/20 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 hover:text-white"
+   411→   411→                >
+   412→   412→                  <SlidersHorizontal className="size-4" />
+   413→   413→                  {activeFilterCount > 0 && (
+   414→   414→                    <span className="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-tango text-[9px] font-bold flex items-center justify-center shadow-sm">
+   415→   415→                      {activeFilterCount}
+   416→   416→                    </span>
+   417→   417→                  )}
+   418→   418→                  <span className="sr-only">Filtres</span>
+   419→   419→                </Button>
+   420→   420→              </SheetTrigger>
+   421→   421→
+   422→   422→              <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh] overflow-y-auto">
+   423→   423→                <SheetHeader className="pb-2 border-b border-border">
+   424→   424→                  <div className="flex items-center justify-between pr-6">
+   425→   425→                    <div>
+   426→   426→                      <SheetTitle className="text-base">Filtres</SheetTitle>
+   427→   427→                      <SheetDescription className="text-xs mt-0.5">
+   428→   428→                        Affinez la période et le département
+   429→   429→                      </SheetDescription>
+   430→   430→                    </div>
+   431→   431→                    {activeFilterCount > 0 && (
+   432→   432→                      <Badge
+   433→   433→                        variant="secondary"
+   434→   434→                        className="text-[10px] bg-tango/15 text-tango border-tango/20"
+   435→   435→                      >
+   436→   436→                        {activeFilterCount} actif{activeFilterCount > 1 ? 's' : ''}
+   437→   437→                      </Badge>
+   438→   438→                    )}
+   439→   439→                  </div>
+   440→   440→                </SheetHeader>
+   441→   441→
+   442→   442→                <div className="px-4 py-4 space-y-5">
+   443→   443→                  {/* Year */}
+   444→   444→                  <div className="grid grid-cols-3 gap-3">
+   445→   445→                    <div className="space-y-1.5">
+   446→   446→                      <Label className="text-xs font-medium flex items-center gap-1.5">
+   447→   447→                        <CalendarIcon className="size-3" />
+   448→   448→                        Année
+   449→   449→                      </Label>
+   450→   450→                      <Select
+   451→   451→                        value={String(filters.year)}
+   452→   452→                        onValueChange={(v) => setFilters({ year: Number(v) })}
+   453→   453→                      >
+   454→   454→                        <SelectTrigger size="sm" className="h-9 text-sm">
+   455→   455→                          <SelectValue />
+   456→   456→                        </SelectTrigger>
+   457→   457→                        <SelectContent>
+   458→   458→                          {YEARS.map((y) => (
+   459→   459→                            <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+   460→   460→                          ))}
+   461→   461→                        </SelectContent>
+   462→   462→                      </Select>
+   463→   463→                    </div>
+   464→   464→
+   465→   465→                    {/* Quarter */}
+   466→   466→                    <div className="space-y-1.5">
+   467→   467→                      <Label className="text-xs font-medium">Trimestre</Label>
+   468→   468→                      <Select
+   469→   469→                        value={filters.quarter ? String(filters.quarter) : 'all'}
+   470→   470→                        onValueChange={(v) =>
+   471→   471→                          setFilters({ quarter: v === 'all' ? null : Number(v) })
+   472→   472→                        }
+   473→   473→                      >
+   474→   474→                        <SelectTrigger size="sm" className="h-9 text-sm">
+   475→   475→                          <SelectValue />
+   476→   476→                        </SelectTrigger>
+   477→   477→                        <SelectContent>
+   478→   478→                          <SelectItem value="all">Tous</SelectItem>
+   479→   479→                          {QUARTERS.map((q) => (
+   480→   480→                            <SelectItem key={q.value} value={q.value}>
+   481→   481→                              {q.full}
+   482→   482→                            </SelectItem>
+   483→   483→                          ))}
+   484→   484→                        </SelectContent>
+   485→   485→                      </Select>
+   486→   486→                    </div>
+   487→   487→
+   488→   488→                    {/* Month */}
+   489→   489→                    <div className="space-y-1.5">
+   490→   490→                      <Label className="text-xs font-medium">Mois</Label>
+   491→   491→                      <Select
+   492→   492→                        value={filters.month ? String(filters.month) : 'all'}
+   493→   493→                        onValueChange={(v) =>
+   494→   494→                          setFilters({ month: v === 'all' ? null : Number(v) })
+   495→   495→                        }
+   496→   496→                      >
+   497→   497→                        <SelectTrigger size="sm" className="h-9 text-sm">
+   498→   498→                          <SelectValue />
+   499→   499→                        </SelectTrigger>
+   500→   500→                        <SelectContent>
+   501→   501→                          <SelectItem value="all">Tous</SelectItem>
+   502→   502→                          {MONTHS_FR.map((m) => (
+   503→   503→                            <SelectItem key={m.value} value={m.value}>
+   504→   504→                              {m.full}
+   505→   505→                            </SelectItem>
+   506→   506→                          ))}
+   507→   507→                        </SelectContent>
+   508→   508→                      </Select>
+   509→   509→                    </div>
+   510→   510→                  </div>
+   511→   511→
+   512→   512→                  {/* Period + Department */}
+   513→   513→                  <div className="grid grid-cols-2 gap-3">
+   514→   514→                    <div className="space-y-1.5">
+   515→   515→                      <Label className="text-xs font-medium flex items-center gap-1.5">
+   516→   516→                        <CalendarIcon className="size-3" />
+   517→   517→                        Période
+   518→   518→                      </Label>
+   519→   519→                      <div className="flex flex-col gap-1.5">
+   520→   520→                        <input
+   521→   521→                          type="date"
+   522→   522→                          value={filters.periodStart || ''}
+   523→   523→                          onChange={(e) => setFilters({ periodStart: e.target.value || null })}
+   524→   524→                          placeholder="Début"
+   525→   525→                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+   526→   526→                        />
+   527→   527→                        <input
+   528→   528→                          type="date"
+   529→   529→                          value={filters.periodEnd || ''}
+   530→   530→                          onChange={(e) => setFilters({ periodEnd: e.target.value || null })}
+   531→   531→                          placeholder="Fin"
+   532→   532→                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+   533→   533→                        />
+   534→   534→                      </div>
+   535→   535→                    </div>
+   536→   536→
+   537→   537→                    <div className="space-y-1.5">
+   538→   538→                      <Label className="text-xs font-medium flex items-center gap-1.5">
+   539→   539→                        <Building2 className="size-3" />
+   540→   540→                        Département
+   541→   541→                      </Label>
+   542→   542→                      <Select
+   543→   543→                        value={filters.departmentId || 'all'}
+   544→   544→                        onValueChange={(v) =>
+   545→   545→                          setFilters({ departmentId: v === 'all' ? null : v })
+   546→   546→                        }
+   547→   547→                      >
+   548→   548→                        <SelectTrigger size="sm" className="h-9 text-sm">
+   549→   549→                          <SelectValue />
+   550→   550→                        </SelectTrigger>
+   551→   551→                        <SelectContent>
+   552→   552→                          <SelectItem value="all">Tous</SelectItem>
+   553→   553→                          {departments.map((dept) => (
+   554→   554→                            <SelectItem key={dept.id} value={dept.id}>
+   555→   555→                              {dept.name}
+   556→   556→                            </SelectItem>
+   557→   557→                          ))}
+   558→   558→                        </SelectContent>
+   559→   559→                      </Select>
+   560→   560→                    </div>
+   561→   561→                  </div>
+   562→   562→
+   563→   563→                  {/* Export buttons */}
+   564→   564→                  <div className="pt-3 border-t border-border">
+   565→   565→                    <Label className="text-xs font-medium text-muted-foreground mb-2.5 block">
+   566→   566→                      Exporter les données
+   567→   567→                    </Label>
+   568→   568→                    <div className="flex gap-2">
+   569→   569→                      <Button
+   570→   570→                        variant="outline"
+   571→   571→                        size="sm"
+   572→   572→                        className="flex-1 gap-2 text-xs"
+   573→   573→                        onClick={() => {
+   574→   574→                          console.log('Export Excel');
+   575→   575→                          setFilterSheetOpen(false);
+   576→   576→                        }}
+   577→   577→                      >
+   578→   578→                        <FileSpreadsheet className="size-4 text-green-600" />
+   579→   579→                        Excel
+   580→   580→                      </Button>
+   581→   581→                      <Button
+   582→   582→                        variant="outline"
+   583→   583→                        size="sm"
+   584→   584→                        className="flex-1 gap-2 text-xs"
+   585→   585→                        onClick={() => {
+   586→   586→                          console.log('Export PDF');
+   587→   587→                          setFilterSheetOpen(false);
+   588→   588→                        }}
+   589→   589→                      >
+   590→   590→                        <FileText className="size-4 text-red-600" />
+   591→   591→                        PDF
+   592→   592→                      </Button>
+   593→   593→                    </div>
+   594→   594→                  </div>
+   595→   595→                </div>
+   596→   596→              </SheetContent>
+   597→   597→            </Sheet>
+   598→   598→          </div>
+   599→   599→
+   600→   600→          {/* Filter button for md-lg screens to access Day/Dept/Export */}
+   601→   601→          <div className="hidden md:flex xl:hidden">
+   602→   602→            <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
+   603→   603→              <SheetTrigger asChild>
+   604→   604→                <Button
+   605→   605→                  variant="ghost"
+   606→   606→                  size="sm"
+   607→   607→                  className={cn(
+   608→   608→                    'relative h-8 gap-1.5 border border-white/20 bg-white/10 text-white text-xs backdrop-blur-sm hover:bg-white/20 hover:text-white',
+   609→   609→                    activeFilterCount > 0 && 'border-tango/50',
+   610→   610→                  )}
+   611→   611→                >
+   612→   612→                  <SlidersHorizontal className="size-3.5" />
+   613→   613→                  {activeFilterCount > 0 && (
+   614→   614→                    <span className="size-4 rounded-full bg-tango text-[9px] font-bold flex items-center justify-center">
+   615→   615→                      {activeFilterCount}
+   616→   616→                    </span>
+   617→   617→                  )}
+   618→   618→                </Button>
+   619→   619→              </SheetTrigger>
+   620→   620→
+   621→   621→              <SheetContent side="bottom" className="rounded-t-2xl max-h-[70vh]">
+   622→   622→                <SheetHeader className="pb-2 border-b border-border">
+   623→   623→                  <SheetTitle className="text-base">Filtres avancés</SheetTitle>
+   624→   624→                  <SheetDescription>
+   625→   625→                    Période, Département et Export
+   626→   626→                  </SheetDescription>
+   627→   627→                </SheetHeader>
+   628→   628→
+   629→   629→                <div className="px-4 py-4 space-y-5">
+   630→   630→                  <div className="grid grid-cols-2 gap-3">
+   631→   631→                    <div className="space-y-1.5">
+   632→   632→                      <Label className="text-xs font-medium flex items-center gap-1.5">
+   633→   633→                        <CalendarIcon className="size-3" />
+   634→   634→                        Période
+   635→   635→                      </Label>
+   636→   636→                      <div className="flex flex-col gap-1.5">
+   637→   637→                        <input
+   638→   638→                          type="date"
+   639→   639→                          value={filters.periodStart || ''}
+   640→   640→                          onChange={(e) => setFilters({ periodStart: e.target.value || null })}
+   641→   641→                          placeholder="Début"
+   642→   642→                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+   643→   643→                        />
+   644→   644→                        <input
+   645→   645→                          type="date"
+   646→   646→                          value={filters.periodEnd || ''}
+   647→   647→                          onChange={(e) => setFilters({ periodEnd: e.target.value || null })}
+   648→   648→                          placeholder="Fin"
+   649→   649→                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+   650→   650→                        />
+   651→   651→                      </div>
+   652→   652→                    </div>
+   653→   653→
+   654→   654→                    <div className="space-y-1.5">
+   655→   655→                      <Label className="text-xs font-medium flex items-center gap-1.5">
+   656→   656→                        <Building2 className="size-3" />
+   657→   657→                        Département
+   658→   658→                      </Label>
+   659→   659→                      <Select
+   660→   660→                        value={filters.departmentId || 'all'}
+   661→   661→                        onValueChange={(v) =>
+   662→   662→                          setFilters({ departmentId: v === 'all' ? null : v })
+   663→   663→                        }
+   664→   664→                      >
+   665→   665→                        <SelectTrigger size="sm" className="h-9 text-sm">
+   666→   666→                          <SelectValue />
+   667→   667→                        </SelectTrigger>
+   668→   668→                        <SelectContent>
+   669→   669→                          <SelectItem value="all">Tous</SelectItem>
+   670→   670→                          {departments.map((dept) => (
+   671→   671→                            <SelectItem key={dept.id} value={dept.id}>
+   672→   672→                              {dept.name}
+   673→   673→                            </SelectItem>
+   674→   674→                          ))}
+   675→   675→                        </SelectContent>
+   676→   676→                      </Select>
+   677→   677→                    </div>
+   678→   678→                  </div>
+   679→   679→
+   680→   680→                  <div className="pt-3 border-t border-border">
+   681→   681→                    <Label className="text-xs font-medium text-muted-foreground mb-2.5 block">
+   682→   682→                      Exporter
+   683→   683→                    </Label>
+   684→   684→                    <div className="flex gap-2">
+   685→   685→                      <Button
+   686→   686→                        variant="outline"
+   687→   687→                        size="sm"
+   688→   688→                        className="flex-1 gap-2 text-xs"
+   689→   689→                        onClick={() => {
+   690→   690→                          console.log('Export Excel');
+   691→   691→                          setFilterSheetOpen(false);
+   692→   692→                        }}
+   693→   693→                      >
+   694→   694→                        <FileSpreadsheet className="size-4 text-green-600" />
+   695→   695→                        Excel
+   696→   696→                      </Button>
+   697→   697→                      <Button
+   698→   698→                        variant="outline"
+   699→   699→                        size="sm"
+   700→   700→                        className="flex-1 gap-2 text-xs"
+   701→   701→                        onClick={() => {
+   702→   702→                          console.log('Export PDF');
+   703→   703→                          setFilterSheetOpen(false);
+   704→   704→                        }}
+   705→   705→                      >
+   706→   706→                        <FileText className="size-4 text-red-600" />
+   707→   707→                        PDF
+   708→   708→                      </Button>
+   709→   709→                    </div>
+   710→   710→                  </div>
+   711→   711→                </div>
+   712→   712→              </SheetContent>
+   713→   713→            </Sheet>
+   714→   714→          </div>
+   715→   715→
+   716→   716→          <ThemeToggle />
+   717→   717→        </div>
+   718→   718→      )}
+   719→   719→
+   720→   720→      {/* Admin: only theme toggle */}
+   721→   721→      {isAdmin && <ThemeToggle />}
+   722→   722→    </header>
+   723→   723→  );
+   724→   724→}
