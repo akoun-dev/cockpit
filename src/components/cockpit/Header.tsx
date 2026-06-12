@@ -422,6 +422,7 @@ interface SearchResult {
   domain: string;
   domainLabel: string;
   domainColor: string;
+  subDomain: string | null;
   value: number | null;
   targetValue: number | null;
   unit: string;
@@ -429,7 +430,7 @@ interface SearchResult {
 }
 
 function GlobalSearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const { setActiveView, setActiveModule, setHighlightIndicatorId, filters } = useAppStore();
+  const { setActiveView, setActiveModule, setHighlightIndicatorId, setHighlightSubDomain, filters } = useAppStore();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -469,10 +470,19 @@ function GlobalSearchDialog({ open, onOpenChange }: { open: boolean; onOpenChang
     if (result.type === 'module') {
       setActiveView(result.domain as ModuleKey);
     } else {
-      // Highlight the indicator for 2 seconds
+      // Highlight the indicator for 2 seconds with 3-beat echo
       if (result.id) {
         setHighlightIndicatorId(result.id);
-        setTimeout(() => setHighlightIndicatorId(null), 2500);
+        // Also set sub-domain so the module view auto-switches to the right tab
+        if (result.subDomain) {
+          setHighlightSubDomain(result.subDomain);
+        } else {
+          setHighlightSubDomain(null);
+        }
+        setTimeout(() => {
+          setHighlightIndicatorId(null);
+          setHighlightSubDomain(null);
+        }, 2500);
       }
       setActiveView(result.domain as ModuleKey);
     }

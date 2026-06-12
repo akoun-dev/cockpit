@@ -83,6 +83,7 @@ export async function GET(request: NextRequest) {
         domain: i.domain,
         domainLabel: DOMAIN_LABELS[i.domain] || i.domain,
         domainColor: DOMAIN_COLORS[i.domain] || '#666',
+        subDomain: i.subDomain || null,
         value: latestValue?.value ?? null,
         targetValue: i.targetValue,
         unit: i.unit,

@@ -422,3 +422,24 @@ Stage Summary:
 - Export buttons: Generate real CSV/HTML downloads with indicator data
 - Module documents: Fetched from DB and displayed as linked list in each module view
 - All lint checks pass, no runtime errors
+
+---
+Task ID: highlight-3beat-echo
+Agent: Main
+Task: Add 3-beat echo highlight animation on KPI search + auto-switch to correct sub-domain tab
+
+Work Log:
+- Updated CSS `@keyframes kpi-highlight-echo` in `globals.css` with 3 distinct pulse beats (0-16%, 33-49%, 66-82%) over 2 seconds using tango orange (#f18120) with decreasing intensity
+- Added `highlightSubDomain: string | null` and `setHighlightSubDomain` to Zustand store (`src/lib/store.ts`)
+- Added `subDomain` field to search API response (`src/app/api/search/route.ts`)
+- Updated `SearchResult` interface in Header.tsx to include `subDomain: string | null`
+- Updated `handleSelect` in Header.tsx to set both `highlightIndicatorId` and `highlightSubDomain` when selecting a KPI result, with 2500ms auto-clear
+- Refactored `KpiModuleView.tsx` Tabs from uncontrolled (`defaultValue`) to controlled (`value`) using a derived `activeTab` useMemo that prioritizes: (1) highlightSubDomain, (2) user's manual tab selection, (3) default first tab
+- Used `manualTab` state (set via `onValueChange` event handler) to avoid lint violations (no setState in effects)
+- Verified via Agent Browser: searching "rentabil" → clicking FIN-006 → Finance module loads → "Rentabilité & Performance" tab auto-selects → row gets `kpi-highlight` + `kpi-highlight-row` classes → 3-beat echo animation plays for 2 seconds
+
+Stage Summary:
+- 3-beat echo pulse animation CSS with 3 decreasing-intensity pulses
+- Sub-domain aware navigation: search result carries subDomain info, KpiModuleView auto-switches to correct tab
+- Controlled Tabs pattern using derived value (no lint violations)
+- Files modified: `globals.css`, `store.ts`, `api/search/route.ts`, `Header.tsx`, `KpiModuleView.tsx`

@@ -46,9 +46,11 @@ interface AppState {
   cardOrder: Record<string, string[]>;
   setCardOrder: (key: string, order: string[]) => void;
   resetCardOrder: (key: string) => void;
-  // Search highlight — indicator ID to visually highlight for 2 seconds
+  // Search highlight — indicator ID + sub-domain to visually highlight for 2 seconds
   highlightIndicatorId: string | null;
   setHighlightIndicatorId: (id: string | null) => void;
+  highlightSubDomain: string | null;
+  setHighlightSubDomain: (sub: string | null) => void;
 }
 
 const initialState: FilterState = {
@@ -103,6 +105,8 @@ export const useAppStore = create<AppState>()(
       // Search highlight
       highlightIndicatorId: null,
       setHighlightIndicatorId: (id) => set({ highlightIndicatorId: id }),
+      highlightSubDomain: null,
+      setHighlightSubDomain: (sub) => set({ highlightSubDomain: sub }),
     }),
     {
       name: 'ansut-cockpit-dnd',

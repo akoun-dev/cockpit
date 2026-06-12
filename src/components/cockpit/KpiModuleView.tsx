@@ -596,14 +596,47 @@ function SubDomainContent({
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 export function KpiModuleView({ domain }: KpiModuleViewProps) {
-  const { filters, highlightIndicatorId } = useAppStore();
+  const { filters, highlightIndicatorId, highlightSubDomain } = useAppStore();
   const [indicators, setIndicators] = useState<Indicator[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // ── Active tab state (controlled Tabs for highlight navigation) ──
+  const subDomains = useMemo(() => {
+    const map = new Map<string, Indicator[]>();
+    indicators.forEach((ind) => {
+      const key = ind.subDomain || 'autre';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(ind);
+    });
+    for (const arr of map.values()) {
+      arr.sort((a, b) => {
+        if (a.isPriority !== b.isPriority) return a.isPriority ? -1 : 1;
+        return a.order - b.order;
+      });
+    }
+    return map;
+  }, [indicators]);
+
+  const subDomainKeys = useMemo(() => Array.from(subDomains.keys()), [subDomains]);
+  const defaultTab = subDomainKeys[0] || '';
+
+  // Track user's manual tab selection; highlight overrides it temporarily
+  const [manualTab, setManualTab] = useState<string | null>(null);
+
+  const activeTab = useMemo(() => {
+    if (highlightSubDomain && subDomainKeys.includes(highlightSubDomain)) {
+      return highlightSubDomain;
+    }
+    if (manualTab && subDomainKeys.includes(manualTab)) {
+      return manualTab;
+    }
+    return defaultTab;
+  }, [highlightSubDomain, manualTab, subDomainKeys, defaultTab]);
 
   // Scroll to highlighted indicator + apply highlight class via DOM
   useEffect(() => {
     if (!highlightIndicatorId || loading) return;
-    // Small delay to let the DOM render after module switch
+    // Small delay to let the DOM render after module/tab switch
     const timer = setTimeout(() => {
       const el = document.getElementById(`ind-${highlightIndicatorId}`);
       if (el) {
@@ -612,7 +645,7 @@ export function KpiModuleView({ domain }: KpiModuleViewProps) {
         const target = el.closest('tr') || el;
         target.classList.add('kpi-highlight-row');
         // Also try card highlight
-        const card = el.querySelector(':scope > .p-4') || el.closest('Card') || el;
+        const card = el.querySelector(':scope > .p-4') || el.closest('[class*="Card"]') || el;
         if (card !== target) card.classList.add('kpi-highlight');
         // Remove after 2 seconds (animation duration)
         setTimeout(() => {
@@ -620,7 +653,7 @@ export function KpiModuleView({ domain }: KpiModuleViewProps) {
           card.classList.remove('kpi-highlight');
         }, 2000);
       }
-    }, 300);
+    }, 400);
     return () => clearTimeout(timer);
   }, [highlightIndicatorId, loading]);
 
@@ -653,30 +686,10 @@ export function KpiModuleView({ domain }: KpiModuleViewProps) {
     };
   }, [domain, filters.year, filters.quarter, filters.month, filters.periodStart, filters.periodEnd]);
 
-  // ── Group by sub-domain (priority KPIs first within each group) ──
-  const subDomains = useMemo(() => {
-    const map = new Map<string, Indicator[]>();
-    indicators.forEach((ind) => {
-      const key = ind.subDomain || 'autre';
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(ind);
-    });
-    for (const arr of map.values()) {
-      arr.sort((a, b) => {
-        if (a.isPriority !== b.isPriority) return a.isPriority ? -1 : 1;
-        return a.order - b.order;
-      });
-    }
-    return map;
-  }, [indicators]);
-
-  const subDomainKeys = useMemo(() => Array.from(subDomains.keys()), [subDomains]);
-
   // ── Loading / Empty state ──
   if (loading) return <ModuleSkeleton />;
   if (indicators.length === 0) return null;
 
-  const defaultTab = subDomainKeys[0] || '';
   const priorityCount = indicators.filter((i) => i.isPriority).length;
 
   return (
@@ -696,9 +709,9 @@ export function KpiModuleView({ domain }: KpiModuleViewProps) {
         </div>
       </div>
 
-      {/* ── Sub-domain Tabs ── */}
+      {/* ── Sub-domain Tabs (controlled for highlight navigation) ── */}
       {subDomainKeys.length > 0 && (
-        <Tabs defaultValue={defaultTab} className="space-y-4">
+        <Tabs value={activeTab} onValueChange={setManualTab} className="space-y-4">
           <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
             {subDomainKeys.map((key) => (
               <TabsTrigger
