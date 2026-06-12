@@ -489,3 +489,33 @@ Stage Summary:
 - File: `src/components/cockpit/Header.tsx` (modified: added handleExportPptx + menu item)
 - Package added: `pptxgenjs@4.0.1`
 - Lint passes cleanly, no runtime errors
+
+---
+Task ID: 29
+Agent: Main
+Task: Replace department filter with Storytelling button, remove Import, fix ThemeToggle
+
+Work Log:
+- Removed department filter from desktop header (xl+ Select), mobile sheet, and md-lg sheet
+- Removed ImportPptxButton component entirely from Header.tsx (~240 lines)
+- Removed unused imports: Upload, FileUp, Building2, Dialog/DialogContent/etc, Department interface
+- Removed departments state and fetchDepartments effect from Header
+- Added StorytellingButton component (tango-colored Play icon + "STORYTELLING" label)
+- Added StorytellingOverlay component (src/components/cockpit/StorytellingOverlay.tsx)
+  - Full-screen dark overlay (z-[100]) with 4 slide types: Title, Synthesis, SubDomain, Closing
+  - Auto-play (6s interval) with Play/Pause toggle
+  - Keyboard controls: Escape to quit, Arrow keys to navigate, P to pause
+  - Progress bar showing current position
+  - ANSUT branding (Tango/Fun Blue accents), animated transitions via Framer Motion
+  - Fetches indicators from /api/indicators/domain and maps to KPI data
+  - Status computation (atteint/partiel/non_atteint) with color-coded badges
+- Fixed ThemeToggle hydration mismatch: renders both Sun/Moon icons, uses opacity to toggle, suppressHydrationWarning
+- Lint passes cleanly (0 errors, 0 warnings)
+
+Stage Summary:
+- Storytelling: full-page presentation mode with auto-play, keyboard nav, escape to quit
+- Department filter: completely removed (non-functional, user requested replacement)
+- Import button: removed from header (user requested)
+- ThemeToggle hydration: fixed with dual-render opacity approach
+- Files modified: Header.tsx (major refactor), StorytellingOverlay.tsx (new)
+- Files unchanged: ImportPptxButton code preserved in /api/import/pptx route

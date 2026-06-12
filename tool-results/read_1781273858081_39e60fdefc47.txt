@@ -1,0 +1,1437 @@
+     1→     1→'use client';
+     2→     2→
+     3→     3→import React, { useEffect, useState, useCallback, useMemo } from 'react';
+     4→     4→import { SidebarTrigger } from '@/components/ui/sidebar';
+     5→     5→import { Button } from '@/components/ui/button';
+     6→     6→import {
+     7→     7→  Select,
+     8→     8→  SelectContent,
+     9→     9→  SelectItem,
+    10→    10→  SelectTrigger,
+    11→    11→  SelectValue,
+    12→    12→} from '@/components/ui/select';
+    13→    13→import {
+    14→    14→  DropdownMenu,
+    15→    15→  DropdownMenuContent,
+    16→    16→  DropdownMenuItem,
+    17→    17→  DropdownMenuTrigger,
+    18→    18→} from '@/components/ui/dropdown-menu';
+    19→    19→import {
+    20→    20→  Sheet,
+    21→    21→  SheetContent,
+    22→    22→  SheetDescription,
+    23→    23→  SheetHeader,
+    24→    24→  SheetTitle,
+    25→    25→  SheetTrigger,
+    26→    26→} from '@/components/ui/sheet';
+    27→    27→import {
+    28→    28→  Popover,
+    29→    29→  PopoverContent,
+    30→    30→  PopoverTrigger,
+    31→    31→} from '@/components/ui/popover';
+    32→    32→import { Label } from '@/components/ui/label';
+    33→    33→import { Badge } from '@/components/ui/badge';
+    34→    34→import {
+    35→    35→  FileSpreadsheet,
+    36→    36→  FileText,
+    37→    37→  Presentation,
+    38→    38→  Download,
+    39→    39→  Upload,
+    40→    40→  Moon,
+    41→    41→  Sun,
+    42→    42→  SlidersHorizontal,
+    43→    43→  X,
+    44→    44→  Calendar as CalendarIcon,
+    45→    45→  Building2,
+    46→    46→  Search,
+    47→    47→  Loader2,
+    48→    48→  Star,
+    49→    49→  FileUp,
+    50→    50→} from 'lucide-react';
+    51→    51→import { useAppStore, type AppViewKey, type ModuleKey } from '@/lib/store';
+    52→    52→import { useTheme } from 'next-themes';
+    53→    53→import {
+    54→    54→  Dialog,
+    55→    55→  DialogContent,
+    56→    56→  DialogDescription,
+    57→    57→  DialogFooter,
+    58→    58→  DialogHeader,
+    59→    59→  DialogTitle,
+    60→    60→} from '@/components/ui/dialog';
+    61→    61→import { cn } from '@/lib/utils';
+    62→    62→import {
+    63→    63→  CommandDialog,
+    64→    64→  CommandEmpty,
+    65→    65→  CommandGroup,
+    66→    66→  CommandInput,
+    67→    67→  CommandItem,
+    68→    68→  CommandList,
+    69→    69→} from '@/components/ui/command';
+    70→    70→import { useToast } from '@/hooks/use-toast';
+    71→    71→
+    72→    72→// ─── Constants ──────────────────────────────────────────────────────────────
+    73→    73→
+    74→    74→const MODULE_LABELS: Record<AppViewKey, string> = {
+    75→    75→  accueil: 'Tableau de Bord',
+    76→    76→  governance: 'Gouvernance',
+    77→    77→  finance: 'Finance',
+    78→    78→  operational: 'Opérationnel',
+    79→    79→  rh: 'Ressources Humaines',
+    80→    80→  risque: 'Cadre de Risque',
+    81→    81→  pta: 'Plan de Travail Annuel',
+    82→    82→  admin: 'Administration',
+    83→    83→};
+    84→    84→
+    85→    85→const YEARS = [2024, 2025];
+    86→    86→
+    87→    87→const QUARTERS = [
+    88→    88→  { value: '1', label: 'T1', full: 'T1 — Premier trimestre' },
+    89→    89→  { value: '2', label: 'T2', full: 'T2 — Deuxième trimestre' },
+    90→    90→  { value: '3', label: 'T3', full: 'T3 — Troisième trimestre' },
+    91→    91→  { value: '4', label: 'T4', full: 'T4 — Quatrième trimestre' },
+    92→    92→];
+    93→    93→
+    94→    94→const MONTHS_FR = [
+    95→    95→  { value: '1', label: 'Jan', full: 'Janvier' },
+    96→    96→  { value: '2', label: 'Fév', full: 'Février' },
+    97→    97→  { value: '3', label: 'Mar', full: 'Mars' },
+    98→    98→  { value: '4', label: 'Avr', full: 'Avril' },
+    99→    99→  { value: '5', label: 'Mai', full: 'Mai' },
+   100→   100→  { value: '6', label: 'Juin', full: 'Juin' },
+   101→   101→  { value: '7', label: 'Juil', full: 'Juillet' },
+   102→   102→  { value: '8', label: 'Août', full: 'Août' },
+   103→   103→  { value: '9', label: 'Sep', full: 'Septembre' },
+   104→   104→  { value: '10', label: 'Oct', full: 'Octobre' },
+   105→   105→  { value: '11', label: 'Nov', full: 'Novembre' },
+   106→   106→  { value: '12', label: 'Déc', full: 'Décembre' },
+   107→   107→];
+   108→   108→
+   109→   109→function formatDateShort(dateStr: string | null): string {
+   110→   110→  if (!dateStr) return '';
+   111→   111→  const d = new Date(dateStr);
+   112→   112→  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+   113→   113→}
+   114→   114→
+   115→   115→interface Department {
+   116→   116→  id: string;
+   117→   117→  name: string;
+   118→   118→}
+   119→   119→
+   120→   120→// ─── Inline select styles (for the blue header) ─────────────────────────────
+   121→   121→
+   122→   122→const HEADER_SELECT =
+   123→   123→  'h-8 border-white/20 bg-white/10 text-white text-xs backdrop-blur-sm hover:bg-white/20 focus:ring-white/30';
+   124→   124→
+   125→   125→// ─── Theme Toggle ───────────────────────────────────────────────────────────
+   126→   126→
+   127→   127→function ThemeToggle() {
+   128→   128→  const { resolvedTheme, setTheme } = useTheme();
+   129→   129→  // resolvedTheme is undefined during SSR, which prevents hydration mismatch
+   130→   130→  const isDark = resolvedTheme === 'dark';
+   131→   131→
+   132→   132→  return (
+   133→   133→    <Button
+   134→   134→      variant="ghost"
+   135→   135→      size="icon"
+   136→   136→      className="h-8 w-8 shrink-0 border border-white/20 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 hover:text-white"
+   137→   137→      onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+   138→   138→      aria-label="Basculer le thème"
+   139→   139→    >
+   140→   140→      {resolvedTheme
+   141→   141→        ? (isDark ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />)
+   142→   142→        : <div className="size-3.5" />
+   143→   143→      }
+   144→   144→    </Button>
+   145→   145→  );
+   146→   146→}
+   147→   147→
+   148→   148→// ─── Export Dropdown ────────────────────────────────────────────────────────
+   149→   149→
+   150→   150→interface ExportIndicator {
+   151→   151→  code: string;
+   152→   152→  name: string;
+   153→   153→  subDomain: string | null;
+   154→   154→  unit: string;
+   155→   155→  targetValue: number | null;
+   156→   156→  alertValue: number | null;
+   157→   157→  criticalValue: number | null;
+   158→   158→  isPriority: boolean;
+   159→   159→  department: string | null;
+   160→   160→  values: { year: number; quarter: number | null; month: number | null; period: string; value: number; comment: string | null }[];
+   161→   161→  latestValue: number | null;
+   162→   162→  latestPeriod: string | null;
+   163→   163→}
+   164→   164→
+   165→   165→interface ExportResponseData {
+   166→   166→  format: string;
+   167→   167→  module: string;
+   168→   168→  moduleLabel: string;
+   169→   169→  filters: Record<string, unknown>;
+   170→   170→  settings: Record<string, unknown>;
+   171→   171→  indicators: ExportIndicator[];
+   172→   172→  totalIndicators: number;
+   173→   173→  generatedAt: string;
+   174→   174→}
+   175→   175→
+   176→   176→function ExportDropdown({ className }: { className?: string }) {
+   177→   177→  const { activeView, filters } = useAppStore();
+   178→   178→  const { toast } = useToast();
+   179→   179→  const [exporting, setExporting] = useState<string | null>(null);
+   180→   180→  const [defaultFormat, setDefaultFormat] = useState<string | null>(null);
+   181→   181→
+   182→   182→  // Fetch default export format on mount
+   183→   183→  useEffect(() => {
+   184→   184→    fetch('/api/admin/settings')
+   185→   185→      .then((r) => (r.ok ? r.json() : null))
+   186→   186→      .then((data: Record<string, unknown> | null) => {
+   187→   187→        if (data?.defaultExportFormat) {
+   188→   188→          setDefaultFormat(String(data.defaultExportFormat));
+   189→   189→        }
+   190→   190→      })
+   191→   191→      .catch(() => {});
+   192→   192→  }, []);
+   193→   193→
+   194→   194→  const buildExportUrl = (format: string) => {
+   195→   195→    const params = new URLSearchParams();
+   196→   196→    params.set('module', activeView === 'accueil' ? 'governance' : activeView);
+   197→   197→    params.set('format', format);
+   198→   198→    if (filters.year) params.set('year', String(filters.year));
+   199→   199→    if (filters.quarter) params.set('quarter', String(filters.quarter));
+   200→   200→    if (filters.month) params.set('month', String(filters.month));
+   201→   201→    if (filters.periodStart) params.set('periodStart', filters.periodStart);
+   202→   202→    if (filters.periodEnd) params.set('periodEnd', filters.periodEnd);
+   203→   203→    return `/api/export?${params.toString()}`;
+   204→   204→  };
+   205→   205→
+   206→   206→  const downloadAsCsv = (data: ExportResponseData) => {
+   207→   207→    const moduleLabel = MODULE_LABELS[data.module as AppViewKey] ?? data.module;
+   208→   208→    const header = [
+   209→   209→      'Code',
+   210→   210→      'Indicateur',
+   211→   211→      'Sous-domaine',
+   212→   212→      'Unité',
+   213→   213→      'Cible',
+   214→   214→      'Valeur',
+   215→   215→      'Période',
+   216→   216→      'Département',
+   217→   217→      'Priorité',
+   218→   218→    ];
+   219→   219→    const rows = data.indicators.map((ind) => [
+   220→   220→      ind.code,
+   221→   221→      `"${ind.name}"`,
+   222→   222→      ind.subDomain ?? '',
+   223→   223→      ind.unit,
+   224→   224→      ind.targetValue?.toString() ?? '',
+   225→   225→      ind.latestValue?.toString() ?? '',
+   226→   226→      ind.latestPeriod ?? '',
+   227→   227→      ind.department ?? '',
+   228→   228→      ind.isPriority ? 'Oui' : 'Non',
+   229→   229→    ]);
+   230→   230→
+   231→   231→    // BOM for Excel UTF-8
+   232→   232→    const bom = '\uFEFF';
+   233→   233→    const csv = bom + [header.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
+   234→   234→    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+   235→   235→    const url = URL.createObjectURL(blob);
+   236→   236→    const a = document.createElement('a');
+   237→   237→    a.href = url;
+   238→   238→    a.download = `export_${data.module}_${new Date().toISOString().slice(0, 10)}.csv`;
+   239→   239→    document.body.appendChild(a);
+   240→   240→    a.click();
+   241→   241→    document.body.removeChild(a);
+   242→   242→    URL.revokeObjectURL(url);
+   243→   243→  };
+   244→   244→
+   245→   245→  const downloadAsHtml = (data: ExportResponseData) => {
+   246→   246→    const moduleLabel = MODULE_LABELS[data.module as AppViewKey] ?? data.module;
+   247→   247→    const includeLogo = data.settings?.includeLogo !== false;
+   248→   248→    const includeDate = data.settings?.includeGenerationDate !== false;
+   249→   249→
+   250→   250→    const rows = data.indicators
+   251→   251→      .map(
+   252→   252→        (ind) => `
+   253→   253→        <tr>
+   254→   254→          <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-weight:500;font-size:12px;">${ind.code}${ind.isPriority ? ' ★' : ''}</td>
+   255→   255→          <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;">${ind.name}</td>
+   256→   256→          <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;">${ind.subDomain ?? '—'}</td>
+   257→   257→          <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;text-align:right;">${ind.latestValue ?? '—'}</td>
+   258→   258→          <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;text-align:right;">${ind.targetValue ?? '—'}</td>
+   259→   259→          <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;">${ind.unit}</td>
+   260→   260→        </tr>`,
+   261→   261→      )
+   262→   262→      .join('');
+   263→   263→
+   264→   264→    const html = `<!DOCTYPE html>
+   265→   265→<html lang="fr">
+   266→   266→<head><meta charset="UTF-8"><title>Export ${moduleLabel}</title></head>
+   267→   267→<body style="font-family:system-ui,sans-serif;margin:40px;color:#1a1a2e;">
+   268→   268→  <div style="max-width:1000px;margin:0 auto;">
+   269→   269→    ${includeLogo ? '<h1 style="font-size:22px;margin-bottom:4px;">ANSUT Cockpit DG</h1>' : ''}
+   270→   270→    <h2 style="font-size:18px;color:#1c55a3;margin-bottom:2px;">${moduleLabel}</h2>
+   271→   271→    ${includeDate ? `<p style="font-size:12px;color:#6b7280;margin-bottom:20px;">Généré le ${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })} — ${data.totalIndicators} indicateurs</p>` : '<p style="margin-bottom:20px;"></p>'}
+   272→   272→    <table style="width:100%;border-collapse:collapse;">
+   273→   273→      <thead>
+   274→   274→        <tr style="background:#f3f4f6;">
+   275→   275→          <th style="padding:8px 10px;text-align:left;font-size:12px;border-bottom:2px solid #1c55a3;">Code</th>
+   276→   276→          <th style="padding:8px 10px;text-align:left;font-size:12px;border-bottom:2px solid #1c55a3;">Indicateur</th>
+   277→   277→          <th style="padding:8px 10px;text-align:left;font-size:12px;border-bottom:2px solid #1c55a3;">Sous-domaine</th>
+   278→   278→          <th style="padding:8px 10px;text-align:right;font-size:12px;border-bottom:2px solid #1c55a3;">Valeur</th>
+   279→   279→          <th style="padding:8px 10px;text-align:right;font-size:12px;border-bottom:2px solid #1c55a3;">Cible</th>
+   280→   280→          <th style="padding:8px 10px;text-align:left;font-size:12px;border-bottom:2px solid #1c55a3;">Unité</th>
+   281→   281→        </tr>
+   282→   282→      </thead>
+   283→   283→      <tbody>${rows}</tbody>
+   284→   284→    </table>
+   285→   285→  </div>
+   286→   286→</body></html>`;
+   287→   287→
+   288→   288→    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+   289→   289→    const url = URL.createObjectURL(blob);
+   290→   290→    const a = document.createElement('a');
+   291→   291→    a.href = url;
+   292→   292→    a.download = `export_${data.module}_${new Date().toISOString().slice(0, 10)}.html`;
+   293→   293→    document.body.appendChild(a);
+   294→   294→    a.click();
+   295→   295→    document.body.removeChild(a);
+   296→   296→    URL.revokeObjectURL(url);
+   297→   297→  };
+   298→   298→
+   299→   299→  const handleExportPptx = async () => {
+   300→   300→    if (exporting) return;
+   301→   301→    setExporting('pptx');
+   302→   302→    try {
+   303→   303→      const params = new URLSearchParams();
+   304→   304→      params.set('module', activeView === 'accueil' ? 'governance' : activeView);
+   305→   305→      if (filters.year) params.set('year', String(filters.year));
+   306→   306→      if (filters.quarter) params.set('quarter', String(filters.quarter));
+   307→   307→      if (filters.month) params.set('month', String(filters.month));
+   308→   308→
+   309→   309→      const res = await fetch(`/api/export/pptx?${params.toString()}`);
+   310→   310→      if (!res.ok) throw new Error('Export failed');
+   311→   311→      const blob = await res.blob();
+   312→   312→
+   313→   313→      const url = URL.createObjectURL(blob);
+   314→   314→      const a = document.createElement('a');
+   315→   315→      a.href = url;
+   316→   316→      const mod = activeView === 'accueil' ? 'governance' : activeView;
+   317→   317→      a.download = `cockpit_${mod}_${new Date().toISOString().slice(0, 10)}.pptx`;
+   318→   318→      document.body.appendChild(a);
+   319→   319→      a.click();
+   320→   320→      document.body.removeChild(a);
+   321→   321→      URL.revokeObjectURL(url);
+   322→   322→
+   323→   323→      toast({
+   324→   324→        title: 'Export PowerPoint réussi',
+   325→   325→        description: `Présentation générée pour ${MODULE_LABELS[activeView] ?? activeView}.`,
+   326→   326→      });
+   327→   327→    } catch {
+   328→   328→      toast({
+   329→   329→        title: "Erreur d'export",
+   330→   330→        description: 'Impossible de générer le PowerPoint. Veuillez réessayer.',
+   331→   331→        variant: 'destructive',
+   332→   332→      });
+   333→   333→    } finally {
+   334→   334→      setExporting(null);
+   335→   335→    }
+   336→   336→  };
+   337→   337→
+   338→   338→  const handleExport = async (format: 'excel' | 'pdf') => {
+   339→   339→    if (exporting) return;
+   340→   340→    setExporting(format);
+   341→   341→    try {
+   342→   342→      const res = await fetch(buildExportUrl(format));
+   343→   343→      if (!res.ok) throw new Error('Export failed');
+   344→   344→      const data: ExportResponseData = await res.json();
+   345→   345→
+   346→   346→      if (format === 'excel') {
+   347→   347→        downloadAsCsv(data);
+   348→   348→      } else {
+   349→   349→        downloadAsHtml(data);
+   350→   350→      }
+   351→   351→
+   352→   352→      toast({
+   353→   353→        title: 'Export réussi',
+   354→   354→        description: `${data.totalIndicators} indicateurs exportés pour ${MODULE_LABELS[data.module as AppViewKey] ?? data.module}.`,
+   355→   355→      });
+   356→   356→    } catch {
+   357→   357→      toast({
+   358→   358→        title: 'Erreur d\'export',
+   359→   359→        description: 'Impossible de générer l\'export. Veuillez réessayer.',
+   360→   360→        variant: 'destructive',
+   361→   361→      });
+   362→   362→    } finally {
+   363→   363→      setExporting(null);
+   364→   364→    }
+   365→   365→  };
+   366→   366→
+   367→   367→  return (
+   368→   368→    <DropdownMenu>
+   369→   369→      <DropdownMenuTrigger asChild>
+   370→   370→        <Button
+   371→   371→          variant="ghost"
+   372→   372→          size="sm"
+   373→   373→          className={cn(
+   374→   374→            'h-8 gap-1.5 border border-white/20 bg-white/10 text-white text-xs backdrop-blur-sm hover:bg-white/20 hover:text-white',
+   375→   375→            className,
+   376→   376→          )}
+   377→   377→        >
+   378→   378→          {exporting ? (
+   379→   379→            <Loader2 className="size-3.5 animate-spin" />
+   380→   380→          ) : (
+   381→   381→            <Download className="size-3.5" />
+   382→   382→          )}
+   383→   383→          <span className="hidden lg:inline">Exporter</span>
+   384→   384→        </Button>
+   385→   385→      </DropdownMenuTrigger>
+   386→   386→      <DropdownMenuContent align="end" className="w-52">
+   387→   387→        <DropdownMenuItem
+   388→   388→          onClick={() => handleExport('excel')}
+   389→   389→          disabled={!!exporting}
+   390→   390→          className="gap-2 cursor-pointer"
+   391→   391→        >
+   392→   392→          <FileSpreadsheet className={cn('size-4', defaultFormat === 'excel' ? 'text-green-600' : 'text-green-600/70')} />
+   393→   393→          <span className="flex-1">Exporter Excel</span>
+   394→   394→          {defaultFormat === 'excel' && (
+   395→   395→            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 gap-0.5">
+   396→   396→              <Star className="size-2 text-tango" /> Par défaut
+   397→   397→            </Badge>
+   398→   398→          )}
+   399→   399→        </DropdownMenuItem>
+   400→   400→        <DropdownMenuItem
+   401→   401→          onClick={() => handleExport('pdf')}
+   402→   402→          disabled={!!exporting}
+   403→   403→          className="gap-2 cursor-pointer"
+   404→   404→        >
+   405→   405→          <FileText className={cn('size-4', defaultFormat === 'pdf' ? 'text-red-600' : 'text-red-600/70')} />
+   406→   406→          <span className="flex-1">Exporter PDF</span>
+   407→   407→          {defaultFormat === 'pdf' && (
+   408→   408→            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 gap-0.5">
+   409→   409→              <Star className="size-2 text-tango" /> Par défaut
+   410→   410→            </Badge>
+   411→   411→          )}
+   412→   412→        </DropdownMenuItem>
+   413→   413→        <DropdownMenuItem
+   414→   414→          onClick={handleExportPptx}
+   415→   415→          disabled={!!exporting}
+   416→   416→          className="gap-2 cursor-pointer"
+   417→   417→        >
+   418→   418→          <Presentation className={cn('size-4', defaultFormat === 'pptx' ? 'text-tango' : 'text-tango/70')} />
+   419→   419→          <span className="flex-1">Exporter PowerPoint</span>
+   420→   420→          {defaultFormat === 'pptx' && (
+   421→   421→            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 gap-0.5">
+   422→   422→              <Star className="size-2 text-tango" /> Par défaut
+   423→   423→            </Badge>
+   424→   424→          )}
+   425→   425→        </DropdownMenuItem>
+   426→   426→      </DropdownMenuContent>
+   427→   427→    </DropdownMenu>
+   428→   428→  );
+   429→   429→}
+   430→   430→
+   431→   431→// ─── Active filter badges (shown on mobile under title) ─────────────────────
+   432→   432→
+   433→   433→function ActiveFilterBadges() {
+   434→   434→  const { filters, setFilters } = useAppStore();
+   435→   435→  const badges: { label: string; onClear: () => void }[] = [];
+   436→   436→
+   437→   437→  if (filters.quarter) {
+   438→   438→    const q = QUARTERS.find((q) => q.value === String(filters.quarter));
+   439→   439→    badges.push({
+   440→   440→      label: q?.label || `T${filters.quarter}`,
+   441→   441→      onClear: () => setFilters({ quarter: null }),
+   442→   442→    });
+   443→   443→  }
+   444→   444→  if (filters.month) {
+   445→   445→    const m = MONTHS_FR.find((m) => m.value === String(filters.month));
+   446→   446→    badges.push({
+   447→   447→      label: m?.label || `M${filters.month}`,
+   448→   448→      onClear: () => setFilters({ month: null }),
+   449→   449→    });
+   450→   450→  }
+   451→   451→  if (filters.periodStart || filters.periodEnd) {
+   452→   452→    const from = formatDateShort(filters.periodStart);
+   453→   453→    const to = formatDateShort(filters.periodEnd);
+   454→   454→    badges.push({
+   455→   455→      label: from && to ? `${from} → ${to}` : from || to,
+   456→   456→      onClear: () => setFilters({ periodStart: null, periodEnd: null }),
+   457→   457→    });
+   458→   458→  }
+   459→   459→  if (filters.departmentId) {
+   460→   460→    badges.push({
+   461→   461→      label: 'Dept',
+   462→   462→      onClear: () => setFilters({ departmentId: null }),
+   463→   463→    });
+   464→   464→  }
+   465→   465→
+   466→   466→  if (badges.length === 0) return null;
+   467→   467→
+   468→   468→  return (
+   469→   469→    <div className="flex items-center gap-1 flex-wrap">
+   470→   470→      {badges.map((b, i) => (
+   471→   471→        <button
+   472→   472→          key={i}
+   473→   473→          onClick={b.onClear}
+   474→   474→          className="inline-flex items-center gap-0.5 rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-white/30 transition-colors"
+   475→   475→        >
+   476→   476→          {b.label}
+   477→   477→          <X className="size-2.5" />
+   478→   478→        </button>
+   479→   479→      ))}
+   480→   480→    </div>
+   481→   481→  );
+   482→   482→}
+   483→   483→
+   484→   484→// ─── PowerPoint Import ──────────────────────────────────────────────────────
+   485→   485→
+   486→   486→interface ParsedIndicator {
+   487→   487→  code: string;
+   488→   488→  name: string | null;
+   489→   489→  domain: string | null;
+   490→   490→  value: number | null;
+   491→   491→  found: boolean;
+   492→   492→}
+   493→   493→
+   494→   494→interface ImportPreview {
+   495→   495→  fileName: string;
+   496→   496→  slidesScanned: number;
+   497→   497→  tablesFound: number;
+   498→   498→  indicatorsFound: number;
+   499→   499→  indicators: ParsedIndicator[];
+   500→   500→  year: number;
+   501→   501→  quarter: number | null;
+   502→   502→  month: number | null;
+   503→   503→}
+   504→   504→
+   505→   505→function ImportPptxButton({ className }: { className?: string }) {
+   506→   506→  const { filters } = useAppStore();
+   507→   507→  const { toast } = useToast();
+   508→   508→  const [open, setOpen] = useState(false);
+   509→   509→  const [uploading, setUploading] = useState(false);
+   510→   510→  const [applying, setApplying] = useState(false);
+   511→   511→  const [preview, setPreview] = useState<ImportPreview | null>(null);
+   512→   512→  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+   513→   513→  const fileInputRef = React.useRef<HTMLInputElement>(null);
+   514→   514→
+   515→   515→  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+   516→   516→    const file = e.target.files?.[0] || null;
+   517→   517→    setSelectedFile(file);
+   518→   518→    setPreview(null);
+   519→   519→  };
+   520→   520→
+   521→   521→  const handleAnalyze = async () => {
+   522→   522→    if (!selectedFile) return;
+   523→   523→    setUploading(true);
+   524→   524→    setPreview(null);
+   525→   525→    try {
+   526→   526→      const formData = new FormData();
+   527→   527→      formData.append('file', selectedFile);
+   528→   528→      if (filters.year) formData.append('year', String(filters.year));
+   529→   529→      if (filters.quarter) formData.append('quarter', String(filters.quarter));
+   530→   530→      if (filters.month) formData.append('month', String(filters.month));
+   531→   531→
+   532→   532→      const res = await fetch('/api/import/pptx', { method: 'POST', body: formData });
+   533→   533→      const data = await res.json();
+   534→   534→      if (!res.ok) throw new Error(data.error || 'Erreur');
+   535→   535→
+   536→   536→      setPreview(data as ImportPreview);
+   537→   537→    } catch (err) {
+   538→   538→      toast({
+   539→   539→        title: "Erreur d'analyse",
+   540→   540→        description: err instanceof Error ? err.message : 'Impossible d\'analyser le fichier.',
+   541→   541→        variant: 'destructive',
+   542→   542→      });
+   543→   543→    } finally {
+   544→   544→      setUploading(false);
+   545→   545→    }
+   546→   546→  };
+   547→   547→
+   548→   548→  const handleApply = async () => {
+   549→   549→    if (!preview) return;
+   550→   550→    setApplying(true);
+   551→   551→    try {
+   552→   552→      const valuesToApply = preview.indicators
+   553→   553→        .filter((i) => i.value !== null)
+   554→   554→        .map((i) => ({ code: i.code, value: i.value as number }));
+   555→   555→
+   556→   556→      if (valuesToApply.length === 0) {
+   557→   557→        toast({ title: 'Aucune valeur', description: 'Aucune valeur numérique trouvée à appliquer.' });
+   558→   558→        return;
+   559→   559→      }
+   560→   560→
+   561→   561→      const res = await fetch('/api/import/pptx', {
+   562→   562→        method: 'PUT',
+   563→   563→        headers: { 'Content-Type': 'application/json' },
+   564→   564→        body: JSON.stringify({
+   565→   565→          indicators: valuesToApply,
+   566→   566→          year: preview.year,
+   567→   567→          quarter: preview.quarter,
+   568→   568→          month: preview.month,
+   569→   569→        }),
+   570→   570→      });
+   571→   571→      const data = await res.json();
+   572→   572→      if (!res.ok) throw new Error(data.error || 'Erreur');
+   573→   573→
+   574→   574→      toast({
+   575→   575→        title: 'Import réussi',
+   576→   576→        description: `${data.updated} mis à jour, ${data.created} créés sur ${data.total} indicateurs.`,
+   577→   577→      });
+   578→   578→      setOpen(false);
+   579→   579→      setPreview(null);
+   580→   580→      setSelectedFile(null);
+   581→   581→    } catch (err) {
+   582→   582→      toast({
+   583→   583→        title: "Erreur d'import",
+   584→   584→        description: err instanceof Error ? err.message : 'Impossible d\'appliquer les données.',
+   585→   585→        variant: 'destructive',
+   586→   586→      });
+   587→   587→    } finally {
+   588→   588→      setApplying(false);
+   589→   589→    }
+   590→   590→  };
+   591→   591→
+   592→   592→  const withValues = preview?.indicators.filter((i) => i.value !== null).length ?? 0;
+   593→   593→
+   594→   594→  return (
+   595→   595→    <>
+   596→   596→      <Button
+   597→   597→        variant="ghost"
+   598→   598→        size="sm"
+   599→   599→        className={cn(
+   600→   600→          'h-8 gap-1.5 border border-white/20 bg-white/10 text-white text-xs backdrop-blur-sm hover:bg-white/20 hover:text-white',
+   601→   601→          className,
+   602→   602→        )}
+   603→   603→        onClick={() => setOpen(true)}
+   604→   604→      >
+   605→   605→        <Upload className="size-3.5" />
+   606→   606→        <span className="hidden lg:inline">Importer</span>
+   607→   607→      </Button>
+   608→   608→
+   609→   609→      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setPreview(null); setSelectedFile(null); } }}>
+   610→   610→        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+   611→   611→          <DialogHeader>
+   612→   612→            <DialogTitle className="flex items-center gap-2">
+   613→   613→              <FileUp className="size-5 text-tango" />
+   614→   614→              Importer PowerPoint
+   615→   615→            </DialogTitle>
+   616→   616→            <DialogDescription>
+   617→   617→              Importez les valeurs de KPIs depuis un fichier PowerPoint (.pptx) contenant des tableaux avec des codes indicateurs.
+   618→   618→            </DialogDescription>
+   619→   619→          </DialogHeader>
+   620→   620→
+   621→   621→          <div className="space-y-4">
+   622→   622→            {/* File picker */}
+   623→   623→            <div>
+   624→   624→              <Label className="text-xs font-medium">Fichier PowerPoint</Label>
+   625→   625→              <div className="mt-1.5 flex items-center gap-2">
+   626→   626→                <input
+   627→   627→                  ref={fileInputRef}
+   628→   628→                  type="file"
+   629→   629→                  accept=".pptx"
+   630→   630→                  onChange={handleFileChange}
+   631→   631→                  className="hidden"
+   632→   632→                />
+   633→   633→                <Button
+   634→   634→                  variant="outline"
+   635→   635→                  size="sm"
+   636→   636→                  className="gap-2"
+   637→   637→                  onClick={() => fileInputRef.current?.click()}
+   638→   638→                >
+   639→   639→                  <FileSpreadsheet className="size-4" />
+   640→   640→                  {selectedFile ? selectedFile.name : 'Choisir un fichier'}
+   641→   641→                </Button>
+   642→   642→              </div>
+   643→   643→            </div>
+   644→   644→
+   645→   645→            {/* Period info */}
+   646→   646→            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+   647→   647→              <span>Période : <strong>{filters.year}</strong></span>
+   648→   648→              {filters.quarter && <span>· <strong>T{filters.quarter}</strong></span>}
+   649→   649→              {filters.month && <span>· <strong>M{filters.month}</strong></span>}
+   650→   650→            </div>
+   651→   651→
+   652→   652→            {/* Analyze button */}
+   653→   653→            {!preview && (
+   654→   654→              <Button
+   655→   655→                onClick={handleAnalyze}
+   656→   656→                disabled={!selectedFile || uploading}
+   657→   657→                className="w-full gap-2"
+   658→   658→              >
+   659→   659→                {uploading ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
+   660→   660→                {uploading ? 'Analyse en cours...' : 'Analyser le fichier'}
+   661→   661→              </Button>
+   662→   662→            )}
+   663→   663→
+   664→   664→            {/* Preview table */}
+   665→   665→            {preview && (
+   666→   666→              <>
+   667→   667→                <div className="rounded-lg border p-3 space-y-2">
+   668→   668→                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+   669→   669→                    <span>📄 {preview.slidesScanned} diapositives</span>
+   670→   670→                    <span>📊 {preview.tablesFound} tableaux</span>
+   671→   671→                    <span className="font-semibold text-foreground">{preview.indicatorsFound} KPIs trouvés</span>
+   672→   672→                  </div>
+   673→   673→
+   674→   674→                  {preview.indicators.length > 0 ? (
+   675→   675→                    <div className="max-h-60 overflow-y-auto custom-scrollbar">
+   676→   676→                      <table className="w-full text-xs">
+   677→   677→                        <thead>
+   678→   678→                          <tr className="border-b">
+   679→   679→                            <th className="text-left py-1.5 pr-2 font-semibold">Code</th>
+   680→   680→                            <th className="text-left py-1.5 pr-2 font-semibold">Indicateur</th>
+   681→   681→                            <th className="text-right py-1.5 font-semibold">Valeur</th>
+   682→   682→                          </tr>
+   683→   683→                        </thead>
+   684→   684→                        <tbody>
+   685→   685→                          {preview.indicators.map((ind) => (
+   686→   686→                            <tr key={ind.code} className="border-b border-border/50">
+   687→   687→                              <td className="py-1.5 pr-2">
+   688→   688→                                <Badge variant="outline" className="text-[10px] font-mono">{ind.code}</Badge>
+   689→   689→                              </td>
+   690→   690→                              <td className="py-1.5 pr-2 truncate max-w-[200px]">{ind.name || '—'}</td>
+   691→   691→                              <td className="py-1.5 text-right font-mono">
+   692→   692→                                {ind.value !== null ? <span className="text-green-600 font-semibold">{ind.value}</span> : <span className="text-muted-foreground">—</span>}
+   693→   693→                              </td>
+   694→   694→                            </tr>
+   695→   695→                          ))}
+   696→   696→                        </tbody>
+   697→   697→                      </table>
+   698→   698→                    </div>
+   699→   699→                  ) : (
+   700→   700→                    <p className="text-xs text-muted-foreground text-center py-4">
+   701→   701→                      Aucun indicateur reconnu dans ce fichier. Vérifiez que les codes KPI (ex: FIN-001) sont présents dans les tableaux.
+   702→   702→                    </p>
+   703→   703→                  )}
+   704→   704→                </div>
+   705→   705→
+   706→   706→                <DialogFooter className="gap-2">
+   707→   707→                  <Button variant="outline" onClick={() => { setPreview(null); setSelectedFile(null); }}>
+   708→   708→                    Annuler
+   709→   709→                  </Button>
+   710→   710→                  <Button
+   711→   711→                    onClick={handleApply}
+   712→   712→                    disabled={applying || withValues === 0}
+   713→   713→                    className="gap-2"
+   714→   714→                  >
+   715→   715→                    {applying ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+   716→   716→                    {applying ? 'Import en cours...' : `Appliquer (${withValues} valeur${withValues > 1 ? 's' : ''})`}
+   717→   717→                  </Button>
+   718→   718→                </DialogFooter>
+   719→   719→              </>
+   720→   720→            )}
+   721→   721→          </div>
+   722→   722→        </DialogContent>
+   723→   723→      </Dialog>
+   724→   724→    </>
+   725→   725→  );
+   726→   726→}
+   727→   727→
+   728→   728→// ─── Global Search ─────────────────────────────────────────────────────────
+   729→   729→
+   730→   730→interface SearchResult {
+   731→   731→  type: 'module' | 'indicator';
+   732→   732→  id: string;
+   733→   733→  name: string;
+   734→   734→  code: string | null;
+   735→   735→  domain: string;
+   736→   736→  domainLabel: string;
+   737→   737→  domainColor: string;
+   738→   738→  subDomain: string | null;
+   739→   739→  value: number | null;
+   740→   740→  targetValue: number | null;
+   741→   741→  unit: string;
+   742→   742→  status: string | null;
+   743→   743→}
+   744→   744→
+   745→   745→function GlobalSearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+   746→   746→  const { setActiveView, setActiveModule, setHighlightIndicatorId, setHighlightSubDomain, filters } = useAppStore();
+   747→   747→  const [query, setQuery] = useState('');
+   748→   748→  const [results, setResults] = useState<SearchResult[]>([]);
+   749→   749→  const [loading, setLoading] = useState(false);
+   750→   750→  const debounceRef = React.useRef<ReturnType<typeof setTimeout>>();
+   751→   751→
+   752→   752→  const doSearch = useCallback(async (q: string) => {
+   753→   753→    if (q.length < 2) {
+   754→   754→      setResults([]);
+   755→   755→      return;
+   756→   756→    }
+   757→   757→    try {
+   758→   758→      setLoading(true);
+   759→   759→      const params = new URLSearchParams({ q, year: String(filters.year) });
+   760→   760→      if (filters.quarter) params.set('quarter', String(filters.quarter));
+   761→   761→      const res = await fetch(`/api/search?${params}`);
+   762→   762→      if (res.ok) {
+   763→   763→        const data = await res.json();
+   764→   764→        setResults(data.results || []);
+   765→   765→      }
+   766→   766→    } catch {
+   767→   767→      // silent
+   768→   768→    } finally {
+   769→   769→      setLoading(false);
+   770→   770→    }
+   771→   771→  }, [filters.year, filters.quarter]);
+   772→   772→
+   773→   773→  function handleValueChange(value: string) {
+   774→   774→    setQuery(value);
+   775→   775→    if (debounceRef.current) clearTimeout(debounceRef.current);
+   776→   776→    debounceRef.current = setTimeout(() => doSearch(value), 250);
+   777→   777→  }
+   778→   778→
+   779→   779→  function handleSelect(result: SearchResult) {
+   780→   780→    onOpenChange(false);
+   781→   781→    setQuery('');
+   782→   782→    setResults([]);
+   783→   783→    if (result.type === 'module') {
+   784→   784→      setHighlightSubDomain(null);
+   785→   785→      setActiveView(result.domain as ModuleKey);
+   786→   786→    } else {
+   787→   787→      // Highlight the indicator for 2 seconds with 3-beat echo
+   788→   788→      if (result.id) {
+   789→   789→        setHighlightIndicatorId(result.id);
+   790→   790→        // Also set sub-domain so the module view auto-switches to the right tab
+   791→   791→        if (result.subDomain) {
+   792→   792→          setHighlightSubDomain(result.subDomain);
+   793→   793→        } else {
+   794→   794→          setHighlightSubDomain(null);
+   795→   795→        }
+   796→   796→        // Only clear the visual highlight (animation) after 2.5s
+   797→   797→        // highlightSubDomain persists so the tab stays until user manually clicks another tab
+   798→   798→        setTimeout(() => setHighlightIndicatorId(null), 2500);
+   799→   799→      }
+   800→   800→      setActiveView(result.domain as ModuleKey);
+   801→   801→    }
+   802→   802→  }
+   803→   803→
+   804→   804→  // Group results by domain
+   805→   805→  const grouped = useMemo(() => {
+   806→   806→    const map = new Map<string, SearchResult[]>();
+   807→   807→    for (const r of results) {
+   808→   808→      const key = r.domainLabel;
+   809→   809→      if (!map.has(key)) map.set(key, []);
+   810→   810→      map.get(key)!.push(r);
+   811→   811→    }
+   812→   812→    return Array.from(map.entries());
+   813→   813→  }, [results]);
+   814→   814→
+   815→   815→  return (
+   816→   816→    <CommandDialog open={open} onOpenChange={onOpenChange}>
+   817→   817→      <CommandInput
+   818→   818→        placeholder="Rechercher un KPI, un indicateur, un module..."
+   819→   819→        value={query}
+   820→   820→        onValueChange={handleValueChange}
+   821→   821→      />
+   822→   822→      <CommandList>
+   823→   823→        <CommandEmpty>
+   824→   824→          {loading ? (
+   825→   825→            <div className="flex items-center justify-center py-6">
+   826→   826→              <div className="size-4 border-2 border-muted-foreground/20 border-t-muted-foreground rounded-full animate-spin" />
+   827→   827→            </div>
+   828→   828→          ) : query.length >= 2 ? (
+   829→   829→            'Aucun résultat trouvé'
+   830→   830→          ) : (
+   831→   831→            'Tapez au moins 2 caractères pour rechercher'
+   832→   832→          )}
+   833→   833→        </CommandEmpty>
+   834→   834→        {grouped.map(([domainLabel, items]) => (
+   835→   835→          <CommandGroup key={domainLabel} heading={domainLabel}>
+   836→   836→            {items.map((item) => (
+   837→   837→              <CommandItem
+   838→   838→                key={item.id}
+   839→   839→                value={`${item.name} ${item.code || ''} ${domainLabel}`}
+   840→   840→                onSelect={() => handleSelect(item)}
+   841→   841→                className="gap-3 py-2.5"
+   842→   842→              >
+   843→   843→                <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: item.domainColor }} />
+   844→   844→                <div className="flex-1 min-w-0">
+   845→   845→                  <div className="flex items-center gap-2">
+   846→   846→                    <span className="text-sm font-medium truncate">{item.name}</span>
+   847→   847→                    {item.code && (
+   848→   848→                      <span className="text-[10px] font-mono text-muted-foreground shrink-0">{item.code}</span>
+   849→   849→                    )}
+   850→   850→                  </div>
+   851→   851→                  {item.type === 'indicator' && item.value !== null && (
+   852→   852→                    <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
+   853→   853→                      <span>Valeur: <strong className="text-foreground">{item.value}</strong> {item.unit}</span>
+   854→   854→                      {item.targetValue !== null && (
+   855→   855→                        <span>/ Cible: {item.targetValue}</span>
+   856→   856→                      )}
+   857→   857→                    </div>
+   858→   858→                  )}
+   859→   859→                </div>
+   860→   860→                {item.type === 'module' && (
+   861→   861→                  <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded shrink-0">
+   862→   862→                    Module
+   863→   863→                  </span>
+   864→   864→                )}
+   865→   865→              </CommandItem>
+   866→   866→            ))}
+   867→   867→          </CommandGroup>
+   868→   868→        ))}
+   869→   869→      </CommandList>
+   870→   870→    </CommandDialog>
+   871→   871→  );
+   872→   872→}
+   873→   873→
+   874→   874→// ─── Main Header ────────────────────────────────────────────────────────────
+   875→   875→
+   876→   876→export function Header() {
+   877→   877→  const { activeView, filters, setFilters } = useAppStore();
+   878→   878→  const isAdmin = activeView === 'admin';
+   879→   879→  const [departments, setDepartments] = useState<Department[]>([]);
+   880→   880→  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+   881→   881→  const [searchOpen, setSearchOpen] = useState(false);
+   882→   882→
+   883→   883→  // Keyboard shortcut: Ctrl+K / Cmd+K to open search
+   884→   884→  useEffect(() => {
+   885→   885→    function handleKeyDown(e: KeyboardEvent) {
+   886→   886→      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+   887→   887→        e.preventDefault();
+   888→   888→        setSearchOpen(true);
+   889→   889→      }
+   890→   890→    }
+   891→   891→    document.addEventListener('keydown', handleKeyDown);
+   892→   892→    return () => document.removeEventListener('keydown', handleKeyDown);
+   893→   893→  }, []);
+   894→   894→
+   895→   895→  useEffect(() => {
+   896→   896→    async function fetchDepartments() {
+   897→   897→      try {
+   898→   898→        const res = await fetch('/api/departments');
+   899→   899→        if (res.ok) setDepartments(await res.json());
+   900→   900→      } catch {
+   901→   901→        setDepartments([
+   902→   902→          { id: 'direction', name: 'Direction Générale' },
+   903→   903→          { id: 'finance', name: 'Finance & Comptabilité' },
+   904→   904→          { id: 'rh', name: 'Ressources Humaines' },
+   905→   905→          { id: 'ops', name: 'Opérations' },
+   906→   906→          { id: 'it', name: 'Technologie' },
+   907→   907→          { id: 'juridique', name: 'Juridique' },
+   908→   908→          { id: 'communication', name: 'Communication' },
+   909→   909→        ]);
+   910→   910→      }
+   911→   911→    }
+   912→   912→    fetchDepartments();
+   913→   913→  }, []);
+   914→   914→
+   915→   915→  // Count active filters (excluding year which is always set)
+   916→   916→  const activeFilterCount = [
+   917→   917→    filters.quarter,
+   918→   918→    filters.month,
+   919→   919→    filters.periodStart || filters.periodEnd,
+   920→   920→    filters.departmentId,
+   921→   921→  ].filter(Boolean).length;
+   922→   922→
+   923→   923→  return (
+   924→   924→    <header className="sticky top-0 z-30 flex items-center justify-between bg-fun-blue px-3 py-2 sm:px-4 sm:py-2.5 lg:px-6 text-white shadow-md">
+   925→   925→      {/* ── Left: sidebar trigger + title ── */}
+   926→   926→      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+   927→   927→        <SidebarTrigger className="shrink-0 text-white hover:bg-white/10 hover:text-white" />
+   928→   928→        <div className="flex flex-col min-w-0">
+   929→   929→          <h1 className="text-sm font-bold leading-tight sm:text-base lg:text-xl truncate">
+   930→   930→            {MODULE_LABELS[activeView]}
+   931→   931→          </h1>
+   932→   932→          <div className="flex items-center gap-2 min-w-0">
+   933→   933→            <p className="hidden text-[10px] text-white/60 sm:block truncate">
+   934→   934→              {isAdmin
+   935→   935→                ? "Panneau d'administration système"
+   936→   936→                : 'Cockpit de Direction Générale'}
+   937→   937→            </p>
+   938→   938→            {/* Mobile: active filter pills */}
+   939→   939→            <div className="sm:hidden">
+   940→   940→              <ActiveFilterBadges />
+   941→   941→            </div>
+   942→   942→          </div>
+   943→   943→        </div>
+   944→   944→
+   945→   945→        {/* Global search button — after title, desktop only */}
+   946→   946→        <button
+   947→   947→          onClick={() => setSearchOpen(true)}
+   948→   948→          className={cn(
+   949→   949→            'hidden sm:flex items-center gap-2 h-8 px-3 rounded-md text-xs text-white/60 border border-white/15 bg-white/5 hover:bg-white/15 hover:text-white/90 transition-colors w-[160px] lg:w-[220px] shrink-0 cursor-pointer',
+   950→   950→          )}
+   951→   951→        >
+   952→   952→          <Search className="size-3.5 shrink-0" />
+   953→   953→          <span className="flex-1 text-left truncate">Rechercher un KPI...</span>
+   954→   954→          <kbd className="hidden lg:inline-flex items-center gap-0.5 text-[10px] text-white/40 bg-white/10 rounded px-1.5 py-0.5 font-mono">
+   955→   955→            ⌘K
+   956→   956→          </kbd>
+   957→   957→        </button>
+   958→   958→      </div>
+   959→   959→
+   960→   960→      {/* ── Right: filters + export + theme ── */}
+   961→   961→      {!isAdmin && (
+   962→   962→        <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 shrink-0">
+   963→   963→          {/* Desktop inline filters (md+) */}
+   964→   964→          <div className="hidden md:flex items-center gap-1.5 lg:gap-2">
+   965→   965→            {/* Year */}
+   966→   966→            <Select
+   967→   967→              value={String(filters.year)}
+   968→   968→              onValueChange={(v) => setFilters({ year: Number(v) })}
+   969→   969→            >
+   970→   970→              <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[82px]')}>
+   971→   971→                <SelectValue />
+   972→   972→              </SelectTrigger>
+   973→   973→              <SelectContent>
+   974→   974→                {YEARS.map((y) => (
+   975→   975→                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+   976→   976→                ))}
+   977→   977→              </SelectContent>
+   978→   978→            </Select>
+   979→   979→
+   980→   980→            {/* Quarter */}
+   981→   981→            <Select
+   982→   982→              value={filters.quarter ? String(filters.quarter) : 'all'}
+   983→   983→              onValueChange={(v) => setFilters({ quarter: v === 'all' ? null : Number(v) })}
+   984→   984→            >
+   985→   985→              <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[76px]')}>
+   986→   986→                <SelectValue />
+   987→   987→              </SelectTrigger>
+   988→   988→              <SelectContent>
+   989→   989→                <SelectItem value="all">Tous</SelectItem>
+   990→   990→                {QUARTERS.map((q) => (
+   991→   991→                  <SelectItem key={q.value} value={q.value}>{q.label}</SelectItem>
+   992→   992→                ))}
+   993→   993→              </SelectContent>
+   994→   994→            </Select>
+   995→   995→
+   996→   996→            {/* Month */}
+   997→   997→            <Select
+   998→   998→              value={filters.month ? String(filters.month) : 'all'}
+   999→   999→              onValueChange={(v) => setFilters({ month: v === 'all' ? null : Number(v) })}
+  1000→  1000→            >
+  1001→  1001→              <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[82px]')}>
+  1002→  1002→                <SelectValue />
+  1003→  1003→              </SelectTrigger>
+  1004→  1004→              <SelectContent>
+  1005→  1005→                <SelectItem value="all">Tous</SelectItem>
+  1006→  1006→                {MONTHS_FR.map((m) => (
+  1007→  1007→                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+  1008→  1008→                ))}
+  1009→  1009→              </SelectContent>
+  1010→  1010→            </Select>
+  1011→  1011→
+  1012→  1012→            {/* Period — visible on lg+ */}
+  1013→  1013→            <div className="hidden lg:block">
+  1014→  1014→              <Popover>
+  1015→  1015→                <PopoverTrigger asChild>
+  1016→  1016→                  <button
+  1017→  1017→                    className={cn(
+  1018→  1018→                      HEADER_SELECT,
+  1019→  1019→                      'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs whitespace-nowrap cursor-pointer',
+  1020→  1020→                      (filters.periodStart || filters.periodEnd) && 'bg-white/20',
+  1021→  1021→                    )}
+  1022→  1022→                  >
+  1023→  1023→                    <CalendarIcon className="size-3.5 shrink-0" />
+  1024→  1024→                    {filters.periodStart && filters.periodEnd
+  1025→  1025→                      ? <span>{formatDateShort(filters.periodStart)} → {formatDateShort(filters.periodEnd)}</span>
+  1026→  1026→                      : filters.periodStart
+  1027→  1027→                        ? <span>Depuis {formatDateShort(filters.periodStart)}</span>
+  1028→  1028→                        : filters.periodEnd
+  1029→  1029→                          ? <span>Jusqu'au {formatDateShort(filters.periodEnd)}</span>
+  1030→  1030→                          : <span className="opacity-70">Période</span>
+  1031→  1031→                    }
+  1032→  1032→                    {(filters.periodStart || filters.periodEnd) && (
+  1033→  1033→                      <X
+  1034→  1034→                        className="size-3 shrink-0 opacity-60 hover:opacity-100"
+  1035→  1035→                        onClick={(e) => { e.stopPropagation(); setFilters({ periodStart: null, periodEnd: null }); }}
+  1036→  1036→                      />
+  1037→  1037→                    )}
+  1038→  1038→                  </button>
+  1039→  1039→                </PopoverTrigger>
+  1040→  1040→                <PopoverContent className="w-auto p-3" align="end">
+  1041→  1041→                  <div className="flex flex-col gap-3">
+  1042→  1042→                    <div className="flex items-center gap-2 text-sm font-medium">
+  1043→  1043→                      <CalendarIcon className="size-4 text-fun-blue" />
+  1044→  1044→                      Période personnalisée
+  1045→  1045→                    </div>
+  1046→  1046→                    <div className="grid grid-cols-2 gap-2">
+  1047→  1047→                      <div className="space-y-1">
+  1048→  1048→                        <Label className="text-xs text-muted-foreground">Date début</Label>
+  1049→  1049→                        <input
+  1050→  1050→                          type="date"
+  1051→  1051→                          value={filters.periodStart || ''}
+  1052→  1052→                          onChange={(e) => setFilters({ periodStart: e.target.value || null })}
+  1053→  1053→                          className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+  1054→  1054→                        />
+  1055→  1055→                      </div>
+  1056→  1056→                      <div className="space-y-1">
+  1057→  1057→                        <Label className="text-xs text-muted-foreground">Date fin</Label>
+  1058→  1058→                        <input
+  1059→  1059→                          type="date"
+  1060→  1060→                          value={filters.periodEnd || ''}
+  1061→  1061→                          onChange={(e) => setFilters({ periodEnd: e.target.value || null })}
+  1062→  1062→                          className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+  1063→  1063→                        />
+  1064→  1064→                      </div>
+  1065→  1065→                    </div>
+  1066→  1066→                  </div>
+  1067→  1067→                </PopoverContent>
+  1068→  1068→              </Popover>
+  1069→  1069→            </div>
+  1070→  1070→
+  1071→  1071→            {/* Department — visible on xl+ */}
+  1072→  1072→            <div className="hidden xl:block">
+  1073→  1073→              <Select
+  1074→  1074→                value={filters.departmentId || 'all'}
+  1075→  1075→                onValueChange={(v) => setFilters({ departmentId: v === 'all' ? null : v })}
+  1076→  1076→              >
+  1077→  1077→                <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[190px]')}>
+  1078→  1078→                  <SelectValue placeholder="Tous" />
+  1079→  1079→                </SelectTrigger>
+  1080→  1080→                <SelectContent>
+  1081→  1081→                  <SelectItem value="all">Tous les départements</SelectItem>
+  1082→  1082→                  {departments.map((dept) => (
+  1083→  1083→                    <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+  1084→  1084→                  ))}
+  1085→  1085→                </SelectContent>
+  1086→  1086→              </Select>
+  1087→  1087→            </div>
+  1088→  1088→
+  1089→  1089→            <ImportPptxButton />
+  1090→  1090→            <ExportDropdown />
+  1091→  1091→          </div>
+  1092→  1092→
+  1093→  1093→          {/* ── Mobile search icon ── */}
+  1094→  1094→          <button
+  1095→  1095→            onClick={() => setSearchOpen(true)}
+  1096→  1096→            className="sm:hidden h-8 w-8 flex items-center justify-center border border-white/20 bg-white/10 text-white rounded-md hover:bg-white/20 transition-colors"
+  1097→  1097→            aria-label="Rechercher"
+  1098→  1098→          >
+  1099→  1099→            <Search className="size-3.5" />
+  1100→  1100→          </button>
+  1101→  1101→
+  1102→  1102→          {/* ── Mobile filter sheet button ── */}
+  1103→  1103→          <div className="md:hidden">
+  1104→  1104→            <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
+  1105→  1105→              <SheetTrigger asChild>
+  1106→  1106→                <Button
+  1107→  1107→                  variant="ghost"
+  1108→  1108→                  size="sm"
+  1109→  1109→                  className="relative h-8 w-8 p-0 border border-white/20 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 hover:text-white"
+  1110→  1110→                >
+  1111→  1111→                  <SlidersHorizontal className="size-4" />
+  1112→  1112→                  {activeFilterCount > 0 && (
+  1113→  1113→                    <span className="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-tango text-[9px] font-bold flex items-center justify-center shadow-sm">
+  1114→  1114→                      {activeFilterCount}
+  1115→  1115→                    </span>
+  1116→  1116→                  )}
+  1117→  1117→                  <span className="sr-only">Filtres</span>
+  1118→  1118→                </Button>
+  1119→  1119→              </SheetTrigger>
+  1120→  1120→
+  1121→  1121→              <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh] overflow-y-auto">
+  1122→  1122→                <SheetHeader className="pb-2 border-b border-border">
+  1123→  1123→                  <div className="flex items-center justify-between pr-6">
+  1124→  1124→                    <div>
+  1125→  1125→                      <SheetTitle className="text-base">Filtres</SheetTitle>
+  1126→  1126→                      <SheetDescription className="text-xs mt-0.5">
+  1127→  1127→                        Affinez la période et le département
+  1128→  1128→                      </SheetDescription>
+  1129→  1129→                    </div>
+  1130→  1130→                    {activeFilterCount > 0 && (
+  1131→  1131→                      <Badge
+  1132→  1132→                        variant="secondary"
+  1133→  1133→                        className="text-[10px] bg-tango/15 text-tango border-tango/20"
+  1134→  1134→                      >
+  1135→  1135→                        {activeFilterCount} actif{activeFilterCount > 1 ? 's' : ''}
+  1136→  1136→                      </Badge>
+  1137→  1137→                    )}
+  1138→  1138→                  </div>
+  1139→  1139→                </SheetHeader>
+  1140→  1140→
+  1141→  1141→                <div className="px-4 py-4 space-y-5">
+  1142→  1142→                  {/* Year */}
+  1143→  1143→                  <div className="grid grid-cols-3 gap-3">
+  1144→  1144→                    <div className="space-y-1.5">
+  1145→  1145→                      <Label className="text-xs font-medium flex items-center gap-1.5">
+  1146→  1146→                        <CalendarIcon className="size-3" />
+  1147→  1147→                        Année
+  1148→  1148→                      </Label>
+  1149→  1149→                      <Select
+  1150→  1150→                        value={String(filters.year)}
+  1151→  1151→                        onValueChange={(v) => setFilters({ year: Number(v) })}
+  1152→  1152→                      >
+  1153→  1153→                        <SelectTrigger size="sm" className="h-9 text-sm">
+  1154→  1154→                          <SelectValue />
+  1155→  1155→                        </SelectTrigger>
+  1156→  1156→                        <SelectContent>
+  1157→  1157→                          {YEARS.map((y) => (
+  1158→  1158→                            <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+  1159→  1159→                          ))}
+  1160→  1160→                        </SelectContent>
+  1161→  1161→                      </Select>
+  1162→  1162→                    </div>
+  1163→  1163→
+  1164→  1164→                    {/* Quarter */}
+  1165→  1165→                    <div className="space-y-1.5">
+  1166→  1166→                      <Label className="text-xs font-medium">Trimestre</Label>
+  1167→  1167→                      <Select
+  1168→  1168→                        value={filters.quarter ? String(filters.quarter) : 'all'}
+  1169→  1169→                        onValueChange={(v) =>
+  1170→  1170→                          setFilters({ quarter: v === 'all' ? null : Number(v) })
+  1171→  1171→                        }
+  1172→  1172→                      >
+  1173→  1173→                        <SelectTrigger size="sm" className="h-9 text-sm">
+  1174→  1174→                          <SelectValue />
+  1175→  1175→                        </SelectTrigger>
+  1176→  1176→                        <SelectContent>
+  1177→  1177→                          <SelectItem value="all">Tous</SelectItem>
+  1178→  1178→                          {QUARTERS.map((q) => (
+  1179→  1179→                            <SelectItem key={q.value} value={q.value}>
+  1180→  1180→                              {q.full}
+  1181→  1181→                            </SelectItem>
+  1182→  1182→                          ))}
+  1183→  1183→                        </SelectContent>
+  1184→  1184→                      </Select>
+  1185→  1185→                    </div>
+  1186→  1186→
+  1187→  1187→                    {/* Month */}
+  1188→  1188→                    <div className="space-y-1.5">
+  1189→  1189→                      <Label className="text-xs font-medium">Mois</Label>
+  1190→  1190→                      <Select
+  1191→  1191→                        value={filters.month ? String(filters.month) : 'all'}
+  1192→  1192→                        onValueChange={(v) =>
+  1193→  1193→                          setFilters({ month: v === 'all' ? null : Number(v) })
+  1194→  1194→                        }
+  1195→  1195→                      >
+  1196→  1196→                        <SelectTrigger size="sm" className="h-9 text-sm">
+  1197→  1197→                          <SelectValue />
+  1198→  1198→                        </SelectTrigger>
+  1199→  1199→                        <SelectContent>
+  1200→  1200→                          <SelectItem value="all">Tous</SelectItem>
+  1201→  1201→                          {MONTHS_FR.map((m) => (
+  1202→  1202→                            <SelectItem key={m.value} value={m.value}>
+  1203→  1203→                              {m.full}
+  1204→  1204→                            </SelectItem>
+  1205→  1205→                          ))}
+  1206→  1206→                        </SelectContent>
+  1207→  1207→                      </Select>
+  1208→  1208→                    </div>
+  1209→  1209→                  </div>
+  1210→  1210→
+  1211→  1211→                  {/* Period + Department */}
+  1212→  1212→                  <div className="grid grid-cols-2 gap-3">
+  1213→  1213→                    <div className="space-y-1.5">
+  1214→  1214→                      <Label className="text-xs font-medium flex items-center gap-1.5">
+  1215→  1215→                        <CalendarIcon className="size-3" />
+  1216→  1216→                        Période
+  1217→  1217→                      </Label>
+  1218→  1218→                      <div className="flex flex-col gap-1.5">
+  1219→  1219→                        <input
+  1220→  1220→                          type="date"
+  1221→  1221→                          value={filters.periodStart || ''}
+  1222→  1222→                          onChange={(e) => setFilters({ periodStart: e.target.value || null })}
+  1223→  1223→                          placeholder="Début"
+  1224→  1224→                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+  1225→  1225→                        />
+  1226→  1226→                        <input
+  1227→  1227→                          type="date"
+  1228→  1228→                          value={filters.periodEnd || ''}
+  1229→  1229→                          onChange={(e) => setFilters({ periodEnd: e.target.value || null })}
+  1230→  1230→                          placeholder="Fin"
+  1231→  1231→                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+  1232→  1232→                        />
+  1233→  1233→                      </div>
+  1234→  1234→                    </div>
+  1235→  1235→
+  1236→  1236→                    <div className="space-y-1.5">
+  1237→  1237→                      <Label className="text-xs font-medium flex items-center gap-1.5">
+  1238→  1238→                        <Building2 className="size-3" />
+  1239→  1239→                        Département
+  1240→  1240→                      </Label>
+  1241→  1241→                      <Select
+  1242→  1242→                        value={filters.departmentId || 'all'}
+  1243→  1243→                        onValueChange={(v) =>
+  1244→  1244→                          setFilters({ departmentId: v === 'all' ? null : v })
+  1245→  1245→                        }
+  1246→  1246→                      >
+  1247→  1247→                        <SelectTrigger size="sm" className="h-9 text-sm">
+  1248→  1248→                          <SelectValue />
+  1249→  1249→                        </SelectTrigger>
+  1250→  1250→                        <SelectContent>
+  1251→  1251→                          <SelectItem value="all">Tous</SelectItem>
+  1252→  1252→                          {departments.map((dept) => (
+  1253→  1253→                            <SelectItem key={dept.id} value={dept.id}>
+  1254→  1254→                              {dept.name}
+  1255→  1255→                            </SelectItem>
+  1256→  1256→                          ))}
+  1257→  1257→                        </SelectContent>
+  1258→  1258→                      </Select>
+  1259→  1259→                    </div>
+  1260→  1260→                  </div>
+  1261→  1261→
+  1262→  1262→                  {/* Export buttons */}
+  1263→  1263→                  <div className="pt-3 border-t border-border">
+  1264→  1264→                    <Label className="text-xs font-medium text-muted-foreground mb-2.5 block">
+  1265→  1265→                      Exporter les données
+  1266→  1266→                    </Label>
+  1267→  1267→                    <div className="flex gap-2">
+  1268→  1268→                      <Button
+  1269→  1269→                        variant="outline"
+  1270→  1270→                        size="sm"
+  1271→  1271→                        className="flex-1 gap-2 text-xs"
+  1272→  1272→                        onClick={() => {
+  1273→  1273→                          console.log('Export Excel');
+  1274→  1274→                          setFilterSheetOpen(false);
+  1275→  1275→                        }}
+  1276→  1276→                      >
+  1277→  1277→                        <FileSpreadsheet className="size-4 text-green-600" />
+  1278→  1278→                        Excel
+  1279→  1279→                      </Button>
+  1280→  1280→                      <Button
+  1281→  1281→                        variant="outline"
+  1282→  1282→                        size="sm"
+  1283→  1283→                        className="flex-1 gap-2 text-xs"
+  1284→  1284→                        onClick={() => {
+  1285→  1285→                          console.log('Export PDF');
+  1286→  1286→                          setFilterSheetOpen(false);
+  1287→  1287→                        }}
+  1288→  1288→                      >
+  1289→  1289→                        <FileText className="size-4 text-red-600" />
+  1290→  1290→                        PDF
+  1291→  1291→                      </Button>
+  1292→  1292→                    </div>
+  1293→  1293→                  </div>
+  1294→  1294→                </div>
+  1295→  1295→              </SheetContent>
+  1296→  1296→            </Sheet>
+  1297→  1297→          </div>
+  1298→  1298→
+  1299→  1299→          {/* Filter button for md-lg screens to access Day/Dept/Export */}
+  1300→  1300→          <div className="hidden md:flex xl:hidden">
+  1301→  1301→            <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
+  1302→  1302→              <SheetTrigger asChild>
+  1303→  1303→                <Button
+  1304→  1304→                  variant="ghost"
+  1305→  1305→                  size="sm"
+  1306→  1306→                  className={cn(
+  1307→  1307→                    'relative h-8 gap-1.5 border border-white/20 bg-white/10 text-white text-xs backdrop-blur-sm hover:bg-white/20 hover:text-white',
+  1308→  1308→                    activeFilterCount > 0 && 'border-tango/50',
+  1309→  1309→                  )}
+  1310→  1310→                >
+  1311→  1311→                  <SlidersHorizontal className="size-3.5" />
+  1312→  1312→                  {activeFilterCount > 0 && (
+  1313→  1313→                    <span className="size-4 rounded-full bg-tango text-[9px] font-bold flex items-center justify-center">
+  1314→  1314→                      {activeFilterCount}
+  1315→  1315→                    </span>
+  1316→  1316→                  )}
+  1317→  1317→                </Button>
+  1318→  1318→              </SheetTrigger>
+  1319→  1319→
+  1320→  1320→              <SheetContent side="bottom" className="rounded-t-2xl max-h-[70vh]">
+  1321→  1321→                <SheetHeader className="pb-2 border-b border-border">
+  1322→  1322→                  <SheetTitle className="text-base">Filtres avancés</SheetTitle>
+  1323→  1323→                  <SheetDescription>
+  1324→  1324→                    Période, Département et Export
+  1325→  1325→                  </SheetDescription>
+  1326→  1326→                </SheetHeader>
+  1327→  1327→
+  1328→  1328→                <div className="px-4 py-4 space-y-5">
+  1329→  1329→                  <div className="grid grid-cols-2 gap-3">
+  1330→  1330→                    <div className="space-y-1.5">
+  1331→  1331→                      <Label className="text-xs font-medium flex items-center gap-1.5">
+  1332→  1332→                        <CalendarIcon className="size-3" />
+  1333→  1333→                        Période
+  1334→  1334→                      </Label>
+  1335→  1335→                      <div className="flex flex-col gap-1.5">
+  1336→  1336→                        <input
+  1337→  1337→                          type="date"
+  1338→  1338→                          value={filters.periodStart || ''}
+  1339→  1339→                          onChange={(e) => setFilters({ periodStart: e.target.value || null })}
+  1340→  1340→                          placeholder="Début"
+  1341→  1341→                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+  1342→  1342→                        />
+  1343→  1343→                        <input
+  1344→  1344→                          type="date"
+  1345→  1345→                          value={filters.periodEnd || ''}
+  1346→  1346→                          onChange={(e) => setFilters({ periodEnd: e.target.value || null })}
+  1347→  1347→                          placeholder="Fin"
+  1348→  1348→                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+  1349→  1349→                        />
+  1350→  1350→                      </div>
+  1351→  1351→                    </div>
+  1352→  1352→
+  1353→  1353→                    <div className="space-y-1.5">
+  1354→  1354→                      <Label className="text-xs font-medium flex items-center gap-1.5">
+  1355→  1355→                        <Building2 className="size-3" />
+  1356→  1356→                        Département
+  1357→  1357→                      </Label>
+  1358→  1358→                      <Select
+  1359→  1359→                        value={filters.departmentId || 'all'}
+  1360→  1360→                        onValueChange={(v) =>
+  1361→  1361→                          setFilters({ departmentId: v === 'all' ? null : v })
+  1362→  1362→                        }
+  1363→  1363→                      >
+  1364→  1364→                        <SelectTrigger size="sm" className="h-9 text-sm">
+  1365→  1365→                          <SelectValue />
+  1366→  1366→                        </SelectTrigger>
+  1367→  1367→                        <SelectContent>
+  1368→  1368→                          <SelectItem value="all">Tous</SelectItem>
+  1369→  1369→                          {departments.map((dept) => (
+  1370→  1370→                            <SelectItem key={dept.id} value={dept.id}>
+  1371→  1371→                              {dept.name}
+  1372→  1372→                            </SelectItem>
+  1373→  1373→                          ))}
+  1374→  1374→                        </SelectContent>
+  1375→  1375→                      </Select>
+  1376→  1376→                    </div>
+  1377→  1377→                  </div>
+  1378→  1378→
+  1379→  1379→                  <div className="pt-3 border-t border-border">
+  1380→  1380→                    <Label className="text-xs font-medium text-muted-foreground mb-2.5 block">
+  1381→  1381→                      Exporter
+  1382→  1382→                    </Label>
+  1383→  1383→                    <div className="flex gap-2">
+  1384→  1384→                      <Button
+  1385→  1385→                        variant="outline"
+  1386→  1386→                        size="sm"
+  1387→  1387→                        className="flex-1 gap-2 text-xs"
+  1388→  1388→                        onClick={() => {
+  1389→  1389→                          console.log('Export Excel');
+  1390→  1390→                          setFilterSheetOpen(false);
+  1391→  1391→                        }}
+  1392→  1392→                      >
+  1393→  1393→                        <FileSpreadsheet className="size-4 text-green-600" />
+  1394→  1394→                        Excel
+  1395→  1395→                      </Button>
+  1396→  1396→                      <Button
+  1397→  1397→                        variant="outline"
+  1398→  1398→                        size="sm"
+  1399→  1399→                        className="flex-1 gap-2 text-xs"
+  1400→  1400→                        onClick={() => {
+  1401→  1401→                          console.log('Export PDF');
+  1402→  1402→                          setFilterSheetOpen(false);
+  1403→  1403→                        }}
+  1404→  1404→                      >
+  1405→  1405→                        <FileText className="size-4 text-red-600" />
+  1406→  1406→                        PDF
+  1407→  1407→                      </Button>
+  1408→  1408→                    </div>
+  1409→  1409→                  </div>
+  1410→  1410→                </div>
+  1411→  1411→              </SheetContent>
+  1412→  1412→            </Sheet>
+  1413→  1413→          </div>
+  1414→  1414→
+  1415→  1415→          <ThemeToggle />
+  1416→  1416→        </div>
+  1417→  1417→      )}
+  1418→  1418→
+  1419→  1419→      {/* Admin: search + theme toggle */}
+  1420→  1420→      {isAdmin && (
+  1421→  1421→        <div className="flex items-center gap-2">
+  1422→  1422→          <button
+  1423→  1423→            onClick={() => setSearchOpen(true)}
+  1424→  1424→            className="h-8 w-8 flex items-center justify-center border border-white/20 bg-white/10 text-white rounded-md hover:bg-white/20 transition-colors"
+  1425→  1425→            aria-label="Rechercher"
+  1426→  1426→          >
+  1427→  1427→            <Search className="size-3.5" />
+  1428→  1428→          </button>
+  1429→  1429→          <ThemeToggle />
+  1430→  1430→        </div>
+  1431→  1431→      )}
+  1432→  1432→
+  1433→  1433→      {/* Global Search Dialog */}
+  1434→  1434→      <GlobalSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
+  1435→  1435→    </header>
+  1436→  1436→  );
+  1437→  1437→}

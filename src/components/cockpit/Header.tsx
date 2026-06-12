@@ -36,28 +36,19 @@ import {
   FileText,
   Presentation,
   Download,
-  Upload,
   Moon,
   Sun,
   SlidersHorizontal,
   X,
   Calendar as CalendarIcon,
-  Building2,
   Search,
   Loader2,
   Star,
-  FileUp,
+  Play,
 } from 'lucide-react';
 import { useAppStore, type AppViewKey, type ModuleKey } from '@/lib/store';
+import { StorytellingOverlay } from '@/components/cockpit/StorytellingOverlay';
 import { useTheme } from 'next-themes';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import {
   CommandDialog,
@@ -112,11 +103,6 @@ function formatDateShort(dateStr: string | null): string {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 }
 
-interface Department {
-  id: string;
-  name: string;
-}
-
 // ─── Inline select styles (for the blue header) ─────────────────────────────
 
 const HEADER_SELECT =
@@ -126,22 +112,41 @@ const HEADER_SELECT =
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
-  // resolvedTheme is undefined during SSR, which prevents hydration mismatch
   const isDark = resolvedTheme === 'dark';
 
   return (
     <Button
       variant="ghost"
       size="icon"
-      className="h-8 w-8 shrink-0 border border-white/20 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 hover:text-white"
+      className="h-8 w-8 shrink-0 border border-white/20 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 hover:text-white relative"
       onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
       aria-label="Basculer le thème"
     >
-      {resolvedTheme
-        ? (isDark ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />)
-        : <div className="size-3.5" />
-      }
+      <Sun className={cn('size-3.5', isDark ? 'opacity-100' : 'opacity-0 absolute')} suppressHydrationWarning />
+      <Moon className={cn('size-3.5', isDark ? 'opacity-0 absolute' : 'opacity-100')} suppressHydrationWarning />
     </Button>
+  );
+}
+
+// ─── Storytelling Button ────────────────────────────────────────────────────
+
+function StorytellingButton() {
+  const [open, setOpen] = useState(false);
+  const [key, setKey] = useState(0);
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-8 gap-1.5 border border-tango/40 bg-tango/15 text-tango text-xs font-semibold backdrop-blur-sm hover:bg-tango/25 hover:text-tango cursor-pointer"
+        onClick={() => { setKey((k) => k + 1); setOpen(true); }}
+      >
+        <Play className="size-3" fill="currentColor" />
+        <span className="hidden lg:inline">STORYTELLING</span>
+      </Button>
+      <StorytellingOverlay key={key} open={open} onClose={() => setOpen(false)} />
+    </>
   );
 }
 
@@ -481,250 +486,6 @@ function ActiveFilterBadges() {
   );
 }
 
-// ─── PowerPoint Import ──────────────────────────────────────────────────────
-
-interface ParsedIndicator {
-  code: string;
-  name: string | null;
-  domain: string | null;
-  value: number | null;
-  found: boolean;
-}
-
-interface ImportPreview {
-  fileName: string;
-  slidesScanned: number;
-  tablesFound: number;
-  indicatorsFound: number;
-  indicators: ParsedIndicator[];
-  year: number;
-  quarter: number | null;
-  month: number | null;
-}
-
-function ImportPptxButton({ className }: { className?: string }) {
-  const { filters } = useAppStore();
-  const { toast } = useToast();
-  const [open, setOpen] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [applying, setApplying] = useState(false);
-  const [preview, setPreview] = useState<ImportPreview | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
-    setSelectedFile(file);
-    setPreview(null);
-  };
-
-  const handleAnalyze = async () => {
-    if (!selectedFile) return;
-    setUploading(true);
-    setPreview(null);
-    try {
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-      if (filters.year) formData.append('year', String(filters.year));
-      if (filters.quarter) formData.append('quarter', String(filters.quarter));
-      if (filters.month) formData.append('month', String(filters.month));
-
-      const res = await fetch('/api/import/pptx', { method: 'POST', body: formData });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Erreur');
-
-      setPreview(data as ImportPreview);
-    } catch (err) {
-      toast({
-        title: "Erreur d'analyse",
-        description: err instanceof Error ? err.message : 'Impossible d\'analyser le fichier.',
-        variant: 'destructive',
-      });
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleApply = async () => {
-    if (!preview) return;
-    setApplying(true);
-    try {
-      const valuesToApply = preview.indicators
-        .filter((i) => i.value !== null)
-        .map((i) => ({ code: i.code, value: i.value as number }));
-
-      if (valuesToApply.length === 0) {
-        toast({ title: 'Aucune valeur', description: 'Aucune valeur numérique trouvée à appliquer.' });
-        return;
-      }
-
-      const res = await fetch('/api/import/pptx', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          indicators: valuesToApply,
-          year: preview.year,
-          quarter: preview.quarter,
-          month: preview.month,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Erreur');
-
-      toast({
-        title: 'Import réussi',
-        description: `${data.updated} mis à jour, ${data.created} créés sur ${data.total} indicateurs.`,
-      });
-      setOpen(false);
-      setPreview(null);
-      setSelectedFile(null);
-    } catch (err) {
-      toast({
-        title: "Erreur d'import",
-        description: err instanceof Error ? err.message : 'Impossible d\'appliquer les données.',
-        variant: 'destructive',
-      });
-    } finally {
-      setApplying(false);
-    }
-  };
-
-  const withValues = preview?.indicators.filter((i) => i.value !== null).length ?? 0;
-
-  return (
-    <>
-      <Button
-        variant="ghost"
-        size="sm"
-        className={cn(
-          'h-8 gap-1.5 border border-white/20 bg-white/10 text-white text-xs backdrop-blur-sm hover:bg-white/20 hover:text-white',
-          className,
-        )}
-        onClick={() => setOpen(true)}
-      >
-        <Upload className="size-3.5" />
-        <span className="hidden lg:inline">Importer</span>
-      </Button>
-
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setPreview(null); setSelectedFile(null); } }}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileUp className="size-5 text-tango" />
-              Importer PowerPoint
-            </DialogTitle>
-            <DialogDescription>
-              Importez les valeurs de KPIs depuis un fichier PowerPoint (.pptx) contenant des tableaux avec des codes indicateurs.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {/* File picker */}
-            <div>
-              <Label className="text-xs font-medium">Fichier PowerPoint</Label>
-              <div className="mt-1.5 flex items-center gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pptx"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <FileSpreadsheet className="size-4" />
-                  {selectedFile ? selectedFile.name : 'Choisir un fichier'}
-                </Button>
-              </div>
-            </div>
-
-            {/* Period info */}
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <span>Période : <strong>{filters.year}</strong></span>
-              {filters.quarter && <span>· <strong>T{filters.quarter}</strong></span>}
-              {filters.month && <span>· <strong>M{filters.month}</strong></span>}
-            </div>
-
-            {/* Analyze button */}
-            {!preview && (
-              <Button
-                onClick={handleAnalyze}
-                disabled={!selectedFile || uploading}
-                className="w-full gap-2"
-              >
-                {uploading ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
-                {uploading ? 'Analyse en cours...' : 'Analyser le fichier'}
-              </Button>
-            )}
-
-            {/* Preview table */}
-            {preview && (
-              <>
-                <div className="rounded-lg border p-3 space-y-2">
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span>📄 {preview.slidesScanned} diapositives</span>
-                    <span>📊 {preview.tablesFound} tableaux</span>
-                    <span className="font-semibold text-foreground">{preview.indicatorsFound} KPIs trouvés</span>
-                  </div>
-
-                  {preview.indicators.length > 0 ? (
-                    <div className="max-h-60 overflow-y-auto custom-scrollbar">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="border-b">
-                            <th className="text-left py-1.5 pr-2 font-semibold">Code</th>
-                            <th className="text-left py-1.5 pr-2 font-semibold">Indicateur</th>
-                            <th className="text-right py-1.5 font-semibold">Valeur</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {preview.indicators.map((ind) => (
-                            <tr key={ind.code} className="border-b border-border/50">
-                              <td className="py-1.5 pr-2">
-                                <Badge variant="outline" className="text-[10px] font-mono">{ind.code}</Badge>
-                              </td>
-                              <td className="py-1.5 pr-2 truncate max-w-[200px]">{ind.name || '—'}</td>
-                              <td className="py-1.5 text-right font-mono">
-                                {ind.value !== null ? <span className="text-green-600 font-semibold">{ind.value}</span> : <span className="text-muted-foreground">—</span>}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground text-center py-4">
-                      Aucun indicateur reconnu dans ce fichier. Vérifiez que les codes KPI (ex: FIN-001) sont présents dans les tableaux.
-                    </p>
-                  )}
-                </div>
-
-                <DialogFooter className="gap-2">
-                  <Button variant="outline" onClick={() => { setPreview(null); setSelectedFile(null); }}>
-                    Annuler
-                  </Button>
-                  <Button
-                    onClick={handleApply}
-                    disabled={applying || withValues === 0}
-                    className="gap-2"
-                  >
-                    {applying ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
-                    {applying ? 'Import en cours...' : `Appliquer (${withValues} valeur${withValues > 1 ? 's' : ''})`}
-                  </Button>
-                </DialogFooter>
-              </>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
-
 // ─── Global Search ─────────────────────────────────────────────────────────
 
 interface SearchResult {
@@ -876,7 +637,6 @@ function GlobalSearchDialog({ open, onOpenChange }: { open: boolean; onOpenChang
 export function Header() {
   const { activeView, filters, setFilters } = useAppStore();
   const isAdmin = activeView === 'admin';
-  const [departments, setDepartments] = useState<Department[]>([]);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -892,32 +652,11 @@ export function Header() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  useEffect(() => {
-    async function fetchDepartments() {
-      try {
-        const res = await fetch('/api/departments');
-        if (res.ok) setDepartments(await res.json());
-      } catch {
-        setDepartments([
-          { id: 'direction', name: 'Direction Générale' },
-          { id: 'finance', name: 'Finance & Comptabilité' },
-          { id: 'rh', name: 'Ressources Humaines' },
-          { id: 'ops', name: 'Opérations' },
-          { id: 'it', name: 'Technologie' },
-          { id: 'juridique', name: 'Juridique' },
-          { id: 'communication', name: 'Communication' },
-        ]);
-      }
-    }
-    fetchDepartments();
-  }, []);
-
   // Count active filters (excluding year which is always set)
   const activeFilterCount = [
     filters.quarter,
     filters.month,
     filters.periodStart || filters.periodEnd,
-    filters.departmentId,
   ].filter(Boolean).length;
 
   return (
@@ -1068,25 +807,7 @@ export function Header() {
               </Popover>
             </div>
 
-            {/* Department — visible on xl+ */}
-            <div className="hidden xl:block">
-              <Select
-                value={filters.departmentId || 'all'}
-                onValueChange={(v) => setFilters({ departmentId: v === 'all' ? null : v })}
-              >
-                <SelectTrigger size="sm" className={cn(HEADER_SELECT, 'w-[190px]')}>
-                  <SelectValue placeholder="Tous" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous les départements</SelectItem>
-                  {departments.map((dept) => (
-                    <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <ImportPptxButton />
+            <StorytellingButton />
             <ExportDropdown />
           </div>
 
@@ -1232,31 +953,6 @@ export function Header() {
                         />
                       </div>
                     </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-medium flex items-center gap-1.5">
-                        <Building2 className="size-3" />
-                        Département
-                      </Label>
-                      <Select
-                        value={filters.departmentId || 'all'}
-                        onValueChange={(v) =>
-                          setFilters({ departmentId: v === 'all' ? null : v })
-                        }
-                      >
-                        <SelectTrigger size="sm" className="h-9 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Tous</SelectItem>
-                          {departments.map((dept) => (
-                            <SelectItem key={dept.id} value={dept.id}>
-                              {dept.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
                   </div>
 
                   {/* Export buttons */}
@@ -1321,13 +1017,12 @@ export function Header() {
                 <SheetHeader className="pb-2 border-b border-border">
                   <SheetTitle className="text-base">Filtres avancés</SheetTitle>
                   <SheetDescription>
-                    Période, Département et Export
+                    Période et Export
                   </SheetDescription>
                 </SheetHeader>
 
                 <div className="px-4 py-4 space-y-5">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
+                  <div className="space-y-1.5">
                       <Label className="text-xs font-medium flex items-center gap-1.5">
                         <CalendarIcon className="size-3" />
                         Période
@@ -1349,32 +1044,6 @@ export function Header() {
                         />
                       </div>
                     </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-medium flex items-center gap-1.5">
-                        <Building2 className="size-3" />
-                        Département
-                      </Label>
-                      <Select
-                        value={filters.departmentId || 'all'}
-                        onValueChange={(v) =>
-                          setFilters({ departmentId: v === 'all' ? null : v })
-                        }
-                      >
-                        <SelectTrigger size="sm" className="h-9 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Tous</SelectItem>
-                          {departments.map((dept) => (
-                            <SelectItem key={dept.id} value={dept.id}>
-                              {dept.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
 
                   <div className="pt-3 border-t border-border">
                     <Label className="text-xs font-medium text-muted-foreground mb-2.5 block">
