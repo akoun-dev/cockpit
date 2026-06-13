@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { buildAuthOptions } from '@/lib/auth';
 import PptxGenJS from 'pptxgenjs';
+import { MODULE_LABELS, SUB_DOMAIN_LABELS } from '@/lib/constants';
 
 // ANSUT branding
 const TANGO = 'F18120';
@@ -14,42 +15,6 @@ const WHITE = 'FFFFFF';
 const GREEN = '059669';
 const AMBER = 'D97706';
 const RED = 'DC2626';
-
-const MODULE_LABELS: Record<string, string> = {
-  governance: 'Gouvernance',
-  finance: 'Finance',
-  operational: 'Opérationnel',
-  rh: 'Ressources Humaines',
-  risque: 'Cadre de Risque',
-  pta: 'Plan de Travail Annuel',
-};
-
-const SUB_DOMAIN_LABELS: Record<string, string> = {
-  reporting_reglementaire: 'Reporting réglementaire',
-  gouvernance_ethique: 'Gouvernance & Éthique',
-  marches_publics: 'Passation des Marchés Publics',
-  relations_publiques: 'Dons, Honoraires & Relations Publiques',
-  execution_budgetaire: 'Exécution budgétaire',
-  rentabilite: 'Rentabilité & Performance',
-  ressources_specifiques: 'Ressources Spécifiques',
-  dette: 'Endettement',
-  deploiement_infra: 'Déploiement Infrastructures',
-  relations_operateurs: 'Relations Opérateurs',
-  service_universel: 'Service Universel',
-  projets_programmes: 'Projets & Programmes',
-  effectifs: 'Effectifs & Organisation',
-  performance: 'Performance & Productivité',
-  competences: 'Développement Compétences',
-  couts_rh: 'Maîtrise Coûts RH',
-  risque_strategique: 'Risque Stratégique',
-  risque_financier: 'Risque Financier',
-  risque_operationnel: 'Risque Opérationnel',
-  risque_technologique: 'Risque Technologique',
-  risque_gouvernance: 'Risque Gouvernance',
-  pta_gouvernance: 'Gouvernance',
-  pta_operationnel: 'Opérationnel',
-  pta_finance: 'Finance',
-};
 
 function getStatus(
   value: number | null,
@@ -87,6 +52,7 @@ function statusLabel(s: string) {
 // GET /api/export/pptx
 export async function GET(request: NextRequest) {
   try {
+    const authOptions = await buildAuthOptions();
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });

@@ -66,7 +66,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useToast } from '@/hooks/use-toast';
+import { useErrorHandler } from '@/hooks/use-error-handler';
+import { formatFrenchDate, getInitials } from '@/lib/formatters';
 
 interface Role {
   id: string;
@@ -120,26 +121,6 @@ const EMPTY_FORM: UserFormData = {
   isActive: true,
 };
 
-function formatFrenchDate(date: string | null): string {
-  if (!date) return 'Jamais';
-  return new Date(date).toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-}
-
 export function AdminUsers() {
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -148,7 +129,7 @@ export function AdminUsers() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
+  const { handleError, handleSuccess, handleNetworkError } = useErrorHandler({ setError });
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -204,89 +185,7 @@ export function AdminUsers() {
           lastLogin: u.lastLogin,
         })));
       } else {
-        // Fallback users
-        setUsers([
-          {
-            id: '1',
-            name: 'Admin Principal',
-            email: 'admin@ansut.cd',
-            matricule: 'ANSUT-001',
-            fonction: 'Directeur Général',
-            roleId: 'admin',
-            roleName: 'Administrateur',
-            roleColor: '#ef4444',
-            departmentId: 'direction',
-            departmentName: 'Direction Générale',
-            isActive: true,
-            mustChangePassword: false,
-            isLocked: false,
-            lastLogin: new Date().toISOString(),
-          },
-          {
-            id: '2',
-            name: 'Marie Dupont',
-            email: 'marie.dupont@ansut.cd',
-            matricule: 'ANSUT-002',
-            fonction: 'Chef de Département Finance',
-            roleId: 'analyst',
-            roleName: 'Analyste',
-            roleColor: '#3b82f6',
-            departmentId: 'finance',
-            departmentName: 'Finance & Comptabilité',
-            isActive: true,
-            mustChangePassword: true,
-            isLocked: false,
-            lastLogin: new Date(Date.now() - 86400000).toISOString(),
-          },
-          {
-            id: '3',
-            name: 'Jean Martin',
-            email: 'jean.martin@ansut.cd',
-            matricule: 'ANSUT-003',
-            fonction: 'Responsable RH',
-            roleId: 'viewer',
-            roleName: 'Observateur',
-            roleColor: '#64748b',
-            departmentId: 'rh',
-            departmentName: 'Ressources Humaines',
-            isActive: false,
-            mustChangePassword: false,
-            isLocked: true,
-            lastLogin: new Date(Date.now() - 604800000).toISOString(),
-          },
-          {
-            id: '4',
-            name: 'Pierre Leroy',
-            email: 'pierre.leroy@ansut.cd',
-            matricule: 'ANSUT-004',
-            fonction: 'Chef de Département Opérations',
-            roleId: 'manager',
-            roleName: 'Gestionnaire',
-            roleColor: '#f18120',
-            departmentId: 'ops',
-            departmentName: 'Opérations',
-            isActive: true,
-            mustChangePassword: false,
-            isLocked: false,
-            lastLogin: new Date(Date.now() - 172800000).toISOString(),
-          },
-          {
-            id: '5',
-            name: 'Sophie Bernard',
-            email: 'sophie.bernard@ansut.cd',
-            matricule: 'ANSUT-005',
-            fonction: 'Chargée de Gouvernance',
-            roleId: 'analyst',
-            roleName: 'Analyste',
-            roleColor: '#3b82f6',
-            departmentId: 'governance',
-            departmentName: 'Gouvernance',
-            isActive: true,
-            mustChangePassword: false,
-            isLocked: false,
-            lastLogin: new Date(Date.now() - 259200000).toISOString(),
-          },
-        ]);
+        handleError('le chargement des utilisateurs');
       }
     } catch {
       setError('Erreur lors du chargement des utilisateurs');
@@ -316,7 +215,7 @@ export function AdminUsers() {
         ]);
       }
     } catch {
-      // silent
+      handleError('le chargement des rôles');
     }
   }, []);
 
@@ -327,19 +226,10 @@ export function AdminUsers() {
         const data = await res.json();
         setDepartments(Array.isArray(data) ? data : data.departments || []);
       } else {
-        setDepartments([
-          { id: 'direction', name: 'Direction Générale' },
-          { id: 'finance', name: 'Finance & Comptabilité' },
-          { id: 'rh', name: 'Ressources Humaines' },
-          { id: 'ops', name: 'Opérations' },
-          { id: 'governance', name: 'Gouvernance' },
-          { id: 'it', name: 'Technologie' },
-          { id: 'juridique', name: 'Juridique' },
-          { id: 'communication', name: 'Communication' },
-        ]);
+        handleError('le chargement des départements');
       }
     } catch {
-      // silent
+      handleNetworkError('le chargement des départements');
     }
   }, []);
 
@@ -438,15 +328,9 @@ export function AdminUsers() {
         setDialogOpen(false);
         await fetchUsers();
         if (isEdit) {
-          toast({
-            title: 'Utilisateur mis à jour',
-            description: `Les informations de ${formData.name} ont été mises à jour avec succès.`,
-          });
+          handleSuccess('Utilisateur mis à jour', `Les informations de ${formData.name} ont été mises à jour avec succès.`);
         } else {
-          toast({
-            title: 'Utilisateur créé avec succès',
-            description: `${formData.name} a été ajouté à la plateforme.`,
-          });
+          handleSuccess('Utilisateur créé avec succès', `${formData.name} a été ajouté à la plateforme.`);
         }
       } else {
         const data = await res.json().catch(() => ({}));
@@ -473,10 +357,7 @@ export function AdminUsers() {
         setDeleteDialogOpen(false);
         setDeletingUser(null);
         await fetchUsers();
-        toast({
-          title: 'Utilisateur supprimé',
-          description: `${deletedName} a été supprimé de la plateforme.`,
-        });
+        handleSuccess('Utilisateur supprimé', `${deletedName} a été supprimé de la plateforme.`);
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error || 'Erreur lors de la suppression');
@@ -499,12 +380,7 @@ export function AdminUsers() {
       });
       if (res.ok) {
         await fetchUsers();
-        toast({
-          title: `Statut de ${user.name} mis à jour`,
-          description: user.isActive
-            ? 'Le compte a été désactivé.'
-            : 'Le compte a été activé.',
-        });
+        handleSuccess(`Statut de ${user.name} mis à jour`, user.isActive ? 'Le compte a été désactivé.' : 'Le compte a été activé.');
       }
     } catch {
       // silent
@@ -524,26 +400,13 @@ export function AdminUsers() {
       });
       if (res.ok) {
         const data = await res.json();
-        toast({
-          title: 'Mot de passe réinitialisé',
-          description: data?.temporaryPassword
-            ? `Nouveau mot de passe pour ${user.name} : ${data.temporaryPassword}`
-            : `Mot de passe réinitialisé pour ${user.name}`,
-        });
+        handleSuccess('Mot de passe réinitialisé', data?.temporaryPassword ? `Nouveau mot de passe pour ${user.name} : ${data.temporaryPassword}` : `Mot de passe réinitialisé pour ${user.name}`);
       } else {
         const err = await res.json().catch(() => ({}));
-        toast({
-          title: 'Erreur',
-          description: err.error || 'Impossible de réinitialiser le mot de passe.',
-          variant: 'destructive',
-        });
+        handleError('la réinitialisation du mot de passe');
       }
     } catch {
-      toast({
-        title: 'Erreur',
-        description: 'Impossible de réinitialiser le mot de passe.',
-        variant: 'destructive',
-      });
+      handleNetworkError('la réinitialisation du mot de passe');
     } finally {
       setActionLoadingId(null);
     }
@@ -560,19 +423,10 @@ export function AdminUsers() {
       });
       if (res.ok) {
         await fetchUsers();
-        toast({
-          title: user.mustChangePassword ? 'Changement mdp non forcé' : 'Changement mdp forcé',
-          description: user.mustChangePassword
-            ? `${user.name} ne sera plus obligé de changer son mot de passe.`
-            : `${user.name} devra changer son mot de passe à la prochaine connexion.`,
-        });
+        handleSuccess(user.mustChangePassword ? 'Changement mdp non forcé' : 'Changement mdp forcé', user.mustChangePassword ? `${user.name} ne sera plus obligé de changer son mot de passe.` : `${user.name} devra changer son mot de passe à la prochaine connexion.`);
       }
     } catch {
-      toast({
-        title: 'Erreur',
-        description: 'Impossible de modifier le paramètre.',
-        variant: 'destructive',
-      });
+      handleError('la modification du paramètre');
     } finally {
       setActionLoadingId(null);
     }
@@ -589,19 +443,10 @@ export function AdminUsers() {
       });
       if (res.ok) {
         await fetchUsers();
-        toast({
-          title: user.isLocked ? 'Compte déverrouillé' : 'Compte verrouillé',
-          description: user.isLocked
-            ? `Le compte de ${user.name} a été déverrouillé.`
-            : `Le compte de ${user.name} a été verrouillé.`,
-        });
+        handleSuccess(user.isLocked ? 'Compte déverrouillé' : 'Compte verrouillé', user.isLocked ? `Le compte de ${user.name} a été déverrouillé.` : `Le compte de ${user.name} a été verrouillé.`);
       }
     } catch {
-      toast({
-        title: 'Erreur',
-        description: 'Impossible de modifier le statut de verrouillage.',
-        variant: 'destructive',
-      });
+      handleError('la modification du statut de verrouillage');
     } finally {
       setActionLoadingId(null);
     }

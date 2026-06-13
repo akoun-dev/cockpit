@@ -58,22 +58,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
-
-// --- Constants ---
-
-const MODULE_LABELS: Record<string, string> = {
-  accueil: 'Accueil',
-  governance: 'Gouvernance',
-  finance: 'Finance',
-  operational: 'Opérationnel',
-  rh: 'Ressources Humaines',
-  risque: 'Cadre de Risque',
-  pta: 'PTA',
-  admin: 'Administration',
-};
-
-const MODULE_KEYS = Object.keys(MODULE_LABELS);
+import { useErrorHandler } from '@/hooks/use-error-handler';
+import { MODULE_LABELS, MODULE_KEYS } from '@/lib/constants';
 
 const ACCESS_LABELS: Record<string, string> = {
   none: 'Aucun accès',
@@ -163,7 +149,7 @@ export function AdminRoles() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { toast } = useToast();
+  const { handleError, handleSuccess, handleNetworkError } = useErrorHandler({ setError });
 
   // Selected role & permissions
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
@@ -207,71 +193,15 @@ export function AdminRoles() {
         const rolesList = data.data || (Array.isArray(data) ? data : data.roles || []);
         setRoles(rolesList);
       } else {
-        // Fallback roles
-        setRoles([
-          {
-            id: 'super-admin',
-            name: 'super-admin',
-            label: 'Super Administrateur',
-            description: 'Accès complet à toutes les fonctionnalités',
-            level: 4,
-            color: '#ef4444',
-            isSystem: true,
-            userCount: 1,
-            permissionsJson: null,
-          },
-          {
-            id: 'admin',
-            name: 'admin',
-            label: 'Administrateur',
-            description: 'Gestion des utilisateurs et des configurations',
-            level: 3,
-            color: '#f18120',
-            isSystem: true,
-            userCount: 2,
-            permissionsJson: null,
-          },
-          {
-            id: 'manager',
-            name: 'manager',
-            label: 'Gestionnaire',
-            description: 'Création et modification des données opérationnelles',
-            level: 2,
-            color: '#205eb3',
-            isSystem: false,
-            userCount: 5,
-            permissionsJson: null,
-          },
-          {
-            id: 'analyst',
-            name: 'analyst',
-            label: 'Analyste',
-            description: 'Consultation et analyse des données',
-            level: 1,
-            color: '#22c55e',
-            isSystem: false,
-            userCount: 8,
-            permissionsJson: null,
-          },
-          {
-            id: 'viewer',
-            name: 'viewer',
-            label: 'Observateur',
-            description: 'Consultation en lecture seule',
-            level: 0,
-            color: '#64748b',
-            isSystem: false,
-            userCount: 8,
-            permissionsJson: null,
-          },
-        ]);
+        setError('Erreur lors du chargement des rôles');
+        handleError('le chargement des rôles');
       }
     } catch {
       setError('Erreur lors du chargement des rôles');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [handleError]);
 
   const fetchPermissions = useCallback(async (roleId: string) => {
     try {
@@ -332,7 +262,7 @@ export function AdminRoles() {
         setGranularModified(false);
       }
     } catch {
-      // silent
+      handleNetworkError('le chargement des permissions du rôle');
     }
   }, [roles]);
 
@@ -377,16 +307,13 @@ export function AdminRoles() {
       });
       if (res.ok) {
         setPermissionsModified(false);
-        toast({
-          title: 'Permissions sauvegardées avec succès',
-          description: `Les permissions du rôle "${selectedRole?.label}" ont été mises à jour.`,
-        });
+        handleSuccess('Permissions sauvegardées avec succès', `Les permissions du rôle "${selectedRole?.label}" ont été mises à jour.`);
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error || 'Erreur lors de la sauvegarde');
       }
     } catch {
-      setError('Erreur réseau lors de la sauvegarde');
+      handleNetworkError('la sauvegarde des permissions');
     } finally {
       setSavingPermissions(false);
     }
@@ -408,16 +335,13 @@ export function AdminRoles() {
         setGranularModified(false);
         // Refresh to sync
         await fetchRoles();
-        toast({
-          title: 'Permissions avancées sauvegardées',
-          description: `Les permissions granulaires du rôle "${selectedRole?.label}" ont été mises à jour.`,
-        });
+        handleSuccess('Permissions avancées sauvegardées', `Les permissions granulaires du rôle "${selectedRole?.label}" ont été mises à jour.`);
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error || 'Erreur lors de la sauvegarde des permissions avancées');
       }
     } catch {
-      setError('Erreur réseau lors de la sauvegarde');
+      handleNetworkError('la sauvegarde des permissions avancées');
     } finally {
       setSavingGranular(false);
     }
@@ -487,22 +411,16 @@ export function AdminRoles() {
         setDialogOpen(false);
         await fetchRoles();
         if (editingRole) {
-          toast({
-            title: 'Rôle mis à jour',
-            description: `Le rôle "${roleForm.label}" a été mis à jour avec succès.`,
-          });
+          handleSuccess('Rôle mis à jour', `Le rôle "${roleForm.label}" a été mis à jour avec succès.`);
         } else {
-          toast({
-            title: 'Rôle créé avec succès',
-            description: `Le rôle "${roleForm.label}" a été créé.`,
-          });
+          handleSuccess('Rôle créé avec succès', `Le rôle "${roleForm.label}" a été créé.`);
         }
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error || 'Erreur lors de la sauvegarde');
       }
     } catch {
-      setError('Erreur réseau lors de la sauvegarde');
+      handleNetworkError('la sauvegarde du rôle');
     } finally {
       setSaving(false);
     }
@@ -531,16 +449,13 @@ export function AdminRoles() {
           setGranularPermissions({});
         }
         await fetchRoles();
-        toast({
-          title: 'Rôle supprimé',
-          description: `Le rôle "${deletedLabel}" a été supprimé.`,
-        });
+        handleSuccess('Rôle supprimé', `Le rôle "${deletedLabel}" a été supprimé.`);
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error || 'Erreur lors de la suppression');
       }
     } catch {
-      setError('Erreur réseau lors de la suppression');
+      handleNetworkError('la suppression du rôle');
     } finally {
       setSaving(false);
     }

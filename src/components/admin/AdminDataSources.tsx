@@ -60,34 +60,9 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { useToast } from '@/hooks/use-toast';
+import { useErrorHandler } from '@/hooks/use-error-handler';
 import { cn } from '@/lib/utils';
-
-// --- Constants ---
-
-const MODULE_LABELS: Record<string, string> = {
-  accueil: 'Accueil',
-  governance: 'Gouvernance',
-  finance: 'Finance',
-  operational: 'Opérationnel',
-  rh: 'Ressources Humaines',
-  risque: 'Cadre de Risque',
-  pta: 'Plan de Travail Annuel',
-  admin: 'Administration',
-};
-
-const MODULE_KEYS = Object.keys(MODULE_LABELS);
-
-const MODULE_COLORS: Record<string, string> = {
-  accueil: 'bg-emerald-500',
-  governance: 'bg-fun-blue',
-  finance: 'bg-green-600',
-  operational: 'bg-tango',
-  rh: 'bg-amber-500',
-  risque: 'bg-red-500',
-  pta: 'bg-violet-600',
-  admin: 'bg-gray-600',
-};
+import { MODULE_LABELS, MODULE_KEYS, MODULE_COLORS } from '@/lib/constants';
 
 const TYPE_LABELS: Record<string, string> = {
   manuel: 'Saisie manuelle',
@@ -229,11 +204,11 @@ const EMPTY_FORM: DataSourceFormData = {
 // --- Component ---
 
 export function AdminDataSources() {
-  const { toast } = useToast();
   const [sources, setSources] = useState<DataSourceEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const { handleError, handleSuccess, handleNetworkError } = useErrorHandler({ setError });
   const [saving, setSaving] = useState(false);
 
   // Module expand/collapse — default collapsed
@@ -276,7 +251,7 @@ export function AdminDataSources() {
         setError('Erreur lors du chargement des sources de données');
       }
     } catch {
-      setError('Erreur réseau');
+      handleNetworkError('le chargement des sources de données');
     } finally {
       setLoading(false);
     }
@@ -370,10 +345,7 @@ export function AdminDataSources() {
       if (res.ok) {
         setDialogOpen(false);
         setSuccessMsg(editingSource ? 'Source mise à jour' : 'Source créée');
-        toast({
-          title: editingSource ? 'Source mise à jour' : 'Source créée',
-          description: `"${form.name.trim()}" a été ${editingSource ? 'mis à jour' : 'ajouté'} avec succès.`,
-        });
+          handleSuccess(editingSource ? 'Source mise à jour' : 'Source créée', `"${form.name.trim()}" a été ${editingSource ? 'mis à jour' : 'ajouté'} avec succès.`);
         setTimeout(() => setSuccessMsg(null), 3000);
         await fetchSources();
       } else {
@@ -381,7 +353,7 @@ export function AdminDataSources() {
         setError((data as Record<string, unknown>).error as string || 'Erreur lors de la sauvegarde');
       }
     } catch {
-      setError('Erreur réseau');
+      handleNetworkError('la sauvegarde de la source');
     } finally {
       setSaving(false);
     }
@@ -403,15 +375,12 @@ export function AdminDataSources() {
         setDeleteDialogOpen(false);
         setDeletingSource(null);
         setSuccessMsg('Source supprimée');
-        toast({
-          title: 'Source supprimée',
-          description: `"${deletingSource.name}" a été supprimé avec succès.`,
-        });
+        handleSuccess('Source supprimée', `"${deletingSource.name}" a été supprimé avec succès.`);
         setTimeout(() => setSuccessMsg(null), 3000);
         await fetchSources();
       }
     } catch {
-      setError('Erreur lors de la suppression');
+      handleNetworkError('la suppression de la source');
     } finally {
       setSaving(false);
     }
@@ -427,14 +396,11 @@ export function AdminDataSources() {
         body: JSON.stringify({ status: newStatus }),
       });
       if (res.ok) {
-        toast({
-          title: `Source ${newStatus === 'actif' ? 'activée' : 'désactivée'}`,
-          description: `"${source.name}" est maintenant ${newStatus === 'actif' ? 'active' : 'inactive'}.`,
-        });
+        handleSuccess(`Source ${newStatus === 'actif' ? 'activée' : 'désactivée'}`, `"${source.name}" est maintenant ${newStatus === 'actif' ? 'active' : 'inactive'}.`);
         await fetchSources();
       }
     } catch {
-      // silent
+      handleNetworkError('la modification du statut de la source');
     } finally {
       setTogglingId(null);
     }
@@ -456,13 +422,11 @@ export function AdminDataSources() {
     const isSuccess = Math.random() > 0.3; // 70% success rate
     setTestStatus(isSuccess ? 'success' : 'failure');
 
-    toast({
-      title: isSuccess ? 'Connexion réussie' : 'Échec de connexion',
-      description: isSuccess
-        ? `Source "${source.name}" — Latence: ${latency}ms`
-        : `Source "${source.name}" — Timeout`,
-      variant: isSuccess ? 'default' : 'destructive',
-    });
+    if (isSuccess) {
+      handleSuccess('Connexion réussie', `Source "${source.name}" — Latence: ${latency}ms`);
+    } else {
+      handleError(`la connexion à "${source.name}"`);
+    }
   }
 
   // Force sync handler
@@ -471,10 +435,7 @@ export function AdminDataSources() {
     await new Promise((resolve) => setTimeout(resolve, 2000));
     setSyncingId(null);
     const recordCount = Math.floor(Math.random() * 500) + 10;
-    toast({
-      title: 'Synchronisation terminée',
-      description: `${recordCount} enregistrements synchronisés depuis "${source.name}".`,
-    });
+    handleSuccess('Synchronisation terminée', `${recordCount} enregistrements synchronisés depuis "${source.name}".`);
     await fetchSources();
   }
 

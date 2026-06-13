@@ -59,7 +59,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
+import { useErrorHandler } from '@/hooks/use-error-handler';
 
 // --- Constants ---
 
@@ -173,7 +173,7 @@ const EMPTY_FORM: IndicatorFormData = {
 // --- Component ---
 
 export function AdminKPI() {
-  const { toast } = useToast();
+  const { handleError, handleSuccess, handleNetworkError } = useErrorHandler();
 
   // Data state
   const [indicators, setIndicators] = useState<IndicatorEntry[]>([]);
@@ -210,11 +210,11 @@ export function AdminKPI() {
         setIndicators(data.data || []);
       }
     } catch {
-      toast({ title: 'Erreur', description: 'Erreur lors du chargement des indicateurs', variant: 'destructive' });
+      handleError('le chargement des indicateurs');
     } finally {
       setLoading(false);
     }
-  }, [domainFilter, searchQuery, toast]);
+  }, [domainFilter, searchQuery, handleError]);
 
   const fetchDepartments = useCallback(async () => {
     try {
@@ -320,23 +320,19 @@ export function AdminKPI() {
 
       if (res.ok) {
         setDialogOpen(false);
-        toast({
-          title: editingIndicator ? 'Indicateur mis à jour' : 'Indicateur créé',
-          description: editingIndicator
+        handleSuccess(
+          editingIndicator ? 'Indicateur mis à jour' : 'Indicateur créé',
+          editingIndicator
             ? `"${form.name}" a été modifié avec succès.`
-            : `"${form.name}" a été créé avec succès.`,
-        });
+            : `"${form.name}" a été créé avec succès.`
+        );
         await fetchIndicators();
       } else {
         const data = await res.json().catch(() => ({}));
-        toast({
-          title: 'Erreur',
-          description: (data as { error?: string }).error || 'Erreur lors de la sauvegarde',
-          variant: 'destructive',
-        });
+        handleError(`la sauvegarde de l'indicateur — ${(data as { error?: string }).error || 'Erreur lors de la sauvegarde'}`);
       }
     } catch {
-      toast({ title: 'Erreur réseau', description: 'Veuillez réessayer', variant: 'destructive' });
+      handleError('la sauvegarde de l\'indicateur');
     } finally {
       setSaving(false);
     }
@@ -355,14 +351,11 @@ export function AdminKPI() {
       if (res.ok) {
         setDeleteDialogOpen(false);
         setDeletingIndicator(null);
-        toast({
-          title: 'Indicateur supprimé',
-          description: `"${deletingIndicator.name}" a été supprimé.`,
-        });
+        handleSuccess('Indicateur supprimé', `"${deletingIndicator.name}" a été supprimé.`);
         await fetchIndicators();
       }
     } catch {
-      toast({ title: 'Erreur', description: 'Erreur lors de la suppression', variant: 'destructive' });
+      handleError('la suppression de l\'indicateur');
     } finally {
       setSaving(false);
     }
@@ -377,14 +370,14 @@ export function AdminKPI() {
         body: JSON.stringify({ isActive: !indicator.isActive }),
       });
       if (res.ok) {
-        toast({
-          title: !indicator.isActive ? 'Indicateur activé' : 'Indicateur désactivé',
-          description: `"${indicator.name}" est maintenant ${!indicator.isActive ? 'actif' : 'inactif'}.`,
-        });
+        handleSuccess(
+          !indicator.isActive ? 'Indicateur activé' : 'Indicateur désactivé',
+          `"${indicator.name}" est maintenant ${!indicator.isActive ? 'actif' : 'inactif'}.`
+        );
         await fetchIndicators();
       }
     } catch {
-      // silent
+      handleNetworkError('la modification du statut de l\'indicateur');
     } finally {
       setTogglingId(null);
     }

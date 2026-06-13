@@ -56,30 +56,7 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-
-// --- Constants ---
-
-const MODULE_LABELS: Record<string, string> = {
-  accueil: 'Accueil',
-  governance: 'Gouvernance',
-  finance: 'Finance',
-  operational: 'Opérationnel',
-  rh: 'Ressources Humaines',
-  risque: 'Cadre de Risque',
-  pta: 'PTA',
-  admin: 'Administration',
-};
-
-const MODULE_COLORS: Record<string, string> = {
-  accueil: 'bg-emerald-500',
-  governance: 'bg-fun-blue',
-  finance: 'bg-green-600',
-  operational: 'bg-tango',
-  rh: 'bg-amber-500',
-  risque: 'bg-red-500',
-  pta: 'bg-violet-600',
-  admin: 'bg-gray-600',
-};
+import { MODULE_LABELS, MODULE_COLORS } from '@/lib/constants';
 
 const TYPE_LABELS: Record<string, string> = {
   lien: 'Lien',

@@ -69,7 +69,8 @@ import { ProfileDialog } from '@/components/cockpit/ProfileDialog';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const MODULE_LABELS: Record<AppViewKey, string> = {
+// UI-specific view labels (accueil maps to 'Tableau de Bord' in header context)
+const VIEW_LABELS: Record<AppViewKey, string> = {
   accueil: 'Tableau de Bord',
   governance: 'Gouvernance',
   finance: 'Finance',
@@ -264,7 +265,7 @@ function ExportButton({ icon, label, filters, activeView, format, onDone, classN
 }
 
 function downloadAsCsv(data: ExportResponseData) {
-  const moduleLabel = MODULE_LABELS[data.module as AppViewKey] ?? data.module;
+  const moduleLabel = VIEW_LABELS[data.module as AppViewKey] ?? data.module;
   const header = [
     'Code', 'Indicateur', 'Sous-domaine', 'Unité', 'Cible',
     'Valeur', 'Période', 'Département', 'Priorité',
@@ -294,7 +295,7 @@ function downloadAsCsv(data: ExportResponseData) {
 }
 
 function downloadAsHtml(data: ExportResponseData) {
-  const moduleLabel = MODULE_LABELS[data.module as AppViewKey] ?? data.module;
+  const moduleLabel = VIEW_LABELS[data.module as AppViewKey] ?? data.module;
   const includeLogo = data.settings?.includeLogo !== false;
   const includeDate = data.settings?.includeGenerationDate !== false;
 
@@ -403,7 +404,7 @@ function ExportDropdown({ className }: { className?: string }) {
 
       toast({
         title: 'Export PowerPoint réussi',
-        description: `Présentation générée pour ${MODULE_LABELS[activeView] ?? activeView}.`,
+        description: `Présentation générée pour ${VIEW_LABELS[activeView] ?? activeView}.`,
       });
     } catch {
       toast({
@@ -432,7 +433,7 @@ function ExportDropdown({ className }: { className?: string }) {
 
       toast({
         title: 'Export réussi',
-        description: `${data.totalIndicators} indicateurs exportés pour ${MODULE_LABELS[data.module as AppViewKey] ?? data.module}.`,
+        description: `${data.totalIndicators} indicateurs exportés pour ${VIEW_LABELS[data.module as AppViewKey] ?? data.module}.`,
       });
     } catch {
       toast({
@@ -771,24 +772,11 @@ function UserMenu() {
             <div className="flex flex-col min-w-0 flex-1">
               <p className="text-sm font-semibold truncate">{session?.user?.name}</p>
               <p className="text-xs text-muted-foreground truncate">{session?.user?.email}</p>
+              <p className="text-xs text-muted-foreground truncate">{roleLabel}</p>
             </div>
           </div>
 
           <DropdownMenuSeparator />
-
-          {/* Role and department info */}
-          <div className="px-3 py-2">
-            <div className="flex items-center gap-2 text-xs">
-              <Shield className="size-3.5 shrink-0" style={{ color: user?.role?.color || '#1c55a3' }} />
-              <span className="font-medium">{roleLabel}</span>
-            </div>
-            {departmentName && (
-              <p className="mt-1 text-xs text-muted-foreground pl-5.5">{departmentName}</p>
-            )}
-          </div>
-
-          <DropdownMenuSeparator />
-
           <DropdownMenuItem onClick={() => setProfileOpen(true)} className="cursor-pointer">
             <User className="size-4 mr-2" />
             Mon Profil
@@ -844,7 +832,7 @@ export function Header() {
         <SidebarTrigger className="shrink-0 text-white hover:bg-white/10 hover:text-white" />
         <div className="flex flex-col min-w-0">
           <h1 className="text-sm font-bold leading-tight sm:text-base lg:text-xl truncate">
-            {MODULE_LABELS[activeView]}
+            {VIEW_LABELS[activeView]}
           </h1>
           <div className="flex items-center gap-2 min-w-0">
             <p className="hidden text-[10px] text-white/60 sm:block truncate">

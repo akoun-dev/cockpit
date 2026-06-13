@@ -38,11 +38,20 @@ export async function getSessionMaxAge(): Promise<number> {
   return _cachedMaxAge;
 }
 
-// ─── Auth options builder (used by [...nextauth]/route.ts) ──────────────
+// ─── Cached auth options (avoids recreating CredentialsProvider per request) ──────
+let _cachedAuthOptions: NextAuthOptions | null = null;
+let _authOptionsCacheTime = 0;
+const AUTH_OPTIONS_CACHE_TTL = 60_000; // 1 minute
+
 export async function buildAuthOptions(): Promise<NextAuthOptions> {
+  const now = Date.now();
+  if (_cachedAuthOptions !== null && now - _authOptionsCacheTime < AUTH_OPTIONS_CACHE_TTL) {
+    return _cachedAuthOptions;
+  }
+
   const maxAge = await getSessionMaxAge();
 
-  return {
+  const options: NextAuthOptions = {
     providers: [
       CredentialsProvider({
         name: 'Credentials',
@@ -53,7 +62,6 @@ export async function buildAuthOptions(): Promise<NextAuthOptions> {
         async authorize(credentials) {
           try {
             if (!credentials?.email || !credentials?.password) {
-              console.log('[auth] Missing credentials');
               return null;
             }
 
@@ -68,17 +76,10 @@ export async function buildAuthOptions(): Promise<NextAuthOptions> {
             });
 
             if (!user) {
-              console.log('[auth] User not found');
               return null;
             }
 
-            if (!user.isActive) {
-              console.log('[auth] User inactive');
-              return null;
-            }
-
-            if (user.isLocked) {
-              console.log('[auth] User locked');
+            if (!user.isActive || user.isLocked) {
               return null;
             }
 
@@ -95,7 +96,6 @@ export async function buildAuthOptions(): Promise<NextAuthOptions> {
                 },
               });
 
-              console.log('[auth] Invalid password');
               return null;
             }
 
@@ -119,6 +119,8 @@ export async function buildAuthOptions(): Promise<NextAuthOptions> {
               email: user.email,
               name: user.name,
               image: user.avatar,
+              fonction: user.fonction,
+              matricule: user.matricule,
               role: user.role
                 ? {
                     id: user.role.id,
@@ -138,8 +140,7 @@ export async function buildAuthOptions(): Promise<NextAuthOptions> {
                 : null,
               permissions: permissionsMap,
             };
-          } catch (error) {
-            console.error('[auth] authorize error:', error);
+          } catch {
             return null;
           }
         },
@@ -149,15 +150,17 @@ export async function buildAuthOptions(): Promise<NextAuthOptions> {
       async jwt({ token, user }) {
         if (user) {
           token.id = user.id;
-          token.role = user.role;
-          token.department = user.department;
-          token.permissions = (user as unknown as { permissions: Record<string, string> }).permissions;
+          token.role = (user as { role?: AuthRole }).role ?? null;
+          token.department = (user as { department?: AuthDepartment }).department ?? null;
+          token.permissions = (user as { permissions?: Record<string, string> }).permissions ?? {};
+          token.fonction = (user as { fonction?: string | null }).fonction ?? null;
+          token.matricule = (user as { matricule?: string | null }).matricule ?? null;
         }
 
         // Enforce dynamic session timeout from DB settings
-        if (token.iat) {
-          const maxAge = await getSessionMaxAge();
-          const expiresAt = (token.iat as number) + maxAge;
+        if (token.iat && typeof token.iat === 'number') {
+          const currentMaxAge = await getSessionMaxAge();
+          const expiresAt = token.iat + currentMaxAge;
           if (Date.now() / 1000 > expiresAt) {
             return {} as typeof token;
           }
@@ -166,11 +169,13 @@ export async function buildAuthOptions(): Promise<NextAuthOptions> {
         return token;
       },
       async session({ session, token }) {
-        if (session.user && 'id' in token) {
-          (session.user as Record<string, unknown>).id = token.id;
-          (session.user as Record<string, unknown>).role = token.role;
-          (session.user as Record<string, unknown>).department = token.department;
-          (session.user as Record<string, unknown>).permissions = token.permissions;
+        if (session.user) {
+          (session.user as AuthSessionUser).id = token.id;
+          (session.user as AuthSessionUser).role = token.role ?? null;
+          (session.user as AuthSessionUser).department = token.department ?? null;
+          (session.user as AuthSessionUser).permissions = token.permissions ?? {};
+          (session.user as AuthSessionUser).fonction = token.fonction ?? null;
+          (session.user as AuthSessionUser).matricule = token.matricule ?? null;
         }
         return session;
       },
@@ -184,201 +189,63 @@ export async function buildAuthOptions(): Promise<NextAuthOptions> {
     },
     secret: process.env.NEXTAUTH_SECRET,
   };
+
+  _cachedAuthOptions = options;
+  _authOptionsCacheTime = now;
+  return options;
 }
 
-// Static fallback for legacy imports (routes that don't need dynamic timeout)
-export const authOptions: NextAuthOptions = {
-  providers: [
-    CredentialsProvider({
-      name: 'Credentials',
-      credentials: {
-        email: { label: 'Email', type: 'email', placeholder: 'votre.email@ansut.ci' },
-        password: { label: 'Mot de passe', type: 'password' },
-      },
-      async authorize(credentials) {
-        try {
-          if (!credentials?.email || !credentials?.password) {
-            console.log('[auth] Missing credentials');
-            return null;
-          }
+// ─── Types for NextAuth augmentation ─────────────────────────────────────
 
-          const user = await db.user.findUnique({
-            where: { email: credentials.email.toLowerCase().trim() },
-            include: {
-              role: {
-                include: { permissions: true },
-              },
-              department: true,
-            },
-          });
+interface AuthRole {
+  id: string;
+  name: string;
+  label: string;
+  level: number;
+  color: string;
+  isSystem: boolean;
+}
 
-          if (!user) {
-            console.log('[auth] User not found');
-            return null;
-          }
+interface AuthDepartment {
+  id: string;
+  name: string;
+  code: string | null;
+}
 
-          if (!user.isActive) {
-            console.log('[auth] User inactive');
-            return null;
-          }
-
-          if (user.isLocked) {
-            console.log('[auth] User locked');
-            return null;
-          }
-
-          const isPasswordValid = await compare(credentials.password, user.password);
-          if (!isPasswordValid) {
-            const newFailedAttempts = user.failedAttempts + 1;
-            const shouldLock = newFailedAttempts >= 5;
-
-            await db.user.update({
-              where: { id: user.id },
-              data: {
-                failedAttempts: newFailedAttempts,
-                isLocked: shouldLock,
-              },
-            });
-
-            console.log('[auth] Invalid password');
-            return null;
-          }
-
-          await db.user.update({
-            where: { id: user.id },
-            data: {
-              failedAttempts: 0,
-              lastLogin: new Date(),
-            },
-          });
-
-          const permissionsMap: Record<string, string> = {};
-          if (user.role?.permissions) {
-            for (const perm of user.role.permissions) {
-              permissionsMap[perm.module] = perm.access;
-            }
-          }
-
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            image: user.avatar,
-            role: user.role
-              ? {
-                  id: user.role.id,
-                  name: user.role.name,
-                  label: user.role.label,
-                  level: user.role.level,
-                  color: user.role.color,
-                  isSystem: user.role.isSystem,
-                }
-              : null,
-            department: user.department
-              ? {
-                  id: user.department.id,
-                  name: user.department.name,
-                  code: user.department.code,
-                }
-              : null,
-            permissions: permissionsMap,
-          };
-        } catch (error) {
-          console.error('[auth] authorize error:', error);
-          return null;
-        }
-      },
-    }),
-  ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-        token.role = user.role;
-        token.department = user.department;
-        token.permissions = (user as unknown as { permissions: Record<string, string> }).permissions;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (session.user) {
-        (session.user as Record<string, unknown>).id = token.id;
-        (session.user as Record<string, unknown>).role = token.role;
-        (session.user as Record<string, unknown>).department = token.department;
-        (session.user as Record<string, unknown>).permissions = token.permissions;
-      }
-      return session;
-    },
-  },
-  pages: {
-    signIn: '/',
-  },
-  session: {
-    strategy: 'jwt',
-    maxAge: 8 * 60 * 60,
-  },
-  secret: process.env.NEXTAUTH_SECRET,
-};
+interface AuthSessionUser {
+  id: string;
+  email: string;
+  name: string;
+  image?: string | null;
+  fonction?: string | null;
+  matricule?: string | null;
+  role: AuthRole | null;
+  department: AuthDepartment | null;
+  permissions: Record<string, string>;
+}
 
 // Extend NextAuth types
 declare module 'next-auth' {
   interface Session {
-    user: {
-      id: string;
-      email: string;
-      name: string;
-      image?: string | null;
-      role: {
-        id: string;
-        name: string;
-        label: string;
-        level: number;
-        color: string;
-        isSystem: boolean;
-      } | null;
-      department: {
-        id: string;
-        name: string;
-        code: string | null;
-      } | null;
-      permissions: Record<string, string>;
-    } & DefaultSession['user'];
+    user: AuthSessionUser & DefaultSession['user'];
   }
 
   interface User {
-    role?: {
-      id: string;
-      name: string;
-      label: string;
-      level: number;
-      color: string;
-      isSystem: boolean;
-    } | null;
-    department?: {
-      id: string;
-      name: string;
-      code: string | null;
-    } | null;
+    role?: AuthRole | null;
+    department?: AuthDepartment | null;
     permissions?: Record<string, string>;
+    fonction?: string | null;
+    matricule?: string | null;
   }
 }
 
 declare module 'next-auth/jwt' {
   interface JWT {
     id: string;
-    role?: {
-      id: string;
-      name: string;
-      label: string;
-      level: number;
-      color: string;
-      isSystem: boolean;
-    } | null;
-    department?: {
-      id: string;
-      name: string;
-      code: string | null;
-    } | null;
+    role?: AuthRole | null;
+    department?: AuthDepartment | null;
     permissions?: Record<string, string>;
+    fonction?: string | null;
+    matricule?: string | null;
   }
 }

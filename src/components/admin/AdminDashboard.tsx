@@ -7,14 +7,9 @@ import {
   Layers,
   Activity,
   ArrowRight,
-  LayoutDashboard,
   Database,
-  ScrollText,
-  Settings,
-  CircleDot,
   Server,
   HardDrive,
-  Clock,
   RefreshCw,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,7 +24,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { useAppStore, type AdminViewKey } from '@/lib/store';
+import { useAppStore } from '@/lib/store';
+import { CATEGORY_COLORS } from '@/lib/constants';
+import { formatFrenchDate, formatFrenchShortDate, formatFrenchNumber, formatFrenchDateTime } from '@/lib/formatters';
 
 interface DashboardStats {
   totalUsers: number;
@@ -63,50 +60,6 @@ interface DataSourceHealth {
   loading: boolean;
 }
 
-const CATEGORY_COLORS: Record<string, string> = {
-  auth: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  user: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  role: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
-  permission: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
-  data: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
-  export: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400',
-};
-
-
-
-function formatFrenchDate(date: string): string {
-  return new Date(date).toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function formatFrenchShortDate(date: string): string {
-  return new Date(date).toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
-
-function formatFrenchNumber(n: number): string {
-  return new Intl.NumberFormat('fr-FR').format(n);
-}
-
-function formatFrenchDateTime(date: string | null): string {
-  if (!date) return 'Jamais';
-  return new Date(date).toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
 export function AdminDashboard() {
   const { setAdminSubView } = useAppStore();
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -127,34 +80,34 @@ export function AdminDashboard() {
       setLoading(true);
       setError(null);
       try {
-        // Fetch dashboard stats
-        const statsRes = await fetch('/api/admin/dashboard-stats');
+        // Fetch all data in parallel
+        const [statsRes, logsRes, dsRes] = await Promise.all([
+          fetch('/api/admin/dashboard-stats'),
+          fetch('/api/admin/audit-logs?limit=5&offset=0'),
+          fetch('/api/admin/data-sources'),
+        ]);
+
         if (statsRes.ok) {
           const data = await statsRes.json();
           setStats(data);
         }
 
-        // Fetch recent audit logs
-        const logsRes = await fetch('/api/admin/audit-logs?limit=5&offset=0');
         if (logsRes.ok) {
           const data = await logsRes.json();
           setRecentLogs(
             (data.data || data.logs || (Array.isArray(data) ? data : [])).map(
               (log: Record<string, unknown>) => ({
-                id: log.id,
-                timestamp: log.createdAt ?? log.timestamp,
-                userName: (log.user as Record<string, unknown>)?.name as string ?? log.userName as string ?? 'Inconnu',
-                action: log.action,
-                category: log.category,
-                details: log.details,
+                id: log.id as string,
+                timestamp: (log.createdAt ?? log.timestamp) as string,
+                userName: ((log.user as Record<string, unknown>)?.name as string) ?? (log.userName as string) ?? 'Inconnu',
+                action: log.action as string,
+                category: log.category as string,
+                details: log.details as string,
               })
             )
           );
         }
 
-        // Fetch data source health
-        setDsHealth((prev) => ({ ...prev, loading: true }));
-        const dsRes = await fetch('/api/admin/data-sources');
         if (dsRes.ok) {
           const dsData = await dsRes.json();
           const sources: DataSourceEntry[] = dsData.data || [];
@@ -196,7 +149,7 @@ export function AdminDashboard() {
   return (
     <div className="space-y-6">
       {error && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" role="alert">
           {error}
         </div>
       )}
@@ -209,7 +162,7 @@ export function AdminDashboard() {
       </div>
 
       {/* Stats cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-live="polite">
         {loading
           ? Array.from({ length: 4 }).map((_, i) => (
               <Card key={i}>
@@ -229,7 +182,7 @@ export function AdminDashboard() {
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium text-muted-foreground">{card.label}</p>
                     <div className={`rounded-lg p-2 ${card.iconBg}`}>
-                      <card.icon className="size-5" />
+                      <card.icon className="size-5" aria-hidden="true" />
                     </div>
                   </div>
                   <p className="mt-3 text-2xl font-bold">{card.value}</p>
@@ -243,7 +196,7 @@ export function AdminDashboard() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <div className="flex items-center gap-2">
-            <Database className="size-5 text-fun-blue" />
+            <Database className="size-5 text-fun-blue" aria-hidden="true" />
             <CardTitle className="text-lg font-semibold">Santé des Sources de Données</CardTitle>
           </div>
           <Button
@@ -253,7 +206,7 @@ export function AdminDashboard() {
             onClick={() => setAdminSubView('admin_datasources')}
           >
             Gérer
-            <ArrowRight className="size-3.5" />
+            <ArrowRight className="size-3.5" aria-hidden="true" />
           </Button>
         </CardHeader>
         <CardContent>
@@ -280,7 +233,7 @@ export function AdminDashboard() {
                 {/* Active */}
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="inline-block size-2 rounded-full bg-green-500" />
+                    <span className="inline-block size-2 rounded-full bg-green-500" aria-hidden="true" />
                     <span className="text-xs font-medium text-muted-foreground">Actives</span>
                   </div>
                   <div className="flex items-baseline gap-2">
@@ -291,7 +244,7 @@ export function AdminDashboard() {
                 {/* In Test */}
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="inline-block size-2 rounded-full bg-amber-500" />
+                    <span className="inline-block size-2 rounded-full bg-amber-500" aria-hidden="true" />
                     <span className="text-xs font-medium text-muted-foreground">En test</span>
                   </div>
                   <div className="flex items-baseline gap-2">
@@ -302,7 +255,7 @@ export function AdminDashboard() {
                 {/* Inactive */}
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="inline-block size-2 rounded-full bg-gray-400" />
+                    <span className="inline-block size-2 rounded-full bg-gray-400" aria-hidden="true" />
                     <span className="text-xs font-medium text-muted-foreground">Inactives</span>
                   </div>
                   <div className="flex items-baseline gap-2">
@@ -313,7 +266,7 @@ export function AdminDashboard() {
               </div>
               {/* Last sync status */}
               <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
-                <RefreshCw className="size-4 text-muted-foreground" />
+                <RefreshCw className="size-4 text-muted-foreground" aria-hidden="true" />
                 <span className="text-xs text-muted-foreground">Dernière synchronisation :</span>
                 <span className="text-xs font-medium">
                   {dsHealth.lastSync ? formatFrenchDateTime(dsHealth.lastSync) : 'Aucune synchronisation'}
@@ -324,13 +277,11 @@ export function AdminDashboard() {
         </CardContent>
       </Card>
 
-
-
       {/* System Health Indicators */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <Server className="size-5 text-fun-blue" />
+            <Server className="size-5 text-fun-blue" aria-hidden="true" />
             <CardTitle className="text-lg font-semibold">État du Système</CardTitle>
           </div>
         </CardHeader>
@@ -360,7 +311,7 @@ export function AdminDashboard() {
             </div>
             {/* Last Backup */}
             <div className="flex items-center gap-2">
-              <HardDrive className="size-4 text-muted-foreground" />
+              <HardDrive className="size-4 text-muted-foreground" aria-hidden="true" />
               <span className="text-sm font-medium text-muted-foreground">Dernière sauvegarde :</span>
               <Badge variant="outline">{todayStr}</Badge>
             </div>
@@ -379,7 +330,7 @@ export function AdminDashboard() {
             onClick={() => setAdminSubView('admin_logs')}
           >
             Voir tout
-            <ArrowRight className="size-3.5" />
+            <ArrowRight className="size-3.5" aria-hidden="true" />
           </Button>
         </CardHeader>
         <CardContent>

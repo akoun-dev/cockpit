@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
+import { useErrorHandler } from '@/hooks/use-error-handler';
 import {
   Shield,
   ShieldCheck,
@@ -33,7 +33,7 @@ const SESSION_LABELS: Record<string, string> = {
 
 // ─── Component ────────────────────────────────────────────────────
 export function AdminSecurity() {
-  const { toast } = useToast();
+  const { handleError } = useErrorHandler();
 
   const [sessionExpiry, setSessionExpiry] = useState<string | null>(null);
   const [ipLogging, setIpLogging] = useState<boolean | null>(null);
@@ -48,7 +48,9 @@ export function AdminSecurity() {
           setSessionExpiry(data.sessionExpiration ?? '4h');
           setIpLogging(data.ipLogging === 'true');
         }
-      } catch { /* defaults */ }
+      } catch {
+        handleError('le chargement des paramètres de sécurité');
+      }
       setLoading(false);
     };
     fetchSettings();

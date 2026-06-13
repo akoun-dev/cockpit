@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Search, ChevronLeft, ChevronRight, Download, Calendar, RefreshCw, Clock, BarChart3, RotateCcw, FileText, FileSpreadsheet, ChevronDown } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Download, Calendar, RefreshCw, Clock, BarChart3, RotateCcw, FileText, FileSpreadsheet } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
-import { useToast } from '@/hooks/use-toast';
+import { useErrorHandler } from '@/hooks/use-error-handler';
 import {
   Select,
   SelectContent,
@@ -25,40 +25,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-
-// --- Constants ---
-
-const CATEGORY_COLORS: Record<string, string> = {
-  auth: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  user: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  role: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
-  permission: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
-  data: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-  export: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400',
-  sync: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400',
-  alerte: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-  security: 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400',
-  kpi: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-  document: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400',
-  notification: 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-400',
-  setting: 'bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-400',
-};
-
-const CATEGORY_LABELS: Record<string, string> = {
-  auth: 'Authentification',
-  user: 'Utilisateur',
-  role: 'Rôle',
-  permission: 'Permission',
-  data: 'Données',
-  export: 'Export',
-  sync: 'Synchronisation',
-  alerte: 'Alerte',
-  security: 'Sécurité',
-  kpi: 'KPI',
-  document: 'Document',
-  notification: 'Notification',
-  setting: 'Paramètre',
-};
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { CATEGORY_COLORS, CATEGORY_LABELS } from '@/lib/constants';
+import { formatFrenchDate, getInitials } from '@/lib/formatters';
 
 const CATEGORIES = [
   { value: 'all', label: 'Toutes les catégories' },
@@ -100,34 +74,12 @@ interface PaginationInfo {
   hasMore: boolean;
 }
 
-// --- Helpers ---
-
-function formatFrenchDate(date: string): string {
-  return new Date(date).toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
 function formatTime(date: string): string {
   return new Date(date).toLocaleTimeString('fr-FR', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
   });
-}
-
-function getInitials(name?: string | null): string {
-  if (!name) return '?';
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
 }
 
 function isToday(date: string): boolean {
@@ -179,7 +131,7 @@ export function AdminLogs() {
   // Export dropdown
   const [exportOpen, setExportOpen] = useState(false);
 
-  const { toast } = useToast();
+  const { handleError, handleSuccess, handleNetworkError } = useErrorHandler({ setError });
 
   const totalPages = Math.ceil(pagination.total / PAGE_SIZE);
   const currentPage = Math.floor(pagination.offset / PAGE_SIZE) + 1;
@@ -244,19 +196,10 @@ export function AdminLogs() {
           hasMore: (data.pagination?.total ?? 0) > offset + PAGE_SIZE,
         });
       } else {
-        // Fallback logs
-        setLogs(generateFallbackLogs());
-        setPagination({
-          total: 156,
-          limit: PAGE_SIZE,
-          offset: 0,
-          hasMore: true,
-        });
+        handleError('le chargement des logs');
       }
     } catch {
-      setError("Erreur lors du chargement du journal d'audit");
-      setLogs(generateFallbackLogs());
-      setPagination({ total: 156, limit: PAGE_SIZE, offset: 0, hasMore: true });
+      handleNetworkError("le chargement du journal d'audit");
     } finally {
       setLoading(false);
       updateLastUpdated();
@@ -316,18 +259,12 @@ export function AdminLogs() {
     a.click();
     URL.revokeObjectURL(url);
 
-    toast({
-      title: 'Export terminé',
-      description: 'Le fichier CSV a été téléchargé',
-    });
+    handleSuccess('Export terminé', 'Le fichier CSV a été téléchargé');
     setExportOpen(false);
   }
 
   function exportLogsPDF() {
-    toast({
-      title: 'Export PDF',
-      description: 'Export PDF en cours de développement',
-    });
+    handleSuccess('Export PDF', 'Export PDF en cours de développement');
     setExportOpen(false);
   }
 
@@ -392,40 +329,29 @@ export function AdminLogs() {
             </span>
           )}
           {/* Export dropdown */}
-          <div className="relative">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setExportOpen(!exportOpen)}
-              disabled={loading || logs.length === 0}
-              className="gap-1.5"
-            >
-              <Download className="size-4" />
-              Exporter
-              <ChevronDown className="size-3" />
-            </Button>
-            {exportOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
-                <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border border-border bg-popover p-1 shadow-md">
-                  <button
-                    onClick={exportLogsCSV}
-                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted transition-colors"
-                  >
-                    <FileSpreadsheet className="size-4 text-green-600" />
-                    Exporter CSV
-                  </button>
-                  <button
-                    onClick={exportLogsPDF}
-                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted transition-colors"
-                  >
-                    <FileText className="size-4 text-red-600" />
-                    Exporter PDF
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+          <DropdownMenu open={exportOpen} onOpenChange={setExportOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={loading || logs.length === 0}
+                className="gap-1.5"
+              >
+                <Download className="size-4" />
+                Exporter
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={exportLogsCSV}>
+                <FileSpreadsheet className="size-4 text-green-600" />
+                Exporter CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportLogsPDF}>
+                <FileText className="size-4 text-red-600" />
+                Exporter PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -722,60 +648,6 @@ export function AdminLogs() {
       )}
     </div>
   );
-}
-
-// Generate fallback data
-function generateFallbackLogs(): AuditLog[] {
-  const actions = [
-    { action: 'Connexion réussie', category: 'auth', details: 'Connexion depuis 192.168.1.10' },
-    { action: 'Déconnexion', category: 'auth', details: 'Déconnexion volontaire' },
-    { action: 'Tentative de connexion échouée', category: 'auth', details: 'Identifiants invalides' },
-    { action: 'Utilisateur créé', category: 'user', details: 'Création du compte marie.dupont@ansut.cd' },
-    { action: 'Utilisateur modifié', category: 'user', details: 'Modification du rôle de Jean Martin' },
-    { action: 'Utilisateur supprimé', category: 'user', details: 'Suppression du compte test' },
-    { action: 'Rôle créé', category: 'role', details: 'Création du rôle "Chef de projet"' },
-    { action: 'Rôle modifié', category: 'role', details: 'Modification du niveau du rôle Analyste' },
-    { action: 'Rôle supprimé', category: 'role', details: 'Suppression du rôle temporaire' },
-    { action: 'Permissions modifiées', category: 'permission', details: 'Mise à jour des permissions du rôle Analyste' },
-    { action: 'Données importées', category: 'data', details: 'Import de 150 indicateurs depuis fichier Excel' },
-    { action: 'Indicateur modifié', category: 'data', details: 'Mise à jour du KPI CAQ-001' },
-    { action: 'Export PDF', category: 'export', details: 'Export du module Finance — T1 2025' },
-    { action: 'Export Excel', category: 'export', details: 'Export des données Opérationnel — complet' },
-    { action: 'Synchronisation réussie', category: 'sync', details: 'Sync Sage ERP — 342 enregistrements' },
-    { action: 'Échec de synchronisation', category: 'sync', details: 'Timeout lors de la sync SharePoint' },
-    { action: 'Alerte critique', category: 'alerte', details: 'KPI "Taux de réalisation" en dessous du seuil' },
-    { action: 'Alerte résolue', category: 'alerte', details: 'KPI "Budget exécution" revenu à la normale' },
-    { action: 'Tentative d\'intrusion bloquée', category: 'security', details: 'IP 10.0.0.99 bloquée après 5 tentatives' },
-    { action: 'KPI mis à jour', category: 'kpi', details: 'Mise à jour automatique de 12 indicateurs RH' },
-    { action: 'Document uploadé', category: 'document', details: 'Rapport mensuel Finance uploadé' },
-    { action: 'Notification envoyée', category: 'notification', details: 'Rapport hebdomadaire envoyé par email' },
-    { action: 'Paramètre modifié', category: 'setting', details: 'Format monétaire changé en EUR' },
-  ];
-  const users = [
-    'Admin Principal',
-    'Marie Dupont',
-    'Jean Martin',
-    'Pierre Leroy',
-    'Sophie Bernard',
-    'Claire Moreau',
-  ];
-
-  return Array.from({ length: PAGE_SIZE }, (_, i) => {
-    const item = actions[i % actions.length];
-    const user = users[i % users.length];
-    return {
-      id: String(i + 1),
-      timestamp: new Date(
-        Date.now() - i * 3600000 * Math.random() * 10,
-      ).toISOString(),
-      userId: String((i % 6) + 1),
-      userName: user,
-      action: item.action,
-      category: item.category,
-      details: item.details,
-      ipAddress: `192.168.${(i % 5) + 1}.${(i % 250) + 1}`,
-    };
-  });
 }
 
 // Generate page numbers for pagination

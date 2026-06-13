@@ -26,7 +26,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useToast } from '@/hooks/use-toast'
+import { useErrorHandler } from '@/hooks/use-error-handler'
+import { formatFrenchDate } from '@/lib/formatters'
 import {
   Bell,
   BellOff,
@@ -128,19 +129,10 @@ function statusBadge(isRead: boolean, isResolved: boolean) {
   )
 }
 
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('fr-FR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
+
 
 export function AdminAlerts() {
-  const { toast } = useToast()
+  const { handleError, handleSuccess } = useErrorHandler()
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [loading, setLoading] = useState(true)
   const [filterType, setFilterType] = useState('all')
@@ -166,11 +158,11 @@ export function AdminAlerts() {
       const json = await res.json()
       if (json.data) setAlerts(json.data)
     } catch {
-      toast({ title: 'Erreur', description: 'Échec du chargement des alertes' })
+      handleError('le chargement des alertes')
     } finally {
       setLoading(false)
     }
-  }, [filterType, filterSeverity, filterStatus, toast])
+  }, [filterType, filterSeverity, filterStatus])
 
   useEffect(() => {
     setLoading(true)
@@ -195,9 +187,9 @@ export function AdminAlerts() {
       setAlerts((prev) =>
         prev.map((a) => (a.id === id ? { ...a, isRead: true } : a)),
       )
-      toast({ title: 'Alerte marquée comme lue' })
+      handleSuccess('Alerte marquée comme lue')
     } catch {
-      toast({ title: 'Erreur', description: 'Échec de l\'action' })
+      handleError('l\'action')
     } finally {
       setActionLoading(null)
     }
@@ -218,9 +210,9 @@ export function AdminAlerts() {
             : a,
         ),
       )
-      toast({ title: 'Alerte résolue' })
+      handleSuccess('Alerte résolue')
     } catch {
-      toast({ title: 'Erreur', description: 'Échec de l\'action' })
+      handleError('l\'action')
     } finally {
       setActionLoading(null)
     }
@@ -229,7 +221,7 @@ export function AdminAlerts() {
   const markAllRead = async () => {
     const unread = alerts.filter((a) => !a.isRead && !a.isResolved)
     if (unread.length === 0) {
-      toast({ title: 'Info', description: 'Aucune alerte non lue' })
+      handleSuccess('Info', 'Aucune alerte non lue')
       return
     }
     try {
@@ -243,16 +235,16 @@ export function AdminAlerts() {
         ),
       )
       setAlerts((prev) => prev.map((a) => ({ ...a, isRead: true })))
-      toast({ title: `${unread.length} alerte(s) marquée(s) comme lue(s)` })
+      handleSuccess(`${unread.length} alerte(s) marquée(s) comme lue(s)`)
     } catch {
-      toast({ title: 'Erreur', description: 'Échec de l\'action' })
+      handleError('l\'action')
     }
   }
 
   const resolveAllCritical = async () => {
     const critical = alerts.filter((a) => a.severity === 'critical' && !a.isResolved)
     if (critical.length === 0) {
-      toast({ title: 'Info', description: 'Aucune alerte critique à résoudre' })
+      handleSuccess('Info', 'Aucune alerte critique à résoudre')
       return
     }
     try {
@@ -272,9 +264,9 @@ export function AdminAlerts() {
             : a,
         ),
       )
-      toast({ title: `${critical.length} alerte(s) critique(s) résolue(s)` })
+      handleSuccess(`${critical.length} alerte(s) critique(s) résolue(s)`)
     } catch {
-      toast({ title: 'Erreur', description: 'Échec de l\'action' })
+      handleError('l\'action')
     }
   }
 
@@ -463,7 +455,7 @@ export function AdminAlerts() {
                           {alert.source || '—'}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                          {formatDate(alert.createdAt)}
+                          {formatFrenchDate(alert.createdAt)}
                         </TableCell>
                         <TableCell>{statusBadge(alert.isRead, alert.isResolved)}</TableCell>
                         <TableCell className="text-right">
@@ -540,7 +532,7 @@ export function AdminAlerts() {
 
                       <div className="flex items-center justify-between pt-1">
                         <span className="text-xs text-muted-foreground">
-                          {formatDate(alert.createdAt)}
+                          {formatFrenchDate(alert.createdAt)}
                         </span>
                         <div className="flex gap-1">
                           {!alert.isRead && !alert.isResolved && (

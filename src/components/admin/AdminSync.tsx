@@ -38,6 +38,8 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { MODULE_LABELS } from '@/lib/constants';
+import { formatDuration, formatDateTime, timeAgo } from '@/lib/formatters';
 
 // --- Types ---
 
@@ -77,51 +79,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
   error: { label: 'Erreur', color: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800', icon: XCircle },
 };
 
-const MODULE_LABELS: Record<string, string> = {
-  accueil: 'Accueil',
-  governance: 'Gouvernance',
-  finance: 'Finance',
-  operational: 'Opérationnel',
-  rh: 'Ressources Humaines',
-  risque: 'Cadre de Risque',
-  pta: 'PTA',
-  admin: 'Administration',
-};
 
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-  const minutes = Math.floor(ms / 60000);
-  const seconds = Math.round((ms % 60000) / 1000);
-  return `${minutes}m ${seconds}s`;
-}
-
-function formatDateTime(dateStr: string | null | undefined): string {
-  if (!dateStr) return '—';
-  const date = new Date(dateStr);
-  return date.toLocaleString('fr-FR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-}
-
-function timeAgo(dateStr: string | null | undefined): string {
-  if (!dateStr) return 'Jamais';
-  const now = new Date();
-  const then = new Date(dateStr);
-  const diffMs = now.getTime() - then.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return "À l'instant";
-  if (diffMin < 60) return `Il y a ${diffMin}min`;
-  const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `Il y a ${diffH}h`;
-  const diffD = Math.floor(diffH / 24);
-  return `Il y a ${diffD}j`;
-}
 
 // --- Component ---
 

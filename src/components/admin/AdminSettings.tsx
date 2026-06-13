@@ -43,7 +43,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/hooks/use-toast';
+import { useErrorHandler } from '@/hooks/use-error-handler';
 
 // ---------- Types ----------
 
@@ -122,7 +122,7 @@ const DEFAULT_SETTINGS: SettingsState = {
 
 export function AdminSettings() {
   const { theme, setTheme } = useTheme();
-  const { toast } = useToast();
+  const { handleError, handleSuccess, handleApiError } = useErrorHandler();
   const [settings, setSettings] = useState<SettingsState>(DEFAULT_SETTINGS);
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [loadingSystem, setLoadingSystem] = useState(true);
@@ -172,7 +172,7 @@ export function AdminSettings() {
         });
       }
     } catch {
-      // Silently fail — use defaults
+      handleError('le chargement des paramètres sauvegardés');
     }
   }, []);
 
@@ -190,21 +190,12 @@ export function AdminSettings() {
           diskUsage: '142 Mo',
         });
       } else {
-        // Fallback
-        setSystemInfo({
-          totalUsers: 24,
-          totalRoles: 6,
-          totalIndicators: 8,
-          diskUsage: '142 Mo',
-        });
+        setSystemInfo(null);
+        handleApiError('le chargement des informations système', res);
       }
-    } catch {
-      setSystemInfo({
-        totalUsers: 24,
-        totalRoles: 6,
-        totalIndicators: 8,
-        diskUsage: '142 Mo',
-      });
+    } catch (e) {
+      setSystemInfo(null);
+      handleError('le chargement des informations système', e);
     } finally {
       setLoadingSystem(false);
     }
@@ -229,35 +220,23 @@ export function AdminSettings() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Persist export-related settings to backend
-      const promises = PERSIST_KEYS.map((key) => {
-        const val = settings[key];
-        return fetch('/api/admin/settings', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key, value: val }),
-        });
+      // Build a single payload with all persisted settings
+      const payload: Record<string, unknown> = {};
+      for (const key of PERSIST_KEYS) {
+        payload[key] = settings[key];
+      }
+      const res = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
-      const results = await Promise.allSettled(promises);
-      const failed = results.filter((r) => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok));
-      if (failed.length > 0) {
-        toast({
-          title: 'Attention',
-          description: `${failed.length} paramètre(s) n'ont pas pu être sauvegardés.`,
-          variant: 'destructive',
-        });
+      if (res.ok) {
+      handleSuccess('Paramètres sauvegardés', 'Les paramètres ont été mis à jour avec succès.');
       } else {
-        toast({
-          title: 'Paramètres sauvegardés',
-          description: 'Les paramètres ont été mis à jour avec succès.',
-        });
+        await handleApiError('la sauvegarde des paramètres', res);
       }
     } catch {
-      toast({
-        title: 'Erreur',
-        description: 'Impossible de sauvegarder les paramètres.',
-        variant: 'destructive',
-      });
+      handleError('la sauvegarde des paramètres');
     } finally {
       setSaving(false);
     }

@@ -110,16 +110,29 @@ export function AppSidebar() {
   const departmentName = sessionUser?.department?.name || '';
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-sidebar-border overflow-x-hidden">
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border overflow-hidden">
       {/* Header with ANSUT branding */}
-      <SidebarHeader className="flex flex-col items-center gap-2 px-4 py-5">
-        <div className="flex shrink-0 items-center justify-center overflow-hidden rounded-lg">
-          <img src="/favicon.svg" alt="ANSUT" className="size-10" />
-        </div>
-        <div className="inline-flex items-center rounded-full border border-sidebar-border bg-sidebar-accent/50 px-2.5 py-0.5">
-          <span className="text-[10px] font-semibold text-muted-foreground tracking-tight">
-            ANSUT Cockpit DG
-          </span>
+      <SidebarHeader className="px-0 py-0">
+        <div className="relative overflow-hidden">
+          {/* Gradient brand accent bar */}
+          <div className="h-1 w-full bg-gradient-to-r from-fun-blue via-tango to-fun-blue" />
+          <div className="flex items-center gap-3 px-4 py-4">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-fun-blue to-fun-blue-dark shadow-md shadow-fun-blue/20">
+              <img src="/favicon.svg" alt="ANSUT" className="size-6 brightness-0 invert" />
+            </div>
+            <div
+              className={`min-w-0 flex-1 transition-all duration-200 ${
+                state === 'collapsed' ? 'w-0 opacity-0 overflow-hidden' : 'w-auto opacity-100'
+              }`}
+            >
+              <p className="text-sm font-bold tracking-tight text-foreground truncate">
+                ANSUT
+              </p>
+              <p className="text-[10px] text-muted-foreground truncate">
+                Cockpit
+              </p>
+            </div>
+          </div>
         </div>
       </SidebarHeader>
 
@@ -187,37 +200,6 @@ export function AppSidebar() {
       {/* Footer with user badge and refresh */}
       <SidebarFooter className="px-3 py-3">
         <div className="flex flex-col gap-3">
-          {/* Last updated with refresh */}
-          <div
-            className={`flex items-center gap-2 overflow-hidden transition-all duration-200 ${
-              state === 'collapsed' ? 'justify-center' : ''
-            }`}
-          >
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-11 shrink-0 hover:bg-fun-blue/10 hover:text-fun-blue"
-              onClick={handleRefresh}
-            >
-              <RefreshCw className="size-4" />
-              <span className="sr-only">Actualiser</span>
-            </Button>
-            <div
-              className={`flex flex-col overflow-hidden transition-all duration-200 ${
-                state === 'collapsed' ? 'w-0 opacity-0' : 'w-auto opacity-100'
-              }`}
-            >
-              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                Dernière màj
-              </span>
-              <span className="text-[10px] text-muted-foreground whitespace-nowrap truncate">
-                {displayLastUpdated}
-              </span>
-            </div>
-          </div>
-
-          <SidebarSeparator />
-
           {/* User badge with logout */}
           <div className="flex items-center gap-3 rounded-lg bg-sidebar-accent/50 p-2">
             <Avatar className="size-8 shrink-0">
@@ -234,7 +216,7 @@ export function AppSidebar() {
                 {session?.user?.name || 'Utilisateur'}
               </span>
               <span className="text-[10px] text-muted-foreground whitespace-nowrap truncate">
-                {roleLabel}{departmentName ? ` — ${departmentName}` : ''}
+                {roleLabel}
               </span>
             </div>
             <Tooltip>
@@ -242,7 +224,7 @@ export function AppSidebar() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-11 shrink-0 hover:bg-destructive/10 hover:text-destructive"
+                  className="size-9 shrink-0 hover:bg-destructive/10 hover:text-destructive"
                   onClick={handleLogout}
                 >
                   <LogOut className="size-3.5" />

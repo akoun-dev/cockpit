@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useToast } from '@/hooks/use-toast'
+import { useErrorHandler } from '@/hooks/use-error-handler'
 import {
   Bell,
   Mail,
@@ -105,7 +105,7 @@ function channelIcon(channel: string) {
 }
 
 export function AdminNotifications() {
-  const { toast } = useToast()
+  const { handleError, handleSuccess } = useErrorHandler()
   const [configs, setConfigs] = useState<NotificationConfig[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
@@ -136,11 +136,11 @@ export function AdminNotifications() {
         }
       }
     } catch {
-      toast({ title: 'Erreur', description: 'Échec du chargement des configurations' })
+      handleError('le chargement des configurations')
     } finally {
       setLoading(false)
     }
-  }, [toast])
+  }, [])
 
   useEffect(() => {
     fetchConfigs()
@@ -159,10 +159,10 @@ export function AdminNotifications() {
         setConfigs((prev) =>
           prev.map((c) => (c.id === id ? { ...c, ...json.data } : c)),
         )
-        toast({ title: 'Configuration mise à jour' })
+        handleSuccess('Configuration mise à jour')
       }
     } catch {
-      toast({ title: 'Erreur', description: 'Échec de la mise à jour' })
+      handleError('la mise à jour de la configuration')
     } finally {
       setSaving(null)
     }
@@ -207,9 +207,9 @@ export function AdminNotifications() {
           ),
         )
       }
-      toast({ title: 'Configuration SMTP enregistrée' })
+      handleSuccess('Configuration SMTP enregistrée')
     } catch {
-      toast({ title: 'Erreur', description: 'Échec de l\'enregistrement SMTP' })
+      handleError('l\'enregistrement SMTP')
     } finally {
       setSavingSmtp(false)
     }
@@ -220,10 +220,7 @@ export function AdminNotifications() {
     // Simulated test
     await new Promise((resolve) => setTimeout(resolve, 2000))
     setTestingEmail(false)
-    toast({
-      title: 'Email de test envoyé (simulé)',
-      description: 'Un email de test a été envoyé à l\'adresse configurée.',
-    })
+    handleSuccess('Email de test envoyé (simulé)', 'Un email de test a été envoyé à l\'adresse configurée.')
   }
 
   const parseRecipients = (recipientsStr: string): string => {

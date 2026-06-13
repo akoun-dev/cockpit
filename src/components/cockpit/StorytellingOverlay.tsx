@@ -13,6 +13,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MODULE_LABELS, SUB_DOMAIN_LABELS } from '@/lib/constants';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,42 +30,6 @@ interface KpiData {
   latestValue: number | null;
   latestPeriod: string | null;
 }
-
-const MODULE_LABELS: Record<string, string> = {
-  governance: 'Gouvernance',
-  finance: 'Finance',
-  operational: 'Opérationnel',
-  rh: 'Ressources Humaines',
-  risque: 'Cadre de Risque',
-  pta: 'Plan de Travail Annuel',
-};
-
-const SUB_DOMAIN_LABELS: Record<string, string> = {
-  reporting_reglementaire: 'Reporting réglementaire',
-  gouvernance_ethique: 'Gouvernance & Éthique',
-  marches_publics: 'Passation des Marchés Publics',
-  relations_publiques: 'Dons, Honoraires & Relations Publiques',
-  execution_budgetaire: 'Exécution budgétaire',
-  rentabilite: 'Rentabilité & Performance',
-  ressources_specifiques: 'Ressources Spécifiques',
-  dette: 'Endettement',
-  deploiement_infra: 'Déploiement Infrastructures',
-  relations_operateurs: 'Relations Opérateurs',
-  service_universel: 'Service Universel',
-  projets_programmes: 'Projets & Programmes',
-  effectifs: 'Effectifs & Organisation',
-  performance: 'Performance & Productivité',
-  competences: 'Développement Compétences',
-  couts_rh: 'Maîtrise Coûts RH',
-  risque_strategique: 'Risque Stratégique',
-  risque_financier: 'Risque Financier',
-  risque_operationnel: 'Risque Opérationnel',
-  risque_technologique: 'Risque Technologique',
-  risque_gouvernance: 'Risque Gouvernance',
-  pta_gouvernance: 'Gouvernance',
-  pta_operationnel: 'Opérationnel',
-  pta_finance: 'Finance',
-};
 
 function getStatus(
   value: number | null,
@@ -336,10 +301,8 @@ export function StorytellingOverlay({ open, onClose }: StorytellingOverlayProps)
                         <p className="text-[10px] sm:text-sm text-slate-500 dark:text-white/40 tracking-[0.3em] uppercase mb-2">Agence Nationale des Services Universels des Télécommunications</p>
                         <h1 className="text-3xl sm:text-6xl lg:text-7xl font-bold mb-4">
                           <span className="text-tango">Cockpit</span>{' '}
-                          <span className="text-white dark:text-slate-900">DG</span>
                         </h1>
                         <div className="w-16 h-1 bg-tango mx-auto mb-6" />
-                        <h2 className="text-xl sm:text-3xl lg:text-4xl font-semibold text-slate-800 dark:text-white/90 mb-8">{current.title}</h2>
                         <p className="text-xs sm:text-sm text-slate-500 dark:text-white/40">{filterLabel}</p>
                         <p className="text-[10px] sm:text-xs text-slate-400 dark:text-white/25 mt-2">{indicators.length} indicateurs · {grouped.size} sous-domaines</p>
                       </motion.div>

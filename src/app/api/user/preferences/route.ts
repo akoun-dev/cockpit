@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { buildAuthOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 
 // GET /api/user/preferences — load user preferences
 export async function GET() {
+  const authOptions = await buildAuthOptions();
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
@@ -29,6 +30,7 @@ export async function GET() {
 
 // PUT /api/user/preferences — save user preferences
 export async function PUT(request: NextRequest) {
+  const authOptions = await buildAuthOptions();
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });

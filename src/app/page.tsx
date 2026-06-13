@@ -42,6 +42,16 @@ function CockpitApp() {
     loadPreferences();
   }, [loadPreferences]);
 
+  // Scroll to top when module view changes
+  useEffect(() => {
+    const container = document.querySelector('[data-sidebar="inset"]') as HTMLElement | null;
+    if (container) {
+      container.scrollTop = 0;
+    } else {
+      window.scrollTo(0, 0);
+    }
+  }, [activeView, activeModule, adminSubView]);
+
   const isAdmin = activeView === 'admin';
 
   return (
@@ -84,7 +94,7 @@ function CockpitApp() {
             )}
           </AnimatePresence>
         </main>
-        <footer className="mt-auto border-t border-border bg-card px-6 py-3">
+        <footer className="mt-auto hidden md:block border-t border-border bg-card px-6 py-3">
           <div className="flex flex-col items-center justify-between gap-1 text-xs text-muted-foreground sm:flex-row">
             <div className="flex items-center gap-2">
               <img src="/logo-ansut-square.png" alt="ANSUT" className="size-4 rounded opacity-60" />

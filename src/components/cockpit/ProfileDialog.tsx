@@ -48,8 +48,8 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
       setForm({
         name: session.user.name || '',
         email: session.user.email || '',
-        fonction: ((session.user as Record<string, unknown>).fonction as string) || '',
-        matricule: ((session.user as Record<string, unknown>).matricule as string) || '',
+        fonction: session.user.fonction || '',
+        matricule: session.user.matricule || '',
       });
       setAvatarPreview(null);
     }
@@ -159,14 +159,9 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
     }
   };
 
-  const sessionUser = session?.user as unknown as {
-    avatar?: string | null;
-    role?: { color?: string } | null;
-    fonction?: string | null;
-    matricule?: string | null;
-  } | undefined;
+  const sessionUser = session?.user;
 
-  const avatarUrl = avatarPreview || sessionUser?.avatar || null;
+  const avatarUrl = avatarPreview || sessionUser?.image || null;
   const roleColor = sessionUser?.role?.color || '#1c55a3';
 
   return (

@@ -154,7 +154,7 @@ export function LoginForm() {
                   Si cet email existe, un lien de réinitialisation a été envoyé.
                 </AlertDescription>
               </Alert>
-              {resetLink && (
+              {resetLink && process.env.NODE_ENV === 'development' && (
                 <div className="rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950">
                   <p className="text-xs font-medium text-amber-700 dark:text-amber-300">Mode développement :</p>
                   <a
@@ -251,7 +251,7 @@ export function LoginForm() {
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="block w-full rounded-md border border-amber-200 bg-amber-50/60 px-3.5 py-2.5 pr-10 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-[#205eb3] focus:outline-none focus:ring-2 focus:ring-[#205eb3]/20 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-[#4a8ad4] dark:focus:ring-[#4a8ad4]/20"
+                      className="block w-full rounded-md border border-gray-300 bg-white px-3.5 py-2.5 pr-10 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-[#205eb3] focus:outline-none focus:ring-2 focus:ring-[#205eb3]/20 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-[#4a8ad4] dark:focus:ring-[#4a8ad4]/20"
                       required
                       autoComplete="current-password"
                       disabled={isLoading}

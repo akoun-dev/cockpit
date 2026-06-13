@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { buildAuthOptions } from '@/lib/auth';
 
 // GET /api/export — returns structured export data
 // Query params: module, format (pdf/excel), year, quarter, month, periodStart, periodEnd
 export async function GET(request: NextRequest) {
   try {
+    const authOptions = await buildAuthOptions();
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
