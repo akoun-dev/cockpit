@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireAdmin } from '@/lib/require-auth'
 
 // PUT /api/admin/permissions — update permissions for a role
 // Body: { roleId, permissions: [{ module, access }] }
 export async function PUT(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    }
+    const session = await requireAdmin()
+    if (session instanceof Response) return session
     const body = await request.json()
     const { roleId, permissions } = body
 

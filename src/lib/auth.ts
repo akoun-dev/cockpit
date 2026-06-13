@@ -68,17 +68,17 @@ export async function buildAuthOptions(): Promise<NextAuthOptions> {
             });
 
             if (!user) {
-              console.log('[auth] User not found:', credentials.email);
+              console.log('[auth] User not found');
               return null;
             }
 
             if (!user.isActive) {
-              console.log('[auth] User inactive:', credentials.email);
+              console.log('[auth] User inactive');
               return null;
             }
 
             if (user.isLocked) {
-              console.log('[auth] User locked:', credentials.email);
+              console.log('[auth] User locked');
               return null;
             }
 
@@ -95,7 +95,7 @@ export async function buildAuthOptions(): Promise<NextAuthOptions> {
                 },
               });
 
-              console.log('[auth] Invalid password for:', credentials.email);
+              console.log('[auth] Invalid password');
               return null;
             }
 
@@ -213,17 +213,17 @@ export const authOptions: NextAuthOptions = {
           });
 
           if (!user) {
-            console.log('[auth] User not found:', credentials.email);
+            console.log('[auth] User not found');
             return null;
           }
 
           if (!user.isActive) {
-            console.log('[auth] User inactive:', credentials.email);
+            console.log('[auth] User inactive');
             return null;
           }
 
           if (user.isLocked) {
-            console.log('[auth] User locked:', credentials.email);
+            console.log('[auth] User locked');
             return null;
           }
 
@@ -240,7 +240,7 @@ export const authOptions: NextAuthOptions = {
               },
             });
 
-            console.log('[auth] Invalid password for:', credentials.email);
+            console.log('[auth] Invalid password');
             return null;
           }
 

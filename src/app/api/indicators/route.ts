@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const domain = searchParams.get('domain');
-    const year = parseInt(searchParams.get('year') || '2025');
+    const year = parseInt(searchParams.get('year') || String(new Date().getFullYear()));
     const quarter = searchParams.get('quarter');
     const departmentId = searchParams.get('departmentId');
 

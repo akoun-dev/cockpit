@@ -611,8 +611,8 @@ export function AdminRoles() {
       {/* Main layout: Roles list + Permissions matrix */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
         {/* Left: Roles list */}
-        <div className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+        <div className="flex min-h-0 flex-col gap-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground shrink-0">
             Liste des rôles
           </h2>
           {loading ? (
@@ -622,7 +622,7 @@ export function AdminRoles() {
               ))}
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2 min-h-0 overflow-y-auto pr-1">
               {roles.map((role) => (
                 <Card
                   key={role.id}
@@ -653,54 +653,54 @@ export function AdminRoles() {
                       <p className="mt-0.5 truncate text-xs text-muted-foreground">
                         {role.description}
                       </p>
-                      <div className="mt-2 flex items-center gap-3">
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                          Niveau {role.level} — {LEVEL_LABELS[role.level] || 'Inconnu'}
+                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 leading-normal">
+                          Niveau {role.level}
                         </Badge>
-                        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <span className="flex items-center gap-1 text-[10px] text-muted-foreground whitespace-nowrap">
                           <Users className="size-3" />
-                          {role.userCount ?? role._count?.users ?? 0} utilisateur(s)
+                          {role.userCount ?? role._count?.users ?? 0}
                         </span>
                       </div>
                     </div>
                     {/* Actions */}
-                    <div className="flex shrink-0 gap-1">
+                    <div className="flex shrink-0 gap-0.5">
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="size-7 hover:bg-muted"
+                        className="size-6 sm:size-7 hover:bg-muted"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleEditRole(role);
                         }}
                         aria-label={`Modifier le rôle ${role.label}`}
                       >
-                        <Pencil className="size-3.5" />
+                        <Pencil className="size-3 sm:size-3.5" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="size-7 hover:bg-muted"
+                        className="size-6 sm:size-7 hover:bg-muted"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDuplicateRole(role);
                         }}
                         aria-label={`Dupliquer le rôle ${role.label}`}
                       >
-                        <Copy className="size-3.5" />
+                        <Copy className="size-3 sm:size-3.5" />
                       </Button>
                       {!role.isSystem && (
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="size-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          className="size-6 sm:size-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeleteRole(role);
                           }}
                           aria-label={`Supprimer le rôle ${role.label}`}
                         >
-                          <Trash2 className="size-3.5" />
+                          <Trash2 className="size-3 sm:size-3.5" />
                         </Button>
                       )}
                     </div>
@@ -798,7 +798,7 @@ export function AdminRoles() {
                                 handlePermissionChange(moduleId, val)
                               }
                             >
-                              <SelectTrigger className="w-[200px]">
+                              <SelectTrigger className="w-full sm:w-[200px]">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>

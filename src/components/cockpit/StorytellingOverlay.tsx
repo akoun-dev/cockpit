@@ -331,7 +331,7 @@ export function StorytellingOverlay({ open, onClose }: StorytellingOverlayProps)
                         transition={{ delay: 0.2, duration: 0.5 }}
                       >
                         <div className="flex justify-center mb-6">
-                          <img src="/favicon.svg" alt="ANSUT" className="size-14 sm:size-16" />
+                          <img src="/logo-ansut.png" alt="ANSUT" className="h-14 sm:h-18 object-contain" />
                         </div>
                         <p className="text-[10px] sm:text-sm text-slate-500 dark:text-white/40 tracking-[0.3em] uppercase mb-2">Agence Nationale des Services Universels des Télécommunications</p>
                         <h1 className="text-3xl sm:text-6xl lg:text-7xl font-bold mb-4">
@@ -349,14 +349,23 @@ export function StorytellingOverlay({ open, onClose }: StorytellingOverlayProps)
                   {/* ─ SYNTHESIS SLIDE ─ */}
                   {current?.type === 'synthesis' && (
                     <div className="w-full max-w-5xl">
-                      <motion.h2
-                        initial={{ y: -20, opacity: 0 }}
+                      <motion.div
+                        initial={{ y: -10, opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}
                         transition={{ delay: 0.1 }}
-                        className="text-2xl sm:text-3xl font-bold mb-8 text-center"
+                        className="flex items-center justify-between mb-6"
                       >
-                        {current.title}
-                      </motion.h2>
+                        <img src="/logo-ansut.png" alt="ANSUT" className="h-8 sm:h-10 object-contain" />
+                        <motion.h2
+                          initial={{ y: -20, opacity: 0 }}
+                          animate={{ y: 0, opacity: 1 }}
+                          transition={{ delay: 0.15 }}
+                          className="text-2xl sm:text-3xl font-bold"
+                        >
+                          {current.title}
+                        </motion.h2>
+                        <div className="size-8 sm:size-10" />
+                      </motion.div>
 
                       {/* KPI cards */}
                       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-6 sm:mb-10">
@@ -433,14 +442,23 @@ export function StorytellingOverlay({ open, onClose }: StorytellingOverlayProps)
                     const sdIndicators = grouped.get(current.module) || [];
                     return (
                       <div className="w-full max-w-6xl">
+                      <motion.div
+                        initial={{ y: -10, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.1 }}
+                        className="flex items-center justify-between mb-4"
+                      >
+                        <img src="/logo-ansut.png" alt="ANSUT" className="h-7 sm:h-9 object-contain" />
                         <motion.h2
                           initial={{ y: -20, opacity: 0 }}
                           animate={{ y: 0, opacity: 1 }}
-                          transition={{ delay: 0.1 }}
-                          className="text-xl sm:text-2xl font-bold mb-1"
+                          transition={{ delay: 0.15 }}
+                          className="text-xl sm:text-2xl font-bold"
                         >
                           {current.title}
                         </motion.h2>
+                        <div className="size-7 sm:size-9" />
+                      </motion.div>
                         <motion.p
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
@@ -517,7 +535,7 @@ export function StorytellingOverlay({ open, onClose }: StorytellingOverlayProps)
                         transition={{ delay: 0.2, duration: 0.5 }}
                       >
                         <div className="flex justify-center mb-6">
-                          <img src="/favicon.svg" alt="ANSUT" className="size-14 sm:size-16" />
+                          <img src="/logo-ansut.png" alt="ANSUT" className="h-16 sm:h-20 object-contain" />
                         </div>
                         <div className="w-16 h-1 bg-tango mx-auto mb-6" />
                         <h1 className="text-3xl sm:text-5xl font-bold mb-4">

@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ results: [] });
     }
 
-    const year = parseInt(searchParams.get('year') || '2025');
+    const year = parseInt(searchParams.get('year') || String(new Date().getFullYear()));
     const quarter = searchParams.get('quarter');
 
     // Search indicators by name, code, or subDomain

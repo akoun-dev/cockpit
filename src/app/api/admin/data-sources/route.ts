@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireAdmin } from '@/lib/require-auth'
 
 // GET /api/admin/data-sources — list all data sources, optionally ?module=X
 export async function GET(request: NextRequest) {
   try {
+    await requireAdmin()
     const { searchParams } = new URL(request.url)
     const moduleFilter = searchParams.get('module') ?? undefined
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10) || 1)
@@ -36,10 +36,8 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/data-sources — create a new data source
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    }
+    const session = await requireAdmin()
+    if (session instanceof Response) return session
     const body = await request.json()
     const { module: mod, name, type, host, port, endpoint, database, username, password, description, refreshFreq } = body
 

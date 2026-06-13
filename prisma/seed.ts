@@ -383,19 +383,15 @@ async function seed() {
   }
 
   console.log('\n✅ Seed completed successfully!\n');
-  console.log('📋 Comptes utilisateurs:');
-  console.log('  ┌──────────────────────┬──────────────────────────────────────────────────┬──────────────────┐');
-  console.log('  │ Email                │ Rôle                                             │ Mot de passe     │');
-  console.log('  ├──────────────────────┼──────────────────────────────────────────────────┼──────────────────┤');
-  console.log('  │ admin@ansut.ci       │ Administrateur Système                           │ ansut2025        │');
-  console.log('  │ dg@ansut.ci          │ Directeur Général                                │ ansut2025        │');
-  console.log('  │ pmo@ansut.ci         │ Bureau de Projets (PMO)                          │ ansut2025        │');
-  console.log('  │ ct@ansut.ci          │ Conseiller Technique (CT)                        │ ansut2025        │');
-  console.log('  │ djmg@ansut.ci        │ Dir. Juridique et Moyens Généraux (DJMG)        │ ansut2025        │');
-  console.log('  │ dfc@ansut.ci         │ Dir. des Finances et Comptabilité (DFC)          │ ansut2025        │');
-  console.log('  │ ddir@ansut.ci        │ Dir. du Dév. des Infrastructures et du RNHD     │ ansut2025        │');
-  console.log('  │ rdrhf@ansut.ci       │ Resp. Dépt. RH et Formation (RDRHF)             │ ansut2025        │');
-  console.log('  └──────────────────────┴──────────────────────────────────────────────────┴──────────────────┘');
+  console.log('📋 Comptes utilisateurs créés (se référer à la documentation pour les identifiants par défaut) :');
+  console.log('  • admin@ansut.ci       — Administrateur Système');
+  console.log('  • dg@ansut.ci          — Directeur Général');
+  console.log('  • pmo@ansut.ci         — Bureau de Projets (PMO)');
+  console.log('  • ct@ansut.ci          — Conseiller Technique (CT)');
+  console.log('  • djmg@ansut.ci        — Dir. Juridique et Moyens Généraux (DJMG)');
+  console.log('  • dfc@ansut.ci         — Dir. des Finances et Comptabilité (DFC)');
+  console.log('  • ddir@ansut.ci        — Dir. du Dév. des Infrastructures et du RNHD');
+  console.log('  • rdrhf@ansut.ci       — Resp. Dépt. RH et Formation (RDRHF)');
   console.log('');
   console.log('🔐 Accès par module:');
   console.log('  ┌────────────────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┐');

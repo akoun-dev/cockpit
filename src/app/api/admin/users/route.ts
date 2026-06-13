@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireAdmin } from '@/lib/require-auth'
 
 // GET /api/admin/users — list all users with role & department; ?search=&page=&limit= filters
 export async function GET(request: NextRequest) {
   try {
+    await requireAdmin()
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') ?? ''
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10) || 1)
@@ -47,11 +47,8 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/users — create a new user
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    }
-
+    const session = await requireAdmin()
+    if (session instanceof Response) return session
     const body = await request.json()
     const { email, name, password, roleId, departmentId, isActive } = body
 
@@ -66,7 +63,7 @@ export async function POST(request: NextRequest) {
       data: {
         email,
         name,
-        password: password ?? 'ansut2025',
+        password: password ?? require('crypto').randomBytes(6).toString('hex'),
         isActive: isActive ?? true,
         roleId: roleId ?? null,
         departmentId: departmentId ?? null,

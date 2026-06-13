@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { requireAdmin } from '@/lib/require-auth';
 
 // GET /api/admin/settings — returns all settings as a flat object (key-value pairs, parse JSON values)
 export async function GET() {
   try {
+    await requireAdmin();
     const rows = await db.systemSetting.findMany();
     const settings: Record<string, unknown> = {};
     for (const row of rows) {
@@ -28,11 +28,8 @@ export async function GET() {
 // PUT /api/admin/settings — accepts { key, value } and upserts the setting
 export async function PUT(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
-    }
-
+    const session = await requireAdmin();
+    if (session instanceof Response) return session
     const body = await request.json();
     const { key, value } = body;
 

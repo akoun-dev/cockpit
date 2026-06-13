@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireAdmin } from '@/lib/require-auth'
 
 type RouteParams = { params: Promise<{ id: string }> }
 
 // GET /api/admin/roles/[id] — role with all permissions
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
+    await requireAdmin()
     const { id } = await params
     const role = await db.role.findUnique({
       where: { id },
@@ -36,10 +36,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 // PUT /api/admin/roles/[id] — update role fields
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    }
+    const session = await requireAdmin()
+    if (session instanceof Response) return session
     const { id } = await params
     const body = await request.json()
     const { label, description, level, color } = body
@@ -89,10 +87,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/admin/roles/[id] — delete role (unless isSystem=true)
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    }
+    const session = await requireAdmin()
+    if (session instanceof Response) return session
     const { id } = await params
 
     const role = await db.role.findUnique({

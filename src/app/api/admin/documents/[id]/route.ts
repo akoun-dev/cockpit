@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { requireAdmin } from '@/lib/require-auth';
 
 // GET /api/admin/documents/[id] — get a single document
 export async function GET(
@@ -9,6 +8,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    await requireAdmin();
     const { id } = await params;
     const document = await db.document.findUnique({ where: { id } });
 
@@ -35,10 +35,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    }
+    const session = await requireAdmin()
+    if (session instanceof Response) return session
     const { id } = await params;
     const body = await request.json();
     const { name, url, type, module, description, visibility } = body;
@@ -107,10 +105,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    }
+    const session = await requireAdmin()
+    if (session instanceof Response) return session
     const { id } = await params;
     const existing = await db.document.findUnique({ where: { id } });
     if (!existing) {

@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     if (session instanceof Response) return session
 
     const { searchParams } = new URL(request.url);
-    const year = parseInt(searchParams.get('year') || '2025');
+    const year = parseInt(searchParams.get('year') || String(new Date().getFullYear()));
     const quarterParam = searchParams.get('quarter');
     const quarter = quarterParam ? parseInt(quarterParam) : null;
 

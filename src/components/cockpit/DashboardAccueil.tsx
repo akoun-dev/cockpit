@@ -896,7 +896,7 @@ export function DashboardAccueil() {
     async function fetchDashboard() {
       try {
         setLoading(true);
-        const params = new URLSearchParams({ year: String(filters.year || 2025) });
+        const params = new URLSearchParams({ year: String(filters.year || new Date().getFullYear()) });
         if (filters.quarter) params.set('quarter', String(filters.quarter));
 
         const res = await fetch(`/api/dashboard?${params}`);

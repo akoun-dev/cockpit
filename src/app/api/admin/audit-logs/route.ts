@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireAdmin } from '@/lib/require-auth'
 
 // GET /api/admin/audit-logs — list with user info; ?limit, ?offset, ?category, ?search
 export async function GET(request: NextRequest) {
   try {
+    await requireAdmin()
     const { searchParams } = new URL(request.url)
     const limit = Math.min(Math.max(parseInt(searchParams.get('limit') ?? '50', 10) || 50, 1), 200)
     const offset = Math.max(parseInt(searchParams.get('offset') ?? '0', 10) || 0, 0)

@@ -1,15 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-
-async function checkAdmin() {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-  }
-  return session
-}
+import { requireAdmin } from '@/lib/require-auth'
 
 // GET /api/admin/alerts/:id
 export async function GET(
@@ -17,9 +8,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await checkAdmin()
+    const session = await requireAdmin()
     if (session instanceof Response) return session
-
     const { id } = await params
     const alert = await db.alert.findUnique({ where: { id } })
     if (!alert) {
@@ -44,9 +34,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await checkAdmin()
+    const session = await requireAdmin()
     if (session instanceof Response) return session
-
     const { id } = await params
     const body = await request.json()
     const { isRead, isResolved } = body
@@ -104,9 +93,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await checkAdmin()
+    const session = await requireAdmin()
     if (session instanceof Response) return session
-
     const { id } = await params
     const existing = await db.alert.findUnique({ where: { id } })
     if (!existing) {

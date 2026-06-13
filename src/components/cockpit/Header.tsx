@@ -80,7 +80,8 @@ const MODULE_LABELS: Record<AppViewKey, string> = {
   admin: 'Administration',
 };
 
-const YEARS = [2024, 2025];
+const curYear = new Date().getFullYear();
+const YEARS = [curYear - 1, curYear];
 
 const QUARTERS = [
   { value: '1', label: 'T1', full: 'T1 — Premier trimestre' },

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { requireAdmin } from '@/lib/require-auth';
 
 // GET /api/admin/sync-logs — list sync logs with optional ?status=&sourceId=&page=&limit= filters
 export async function GET(request: NextRequest) {
   try {
+    await requireAdmin();
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') ?? undefined;
     const sourceId = searchParams.get('sourceId') ?? undefined;
@@ -44,10 +44,8 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/sync-logs — trigger a sync (create a sync log entry)
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    }
+    const session = await requireAdmin()
+    if (session instanceof Response) return session
     const body = await request.json();
     const { dataSourceId } = body;
 

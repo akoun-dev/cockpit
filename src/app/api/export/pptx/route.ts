@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
     const moduleLabel = MODULE_LABELS[modName] || modName;
 
     // Filter label
-    let filterLabel = String(year || 2025);
+    let filterLabel = String(year || new Date().getFullYear());
     if (quarter) filterLabel += ` — T${quarter}`;
     if (month) filterLabel += ` — M${month}`;
     const now = new Date();

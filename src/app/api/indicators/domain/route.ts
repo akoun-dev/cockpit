@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const domain = searchParams.get('domain') || 'finance';
     const rawYear = searchParams.get('year');
-    const year = rawYear && !isNaN(parseInt(rawYear)) ? parseInt(rawYear) : 2025;
+    const year = rawYear && !isNaN(parseInt(rawYear)) ? parseInt(rawYear) : new Date().getFullYear();
 
     // Optional period filters
     const rawQuarter = searchParams.get('quarter');

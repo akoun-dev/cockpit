@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireAdmin } from '@/lib/require-auth'
 import { hash } from 'bcryptjs'
 import { randomBytes } from 'crypto'
 
@@ -10,6 +9,7 @@ type RouteParams = { params: Promise<{ id: string }> }
 // GET /api/admin/users/[id] — single user with role, department, permissions
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
+    await requireAdmin()
     const { id } = await params
     const user = await db.user.findUnique({
       where: { id },
@@ -38,10 +38,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 // PUT /api/admin/users/[id] — update user fields
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    }
+    const session = await requireAdmin()
+    if (session instanceof Response) return session
     const { id } = await params
     const body = await request.json()
     const { name, email, isActive, roleId, departmentId, resetPassword } = body
@@ -126,10 +124,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/admin/users/[id] — delete user (unless isSystem role)
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    }
+    const session = await requireAdmin()
+    if (session instanceof Response) return session
     const { id } = await params
 
     const user = await db.user.findUnique({

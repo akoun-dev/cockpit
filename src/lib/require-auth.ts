@@ -10,14 +10,13 @@ export async function requireAuth() {
   return session
 }
 
-export async function requireAdmin() {
+export async function requireAdmin(): Promise<NonNullable<Awaited<ReturnType<typeof requireAuth>>>> {
   const session = await requireAuth()
-  if (session instanceof Response) return session
-  const roleLevel = (session.user as Record<string, unknown>).role
-    ? ((session.user as Record<string, unknown>).role as Record<string, unknown>)?.level as number
-    : 0
+  if (session instanceof Response) return session as never
+  const role = session.user.role as { level: number } | null
+  const roleLevel = role?.level ?? 0
   if (roleLevel < 100) {
-    return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 })
+    return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 }) as never
   }
   return session
 }

@@ -59,7 +59,7 @@ interface AppState {
 }
 
 const initialState: FilterState = {
-  year: 2025,
+  year: new Date().getFullYear(),
   quarter: 2,
   month: null,
   periodStart: null,

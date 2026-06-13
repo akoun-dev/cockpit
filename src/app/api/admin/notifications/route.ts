@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireAdmin } from '@/lib/require-auth'
 
 // GET /api/admin/notifications — list all configs with pagination
 export async function GET(request: NextRequest) {
   try {
+    await requireAdmin()
     const { searchParams } = new URL(request.url)
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10) || 1)
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '20', 10) || 20))

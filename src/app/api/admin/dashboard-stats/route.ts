@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireAdmin } from '@/lib/require-auth'
 
 // GET /api/admin/dashboard-stats — aggregated stats for admin dashboard
 export async function GET() {
   try {
+    await requireAdmin()
     const [totalUsers, activeUsers, totalRoles, configuredModules, auditLogCount] =
       await Promise.all([
         db.user.count(),

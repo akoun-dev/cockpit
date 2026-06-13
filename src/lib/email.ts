@@ -58,7 +58,8 @@ export async function sendEmail(options: {
       html: options.html,
       attachments: options.attachments,
     });
-    console.log('[email] Sent successfully to', options.to);
+    const recipientCount = Array.isArray(options.to) ? options.to.length : 1;
+    console.log(`[email] Sent successfully to ${recipientCount} recipient(s)`);
     return true;
   } catch (error) {
     console.error('[email] Send error:', error);
