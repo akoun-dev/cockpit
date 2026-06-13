@@ -701,7 +701,10 @@ function SubDomainBarChart({
             <ChartTooltip
               content={
                 <ChartTooltipContent
-                  formatter={(value: number) => [`${value}%`, 'Performance']}
+                  formatter={(value: unknown) => {
+                    const numVal = typeof value === 'number' ? value : typeof value === 'string' ? parseFloat(value) : 0;
+                    return [`${numVal}%`, 'Performance'];
+                  }}
                 />
               }
             />
@@ -752,7 +755,10 @@ export function ModuleHeroSection({ domain }: ModuleHeroSectionProps) {
     if (filters.periodEnd) params.set('periodEnd', filters.periodEnd);
 
     fetch(`/api/indicators/domain?${params}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('Échec du chargement');
+        return res.json();
+      })
       .then((data) => {
         if (!cancelled) {
           setIndicators(data?.indicators ?? []);

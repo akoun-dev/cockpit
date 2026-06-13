@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/require-auth';
 
 const DOMAIN_LABELS: Record<string, string> = {
   finance: 'Finance',
@@ -21,6 +22,9 @@ const DOMAIN_COLORS: Record<string, string> = {
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await requireAuth()
+    if (session instanceof Response) return session
+
     const { searchParams } = new URL(request.url);
     const q = (searchParams.get('q') || '').trim();
 

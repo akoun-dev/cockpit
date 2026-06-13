@@ -476,11 +476,13 @@ function DomainPerformanceChart({
             <ChartTooltip
               content={
                 <ChartTooltipContent
-                  formatter={(value: number, name: string, item: { payload?: Record<string, unknown> }) => {
+                  formatter={(value: unknown, name: unknown, item: { payload?: Record<string, unknown> }) => {
+                    const numVal = typeof value === 'number' ? value : typeof value === 'string' ? parseFloat(value) : 0;
                     const p = item?.payload as Record<string, unknown> | undefined;
-                    if (!p) return [`${value}%`, name];
+                    const nameStr = typeof name === 'string' ? name : String(name);
+                    if (!p) return [`${numVal}%`, nameStr];
                     return [
-                      `${value}% (${(p.atteint as number)}A / ${(p.partiel as number)}P / ${(p.non_atteint as number)}NA)`,
+                      `${numVal}% (${(p.atteint as number)}A / ${(p.partiel as number)}P / ${(p.non_atteint as number)}NA)`,
                       'Performance',
                     ];
                   }}
@@ -688,7 +690,7 @@ function ProjectsOverview({ projects }: { projects: ProjectSummary }) {
       </CardHeader>
       <CardContent className="p-4 pt-0 space-y-4">
         {/* Project stats row */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {[
             { label: 'Total', value: projects.total, icon: FolderKanban, color: '#205eb3' },
             { label: 'En Cours', value: projects.en_cours, icon: Clock, color: '#f59e0b' },

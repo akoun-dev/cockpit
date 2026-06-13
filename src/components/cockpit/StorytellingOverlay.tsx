@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useTheme } from 'next-themes';
 import { useAppStore, type ModuleKey } from '@/lib/store';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -108,6 +109,8 @@ interface StorytellingOverlayProps {
 }
 
 export function StorytellingOverlay({ open, onClose }: StorytellingOverlayProps) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
   const { activeView, filters } = useAppStore();
   const [indicators, setIndicators] = useState<KpiData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -252,40 +255,40 @@ export function StorytellingOverlay({ open, onClose }: StorytellingOverlayProps)
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
-          className="fixed inset-0 z-[100] bg-[#0f172a] text-white flex flex-col"
+          className="fixed inset-0 z-[100] bg-white dark:bg-[#0f172a] text-slate-900 dark:text-white flex flex-col"
         >
           {/* ── Top bar ── */}
-          <div className="flex items-center justify-between px-6 py-3 border-b border-white/10 shrink-0">
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-bold text-tango tracking-wide">STORYTELLING</span>
-              <span className="text-xs text-white/40">{currentSlide + 1} / {totalSlides}</span>
+          <div className="flex items-center justify-between px-3 sm:px-6 py-2 sm:py-3 border-b border-slate-200 dark:border-white/10 shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <span className="text-[10px] sm:text-sm font-bold text-tango tracking-wide">STORYTELLING</span>
+              <span className="text-[10px] sm:text-xs text-slate-500 dark:text-white/40">{currentSlide + 1} / {totalSlides}</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
               <button
                 onClick={goPrev}
-                className="p-1.5 rounded-md hover:bg-white/10 transition-colors"
+                className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
                 aria-label="Précédent"
               >
                 <ChevronLeft className="size-4" />
               </button>
               <button
                 onClick={() => setPlaying((p) => !p)}
-                className="p-1.5 rounded-md hover:bg-white/10 transition-colors"
+                className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
                 aria-label={playing ? 'Pause' : 'Lecture'}
               >
                 {playing ? <Pause className="size-4" /> : <Play className="size-4" />}
               </button>
               <button
                 onClick={goNext}
-                className="p-1.5 rounded-md hover:bg-white/10 transition-colors"
+                className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
                 aria-label="Suivant"
               >
                 <ChevronRight className="size-4" />
               </button>
-              <div className="w-px h-4 bg-white/20 mx-1" />
+              <div className="w-px h-4 bg-slate-300 dark:bg-white/20 mx-1" />
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-md hover:bg-white/10 transition-colors text-white/60 hover:text-white"
+                className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-white/10 transition-colors text-slate-400 hover:text-slate-700 dark:text-white/60 dark:hover:text-white"
                 aria-label="Fermer (Échap)"
               >
                 <X className="size-4" />
@@ -294,7 +297,7 @@ export function StorytellingOverlay({ open, onClose }: StorytellingOverlayProps)
           </div>
 
           {/* ── Progress bar ── */}
-          <div className="h-0.5 bg-white/10 shrink-0">
+          <div className="h-0.5 bg-slate-200 dark:bg-white/10 shrink-0">
             <motion.div
               className="h-full bg-tango"
               animate={{ width: `${((currentSlide + 1) / totalSlides) * 100}%` }}
@@ -317,7 +320,7 @@ export function StorytellingOverlay({ open, onClose }: StorytellingOverlayProps)
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -direction * 60 }}
                   transition={{ duration: 0.4, ease: 'easeInOut' }}
-                  className="absolute inset-0 flex items-center justify-center p-6 sm:p-10 lg:p-16"
+                  className="absolute inset-0 flex items-center justify-center p-4 sm:p-6 lg:p-16"
                 >
                   {/* ─ TITLE SLIDE ─ */}
                   {current?.type === 'title' && (
@@ -327,15 +330,18 @@ export function StorytellingOverlay({ open, onClose }: StorytellingOverlayProps)
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ delay: 0.2, duration: 0.5 }}
                       >
-                        <p className="text-sm text-white/40 tracking-[0.3em] uppercase mb-2">Agence Nationale des Services Universels des Télécommunications</p>
-                        <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold mb-4">
+                        <div className="flex justify-center mb-6">
+                          <img src="/favicon.svg" alt="ANSUT" className="size-14 sm:size-16" />
+                        </div>
+                        <p className="text-[10px] sm:text-sm text-slate-500 dark:text-white/40 tracking-[0.3em] uppercase mb-2">Agence Nationale des Services Universels des Télécommunications</p>
+                        <h1 className="text-3xl sm:text-6xl lg:text-7xl font-bold mb-4">
                           <span className="text-tango">Cockpit</span>{' '}
-                          <span className="text-white">DG</span>
+                          <span className="text-white dark:text-slate-900">DG</span>
                         </h1>
                         <div className="w-16 h-1 bg-tango mx-auto mb-6" />
-                        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white/90 mb-8">{current.title}</h2>
-                        <p className="text-sm text-white/40">{filterLabel}</p>
-                        <p className="text-xs text-white/25 mt-2">{indicators.length} indicateurs · {grouped.size} sous-domaines</p>
+                        <h2 className="text-xl sm:text-3xl lg:text-4xl font-semibold text-slate-800 dark:text-white/90 mb-8">{current.title}</h2>
+                        <p className="text-xs sm:text-sm text-slate-500 dark:text-white/40">{filterLabel}</p>
+                        <p className="text-[10px] sm:text-xs text-slate-400 dark:text-white/25 mt-2">{indicators.length} indicateurs · {grouped.size} sous-domaines</p>
                       </motion.div>
                     </div>
                   )}
@@ -353,22 +359,22 @@ export function StorytellingOverlay({ open, onClose }: StorytellingOverlayProps)
                       </motion.h2>
 
                       {/* KPI cards */}
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-6 sm:mb-10">
                         {[
                           { label: 'Atteint', value: totalAtteint, color: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/10' },
                           { label: 'Partiel', value: totalPartiel, color: 'text-amber-400', border: 'border-amber-500/30', bg: 'bg-amber-500/10' },
                           { label: 'Non atteint', value: totalNonAtteint, color: 'text-red-400', border: 'border-red-500/30', bg: 'bg-red-500/10' },
-                          { label: 'Sans valeur', value: totalNoValue, color: 'text-white/40', border: 'border-white/10', bg: 'bg-white/5' },
+                          { label: 'Sans valeur', value: totalNoValue, color: 'text-slate-400 dark:text-white/40', border: 'border-slate-200 dark:border-white/10', bg: 'bg-slate-100 dark:bg-white/5' },
                         ].map((card, i) => (
                           <motion.div
                             key={card.label}
                             initial={{ y: 20, opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
                             transition={{ delay: 0.15 + i * 0.08 }}
-                            className={cn('rounded-xl border p-5 text-center', card.border, card.bg)}
+                            className={cn('rounded-xl border p-3 sm:p-5 text-center', card.border, card.bg)}
                           >
-                            <p className={cn('text-4xl lg:text-5xl font-bold', card.color)}>{card.value}</p>
-                            <p className="text-xs text-white/50 mt-1">{card.label}</p>
+                            <p className={cn('text-2xl sm:text-4xl lg:text-5xl font-bold', card.color)}>{card.value}</p>
+                            <p className="text-xs text-slate-500 dark:text-white/50 mt-1">{card.label}</p>
                           </motion.div>
                         ))}
                       </div>
@@ -378,17 +384,18 @@ export function StorytellingOverlay({ open, onClose }: StorytellingOverlayProps)
                         initial={{ y: 20, opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}
                         transition={{ delay: 0.5 }}
-                        className="rounded-xl border border-white/10 overflow-hidden"
+                        className="rounded-xl border border-slate-200 dark:border-white/10 overflow-x-auto"
                       >
+                        <div className="min-w-[450px]">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="bg-white/5">
-                              <th className="text-left py-2.5 px-4 font-semibold text-white/70">Sous-domaine</th>
-                              <th className="text-center py-2.5 px-3 font-semibold text-white/70">Total</th>
+                            <tr className="bg-slate-50 dark:bg-white/5">
+                              <th className="text-left py-2.5 px-4 font-semibold text-slate-500 dark:text-white/70">Sous-domaine</th>
+                              <th className="text-center py-2.5 px-3 font-semibold text-slate-500 dark:text-white/70">Total</th>
                               <th className="text-center py-2.5 px-3 font-semibold text-emerald-400/70">Atteint</th>
                               <th className="text-center py-2.5 px-3 font-semibold text-amber-400/70">Partiel</th>
                               <th className="text-center py-2.5 px-3 font-semibold text-red-400/70">Non atteint</th>
-                              <th className="text-center py-2.5 px-4 font-semibold text-white/70">Taux</th>
+                              <th className="text-center py-2.5 px-4 font-semibold text-slate-500 dark:text-white/70">Taux</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -404,9 +411,9 @@ export function StorytellingOverlay({ open, onClose }: StorytellingOverlayProps)
                               const rate = inds.length > 0 ? Math.round((a / inds.length) * 100) : 0;
                               const rateColor = rate >= 75 ? 'text-emerald-400' : rate >= 50 ? 'text-amber-400' : 'text-red-400';
                               return (
-                                <tr key={key} className="border-t border-white/5 hover:bg-white/5 transition-colors">
+                                <tr key={key} className="border-t border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                                   <td className="py-2 px-4 font-medium">{SUB_DOMAIN_LABELS[key] || key.replace(/_/g, ' ')}</td>
-                                  <td className="py-2 px-3 text-center text-white/60">{inds.length}</td>
+                                  <td className="py-2 px-3 text-center text-slate-400 dark:text-white/60">{inds.length}</td>
                                   <td className="py-2 px-3 text-center text-emerald-400 font-semibold">{a}</td>
                                   <td className="py-2 px-2 text-center text-amber-400 font-semibold">{p}</td>
                                   <td className="py-2 px-3 text-center text-red-400 font-semibold">{n}</td>
@@ -416,6 +423,7 @@ export function StorytellingOverlay({ open, onClose }: StorytellingOverlayProps)
                             })}
                           </tbody>
                         </table>
+                        </div>
                       </motion.div>
                     </div>
                   )}
@@ -437,23 +445,23 @@ export function StorytellingOverlay({ open, onClose }: StorytellingOverlayProps)
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           transition={{ delay: 0.2 }}
-                          className="text-xs text-white/40 mb-6"
+                          className="text-xs text-slate-500 dark:text-white/40 mb-6"
                         >
                           {moduleLabel} · {sdIndicators.length} indicateurs
                         </motion.p>
 
-                        <div className="rounded-xl border border-white/10 overflow-hidden">
-                          <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
+                        <div className="rounded-xl border border-slate-200 dark:border-white/10 overflow-x-auto">
+                          <div className="min-w-[500px] max-h-[60vh] overflow-y-auto custom-scrollbar">
                             <table className="w-full text-sm">
-                              <thead className="sticky top-0 bg-[#1e293b] z-10">
+                              <thead className="sticky top-0 bg-slate-100 dark:bg-[#1e293b] z-10">
                                 <tr>
-                                  <th className="text-left py-2.5 px-3 font-semibold text-white/60 text-xs">Code</th>
-                                  <th className="text-left py-2.5 px-3 font-semibold text-white/60 text-xs">Indicateur</th>
-                                  <th className="text-center py-2.5 px-2 font-semibold text-white/60 text-xs">Unité</th>
-                                  <th className="text-right py-2.5 px-2 font-semibold text-white/60 text-xs">Cible</th>
-                                  <th className="text-right py-2.5 px-2 font-semibold text-white/60 text-xs">Valeur</th>
-                                  <th className="text-right py-2.5 px-2 font-semibold text-white/60 text-xs">Écart</th>
-                                  <th className="text-center py-2.5 px-3 font-semibold text-white/60 text-xs">Statut</th>
+                                  <th className="text-left py-2.5 px-3 font-semibold text-slate-500 dark:text-white/60 text-xs">Code</th>
+                                  <th className="text-left py-2.5 px-3 font-semibold text-slate-500 dark:text-white/60 text-xs">Indicateur</th>
+                                  <th className="text-center py-2.5 px-2 font-semibold text-slate-500 dark:text-white/60 text-xs">Unité</th>
+                                  <th className="text-right py-2.5 px-2 font-semibold text-slate-500 dark:text-white/60 text-xs">Cible</th>
+                                  <th className="text-right py-2.5 px-2 font-semibold text-slate-500 dark:text-white/60 text-xs">Valeur</th>
+                                  <th className="text-right py-2.5 px-2 font-semibold text-slate-500 dark:text-white/60 text-xs">Écart</th>
+                                  <th className="text-center py-2.5 px-3 font-semibold text-slate-500 dark:text-white/60 text-xs">Statut</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -466,22 +474,22 @@ export function StorytellingOverlay({ open, onClose }: StorytellingOverlayProps)
                                   const ecartStr = ecart !== null ? `${ecart > 0 ? '+' : ''}${ecart.toFixed(1)}` : '—';
                                   const ecartColor = ecart !== null
                                     ? (ind.unit === '%' ? (ecart <= 0 ? 'text-emerald-400' : 'text-red-400') : (ecart >= 0 ? 'text-emerald-400' : 'text-red-400'))
-                                    : 'text-white/30';
+                                    : 'text-slate-400 dark:text-white/30';
                                   return (
                                     <motion.tr
                                       key={ind.code}
                                       initial={{ x: -10, opacity: 0 }}
                                       animate={{ x: 0, opacity: 1 }}
                                       transition={{ delay: 0.1 + i * 0.03 }}
-                                      className="border-t border-white/5 hover:bg-white/5 transition-colors"
+                                      className="border-t border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
                                     >
                                       <td className="py-2.5 px-3 font-mono text-xs font-semibold">
-                                        <span className={ind.isPriority ? 'text-tango' : 'text-white/70'}>{ind.code}</span>
+                                        <span className={cn(ind.isPriority ? 'text-tango' : 'text-slate-700 dark:text-white/70')}>{ind.code}</span>
                                         {ind.isPriority && <span className="text-tango ml-1">★</span>}
                                       </td>
                                       <td className="py-2.5 px-3 text-xs max-w-[300px] truncate" title={ind.name}>{ind.name}</td>
-                                      <td className="py-2.5 px-2 text-center text-xs text-white/50">{ind.unit}</td>
-                                      <td className="py-2.5 px-2 text-right text-xs text-white/60">{target ?? '—'}</td>
+                                      <td className="py-2.5 px-2 text-center text-xs text-slate-400 dark:text-white/50">{ind.unit}</td>
+                                      <td className="py-2.5 px-2 text-right text-xs text-slate-400 dark:text-white/60">{target ?? '—'}</td>
                                       <td className="py-2.5 px-2 text-right text-xs font-bold">{val ?? '—'}</td>
                                       <td className={cn('py-2.5 px-2 text-right text-xs font-bold', ecartColor)}>{ecartStr}</td>
                                       <td className="py-2.5 px-3 text-center">
@@ -508,13 +516,16 @@ export function StorytellingOverlay({ open, onClose }: StorytellingOverlayProps)
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ delay: 0.2, duration: 0.5 }}
                       >
+                        <div className="flex justify-center mb-6">
+                          <img src="/favicon.svg" alt="ANSUT" className="size-14 sm:size-16" />
+                        </div>
                         <div className="w-16 h-1 bg-tango mx-auto mb-6" />
-                        <h1 className="text-4xl sm:text-5xl font-bold mb-4">
+                        <h1 className="text-3xl sm:text-5xl font-bold mb-4">
                           <span className="text-tango">Merci</span>
                         </h1>
-                        <p className="text-sm text-white/40 mb-8">{moduleLabel} · {filterLabel}</p>
-                        <p className="text-xs text-white/25">
-                          Appuyez sur <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/50 font-mono mx-0.5">Échap</kbd> pour quitter
+                        <p className="text-xs sm:text-sm text-slate-500 dark:text-white/40 mb-8">{moduleLabel} · {filterLabel}</p>
+                        <p className="text-[10px] sm:text-xs text-slate-400 dark:text-white/25">
+                          Appuyez sur <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/50 font-mono mx-0.5">Échap</kbd> pour quitter
                         </p>
                       </motion.div>
                     </div>
@@ -525,7 +536,7 @@ export function StorytellingOverlay({ open, onClose }: StorytellingOverlayProps)
           </div>
 
           {/* ── Bottom bar ── */}
-          <div className="flex items-center justify-between px-6 py-2.5 border-t border-white/10 text-[10px] text-white/30 shrink-0">
+          <div className="hidden sm:flex items-center justify-between px-6 py-2.5 border-t border-slate-200 dark:border-white/10 text-[10px] text-slate-400 dark:text-white/30 shrink-0">
             <span>ANSUT Cockpit DG v1.0</span>
             <span>
               {playing ? 'Lecture auto · 6s' : 'En pause'} · Flèches pour naviguer · P pour pause · Échap pour quitter

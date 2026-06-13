@@ -132,14 +132,6 @@ export function AdminDashboard() {
         if (statsRes.ok) {
           const data = await statsRes.json();
           setStats(data);
-        } else {
-          setStats({
-            totalUsers: 24,
-            activeUsers: 18,
-            totalRoles: 6,
-            configuredModules: 8,
-            auditLogCount: 156,
-          });
         }
 
         // Fetch recent audit logs
@@ -151,7 +143,7 @@ export function AdminDashboard() {
               (log: Record<string, unknown>) => ({
                 id: log.id,
                 timestamp: log.createdAt ?? log.timestamp,
-                userName: (log as Record<string, unknown>).user?.name ?? log.userName ?? 'Inconnu',
+                userName: (log.user as Record<string, unknown>)?.name as string ?? log.userName as string ?? 'Inconnu',
                 action: log.action,
                 category: log.category,
                 details: log.details,
@@ -185,21 +177,6 @@ export function AdminDashboard() {
         }
       } catch {
         setError('Erreur lors du chargement des données');
-        setStats({
-          totalUsers: 24,
-          activeUsers: 18,
-          totalRoles: 6,
-          configuredModules: 8,
-          auditLogCount: 156,
-        });
-        setRecentLogs([
-          { id: '1', timestamp: new Date().toISOString(), userName: 'Admin Principal', action: 'Connexion réussie', category: 'auth', details: 'Connexion depuis 192.168.1.10' },
-          { id: '2', timestamp: new Date(Date.now() - 3600000).toISOString(), userName: 'Marie Dupont', action: 'Utilisateur modifié', category: 'user', details: 'Modification du rôle de Jean Martin' },
-          { id: '3', timestamp: new Date(Date.now() - 7200000).toISOString(), userName: 'Admin Principal', action: 'Rôle créé', category: 'role', details: 'Création du rôle "Chef de projet"' },
-          { id: '4', timestamp: new Date(Date.now() - 10800000).toISOString(), userName: 'Pierre Leroy', action: 'Permissions modifiées', category: 'permission', details: 'Mise à jour des permissions du rôle Analyste' },
-          { id: '5', timestamp: new Date(Date.now() - 14400000).toISOString(), userName: 'Sophie Bernard', action: 'Export effectué', category: 'export', details: 'Export PDF du module Finance' },
-        ]);
-        setDsHealth({ total: 0, active: 0, inTest: 0, inactive: 0, lastSync: null, loading: false });
       } finally {
         setLoading(false);
       }
@@ -422,6 +399,7 @@ export function AdminDashboard() {
           ) : recentLogs.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">Aucune activité récente</p>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -450,6 +428,7 @@ export function AdminDashboard() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -370,8 +370,8 @@ export function AdminUsers() {
       errors.email = "Format d'e-mail invalide";
     if (!isEdit && !data.password.trim())
       errors.password = 'Le mot de passe est requis';
-    else if (!isEdit && data.password.length < 6)
-      errors.password = 'Le mot de passe doit contenir au moins 6 caractères';
+    else if (!isEdit && data.password.length < 8)
+      errors.password = 'Le mot de passe doit contenir au moins 8 caractères';
     if (!data.roleId) errors.roleId = 'Le rôle est requis';
     if (!data.departmentId) errors.departmentId = 'Le département est requis';
     setFormErrors(errors);
@@ -517,15 +517,27 @@ export function AdminUsers() {
   async function handleResetPassword(user: User) {
     setActionLoadingId(user.id);
     try {
-      await fetch(`/api/admin/users/${user.id}`, {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: 'ansut2025' }),
+        body: JSON.stringify({ resetPassword: true }),
       });
-      toast({
-        title: 'Mot de passe réinitialisé',
-        description: `Mot de passe réinitialisé pour ${user.name}`,
-      });
+      if (res.ok) {
+        const data = await res.json();
+        toast({
+          title: 'Mot de passe réinitialisé',
+          description: data?.temporaryPassword
+            ? `Nouveau mot de passe pour ${user.name} : ${data.temporaryPassword}`
+            : `Mot de passe réinitialisé pour ${user.name}`,
+        });
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast({
+          title: 'Erreur',
+          description: err.error || 'Impossible de réinitialiser le mot de passe.',
+          variant: 'destructive',
+        });
+      }
     } catch {
       toast({
         title: 'Erreur',
@@ -885,6 +897,7 @@ export function AdminUsers() {
 
               {/* Desktop Table View */}
               <div className="hidden md:block">
+                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -970,6 +983,7 @@ export function AdminUsers() {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               </div>
             </>
           )}
@@ -1056,7 +1070,7 @@ export function AdminUsers() {
               <Input
                 id="user-password"
                 type="password"
-                placeholder={editingUser ? '••••••••' : 'Minimum 6 caractères'}
+                placeholder={editingUser ? '••••••••' : 'Minimum 8 caractères'}
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               />

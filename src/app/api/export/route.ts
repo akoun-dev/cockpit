@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 // GET /api/export — returns structured export data
 // Query params: module, format (pdf/excel), year, quarter, month, periodStart, periodEnd
 export async function GET(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const modName = searchParams.get('module') ?? 'governance';
     const format = searchParams.get('format') ?? 'pdf';
@@ -92,6 +99,16 @@ export async function GET(request: NextRequest) {
         latestValue: latestValue?.value ?? null,
         latestPeriod: latestValue?.period ?? null,
       };
+    });
+
+    await db.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: 'EXPORT_DATA',
+        category: 'export',
+        details: `Export ${formattedIndicators.length} indicateurs (${format}) du module "${modName}"`,
+        ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
+      },
     });
 
     return NextResponse.json({

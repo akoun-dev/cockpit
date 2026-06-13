@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { signIn } from 'next-auth/react';
-import { Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -12,6 +12,9 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+  const [resetLink, setResetLink] = useState<string | null>(null);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -33,7 +36,7 @@ export function LoginForm() {
             setError('Email ou mot de passe incorrect.');
           }
         }
-      } catch (err) {
+      } catch {
         setError('Une erreur inattendue s\'est produite. Veuillez réessayer.');
       } finally {
         setIsLoading(false);
@@ -41,6 +44,31 @@ export function LoginForm() {
     },
     [email, password]
   );
+
+  const handleForgotPassword = useCallback(async () => {
+    if (!email) {
+      setError('Veuillez entrer votre adresse email.');
+      return;
+    }
+    setError(null);
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (data.resetUrl) {
+        setResetLink(data.resetUrl);
+      }
+      setForgotSent(true);
+    } catch {
+      setError('Erreur lors de l\'envoi de la demande.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [email]);
 
   return (
     <div className="flex min-h-screen">
@@ -84,17 +112,27 @@ export function LoginForm() {
       <div className="flex flex-1 items-center justify-center bg-white p-6 dark:bg-gray-950 lg:p-12">
         <div className="w-full max-w-sm xl:max-w-[360px]">
           {/* Mobile-only logo */}
-          <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <img src="/favicon.svg" alt="ANSUT" className="size-10" />
-            <span className="text-lg font-bold text-[#1a3a6e]">ANSUT</span>
+          <div className="mb-8 flex flex-col items-center lg:hidden">
+            <img src="/favicon.svg" alt="ANSUT" className="size-12" />
           </div>
 
           {/* Form header */}
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Connexion</h2>
-            <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">
-              Accédez au tableau de bord de pilotage
-            </p>
+          <div className="mb-8 text-center lg:text-left">
+            {forgotMode ? (
+              <>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Mot de passe oublié</h2>
+                <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">
+                  Entrez votre email pour recevoir un lien de réinitialisation
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Connexion</h2>
+                <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">
+                  Accédez au tableau de bord de pilotage
+                </p>
+              </>
+            )}
           </div>
 
           {/* Error alert */}
@@ -108,91 +146,161 @@ export function LoginForm() {
             </Alert>
           )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Email field */}
-            <div>
-              <label
-                htmlFor="email"
-                className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+          {forgotMode && forgotSent ? (
+            <div className="space-y-5">
+              <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
+                <CheckCircle2 className="size-4 text-green-600" />
+                <AlertDescription className="text-green-700 dark:text-green-300">
+                  Si cet email existe, un lien de réinitialisation a été envoyé.
+                </AlertDescription>
+              </Alert>
+              {resetLink && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950">
+                  <p className="text-xs font-medium text-amber-700 dark:text-amber-300">Mode développement :</p>
+                  <a
+                    href={resetLink}
+                    className="mt-1 block break-all text-xs text-[#205eb3] underline hover:text-[#1a4a8a]"
+                  >
+                    {resetLink}
+                  </a>
+                </div>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => { setForgotMode(false); setForgotSent(false); setResetLink(null); setError(null); }}
               >
-                Adresse email
-              </label>
-              <input
-                id="email"
-                type="email"
-                placeholder="nom@ansut.ci"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="block w-full rounded-md border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-[#205eb3] focus:outline-none focus:ring-2 focus:ring-[#205eb3]/20 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-[#4a8ad4] dark:focus:ring-[#4a8ad4]/20"
-                required
-                autoFocus
-                autoComplete="email"
-                disabled={isLoading}
-              />
+                <ArrowLeft className="mr-2 size-4" />
+                Retour à la connexion
+              </Button>
             </div>
-
-            {/* Password field */}
-            <div>
-              <label
-                htmlFor="password"
-                className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                Mot de passe
-              </label>
-              <div className="relative">
+          ) : forgotMode ? (
+            <div className="space-y-5">
+              <div>
+                <label htmlFor="reset-email" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Adresse email
+                </label>
                 <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full rounded-md border border-amber-200 bg-amber-50/60 px-3.5 py-2.5 pr-10 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-[#205eb3] focus:outline-none focus:ring-2 focus:ring-[#205eb3]/20 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-[#4a8ad4] dark:focus:ring-[#4a8ad4]/20"
+                  id="reset-email"
+                  type="email"
+                  placeholder="nom@ansut.ci"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="block w-full rounded-md border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-[#205eb3] focus:outline-none focus:ring-2 focus:ring-[#205eb3]/20 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-500"
                   required
-                  autoComplete="current-password"
+                  autoFocus
                   disabled={isLoading}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                  tabIndex={-1}
-                  aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
-                >
-                  {showPassword ? (
-                    <EyeOff className="size-4" />
-                  ) : (
-                    <Eye className="size-4" />
-                  )}
-                </button>
               </div>
-            </div>
-
-            {/* Forgot password link */}
-            <div className="flex justify-end -mt-2">
-              <button
+              <Button
                 type="button"
-                className="text-xs text-[#205eb3] hover:text-[#1a4a8a] dark:text-[#4a8ad4] dark:hover:text-[#6aa0e0] transition-colors"
+                className="w-full py-2.5 bg-[#205eb3] hover:bg-[#1a4a8a] text-white font-medium rounded-md shadow-sm h-auto text-sm"
+                onClick={handleForgotPassword}
+                disabled={isLoading || !email}
               >
-                Mot de passe oublié ?
-              </button>
+                {isLoading ? 'Envoi en cours...' : 'Envoyer le lien'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => { setForgotMode(false); setError(null); }}
+              >
+                <ArrowLeft className="mr-2 size-4" />
+                Retour
+              </Button>
             </div>
+          ) : (
+            <>
+              {/* Form */}
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {/* Email field */}
+                <div>
+                  <label
+                    htmlFor="email"
+                    className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    Adresse email
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    placeholder="nom@ansut.ci"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="block w-full rounded-md border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-[#205eb3] focus:outline-none focus:ring-2 focus:ring-[#205eb3]/20 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-[#4a8ad4] dark:focus:ring-[#4a8ad4]/20"
+                    required
+                    autoFocus
+                    autoComplete="email"
+                    disabled={isLoading}
+                  />
+                </div>
 
-            {/* Submit button */}
-            <Button
-              type="submit"
-              className="w-full py-2.5 bg-[#205eb3] hover:bg-[#1a4a8a] text-white font-medium rounded-md shadow-sm transition-colors h-auto text-sm"
-              disabled={isLoading || !email || !password}
-            >
-              {isLoading ? (
-                <>
-                  <div className="mr-2 size-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  Connexion en cours...
-                </>
-              ) : (
-                'Se connecter'
-              )}
-            </Button>
-          </form>
+                {/* Password field */}
+                <div>
+                  <label
+                    htmlFor="password"
+                    className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    Mot de passe
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="block w-full rounded-md border border-amber-200 bg-amber-50/60 px-3.5 py-2.5 pr-10 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-[#205eb3] focus:outline-none focus:ring-2 focus:ring-[#205eb3]/20 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-[#4a8ad4] dark:focus:ring-[#4a8ad4]/20"
+                      required
+                      autoComplete="current-password"
+                      disabled={isLoading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                      tabIndex={-1}
+                      aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="size-4" />
+                      ) : (
+                        <Eye className="size-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Forgot password link */}
+                <div className="flex justify-end -mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setForgotMode(true)}
+                    className="text-xs text-[#205eb3] hover:text-[#1a4a8a] dark:text-[#4a8ad4] dark:hover:text-[#6aa0e0] transition-colors"
+                  >
+                    Mot de passe oublié ?
+                  </button>
+                </div>
+
+                {/* Submit button */}
+                <Button
+                  type="submit"
+                  className="w-full py-2.5 bg-[#205eb3] hover:bg-[#1a4a8a] text-white font-medium rounded-md shadow-sm transition-colors h-auto text-sm"
+                  disabled={isLoading || !email || !password}
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="mr-2 size-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                      Connexion en cours...
+                    </>
+                  ) : (
+                    'Se connecter'
+                  )}
+                </Button>
+              </form>
+            </>
+          )}
 
           {/* Confidential notice */}
           <p className="mt-8 text-center text-xs text-gray-400 dark:text-gray-500">

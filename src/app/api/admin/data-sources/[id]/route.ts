@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 // GET /api/admin/data-sources/:id — single data source
 export async function GET(
@@ -25,6 +27,10 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
     const { id } = await params
     const body = await request.json()
 
@@ -58,6 +64,7 @@ export async function PUT(
       data: {
         action: 'UPDATE_DATASOURCE',
         category: 'data',
+        userId: session.user.id,
         details: `Updated data source "${updated.name}" (${updated.module})`,
         ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
       },
@@ -76,6 +83,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
     const { id } = await params
     const existing = await db.dataSource.findUnique({ where: { id } })
     if (!existing) {
@@ -89,6 +100,7 @@ export async function DELETE(
       data: {
         action: 'DELETE_DATASOURCE',
         category: 'data',
+        userId: session.user.id,
         details: `Deleted data source "${existing.name}" (${existing.module})`,
         ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
       },

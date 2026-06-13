@@ -387,7 +387,7 @@ async function main() {
       _count: true,
     })
     const subInfo = subs
-      .map((s) => `    ${SUB_DOMAIN_LABELS[s.subDomain] || s.subDomain}: ${s._count}`)
+      .map((s) => `    ${SUB_DOMAIN_LABELS[s.subDomain ?? 'autre'] || (s.subDomain ?? 'autre')}: ${s._count}`)
       .join('\n')
     console.log(`\n  📊 ${domainLabels[d]} (${count} KPI):`)
     if (subInfo) console.log(subInfo)

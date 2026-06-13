@@ -59,105 +59,46 @@ const ALL_NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
 
 interface AdminLayoutProps {
   activeView: AdminViewKey;
-  onViewChange: (view: AdminViewKey) => void;
   children: React.ReactNode;
 }
 
-export function AdminLayout({ activeView, onViewChange, children }: AdminLayoutProps) {
+export function AdminLayout({ activeView, children }: AdminLayoutProps) {
   const { adminSubView, setAdminSubView } = useAppStore();
 
   // Use store's adminSubView if provided, otherwise use prop
   const currentView = activeView || adminSubView;
 
   return (
-    <div className="flex min-h-0 flex-1 gap-0 overflow-hidden">
-      {/* Left navigation panel — desktop only */}
-      <aside className="hidden w-56 shrink-0 flex-col h-full overflow-hidden border-r border-border bg-muted/30 lg:flex">
-        {/* Navigation groups */}
-        <nav className="flex flex-1 flex-col gap-4 overflow-y-auto p-2" aria-label="Navigation admin">
-          {NAV_GROUPS.map((group) => (
-            <div key={group.title || 'no-title'}>
-              {/* Group label */}
-              {group.title && (
-              <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-                {group.title}
-              </p>
-              )}
-              <ul className="flex flex-col gap-0.5">
-                {group.items.map(({ key, label, icon: Icon }) => {
-                  const isActive = currentView === key;
-                  return (
-                    <li key={key}>
-                      <button
-                        onClick={() => setAdminSubView(key)}
-                        className={cn(
-                          'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors text-left',
-                          isActive
-                            ? 'bg-fun-blue text-white shadow-sm'
-                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                        )}
-                        aria-current={isActive ? 'page' : undefined}
-                      >
-                        <Icon className="size-4.5 shrink-0" />
-                        <span className="truncate">{label}</span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
-        </nav>
-
-        {/* Bottom branding */}
-        <div className="mt-auto border-t border-border p-3">
-          <p className="text-xs text-muted-foreground">
-            ANSUT Cockpit DG
-          </p>
-          <p className="text-xs text-muted-foreground/60">
-            v1.0 — Panneau admin
-          </p>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      {/* Mobile horizontal scroll nav */}
+      <div className="relative shrink-0">
+        <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-6 bg-gradient-to-r from-muted/30 to-transparent" />
+        <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-6 bg-gradient-to-l from-muted/30 to-transparent" />
+        <div className="flex snap-x snap-mandatory gap-1 overflow-x-auto border-b border-border bg-muted/30 px-2 py-2 scroll-smooth scrollbar-none">
+          {ALL_NAV_ITEMS.map(({ key, label, icon: Icon }) => {
+            const isActive = currentView === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setAdminSubView(key)}
+                className={cn(
+                  'flex snap-start shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors',
+                  isActive
+                    ? 'bg-fun-blue text-white shadow-sm'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                )}
+              >
+                <Icon className="size-3.5 shrink-0" />
+                <span className="whitespace-nowrap hidden sm:inline">{label}</span>
+              </button>
+            );
+          })}
         </div>
-      </aside>
-
-      {/* Mobile tabs for admin sub-navigation */}
-      <div className="flex min-w-0 w-full flex-col lg:hidden">
-        <div className="relative">
-          {/* Left fade gradient */}
-          <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-6 bg-gradient-to-r from-muted/30 to-transparent" />
-          {/* Right fade gradient */}
-          <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-6 bg-gradient-to-l from-muted/30 to-transparent" />
-          <div className="flex snap-x snap-mandatory gap-1 overflow-x-auto border-b border-border bg-muted/30 px-2 py-2 scroll-smooth scrollbar-none">
-            {ALL_NAV_ITEMS.map(({ key, label, icon: Icon }) => {
-              const isActive = currentView === key;
-              return (
-                <button
-                  key={key}
-                  onClick={() => setAdminSubView(key)}
-                  className={cn(
-                    'flex snap-start shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors',
-                    isActive
-                      ? 'bg-fun-blue text-white shadow-sm'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                  )}
-                >
-                  <Icon className="size-3.5 shrink-0" />
-                  <span className="whitespace-nowrap hidden sm:inline">{label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
-          <div className="p-3 sm:p-4">
-            {children}
-          </div>
-        </main>
       </div>
 
-      {/* Main content area (desktop) */}
-      <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden hidden lg:block">
-        <div className="p-4 lg:p-6">
+      {/* Single content area */}
+      <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="p-3 sm:p-4 lg:p-6">
           {children}
         </div>
       </main>

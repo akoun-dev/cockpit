@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 type RouteParams = { params: Promise<{ id: string }> }
 
@@ -34,6 +36,10 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 // PUT /api/admin/roles/[id] — update role fields
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
     const { id } = await params
     const body = await request.json()
     const { label, description, level, color } = body
@@ -64,6 +70,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       data: {
         action: 'UPDATE_ROLE',
         category: 'role',
+        userId: session.user.id,
         details: `Updated role "${existing.label}" (${existing.name}) — ${changes.join(', ') || 'no field changes'}`,
         ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
       },
@@ -82,6 +89,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/admin/roles/[id] — delete role (unless isSystem=true)
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
     const { id } = await params
 
     const role = await db.role.findUnique({
@@ -114,6 +125,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       data: {
         action: 'DELETE_ROLE',
         category: 'role',
+        userId: session.user.id,
         details: `Deleted role "${role.label}" (${role.name})`,
         ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
       },

@@ -1,20 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
-// GET /api/admin/documents — list documents with optional ?module= filter
+// GET /api/admin/documents — list documents with optional ?module=&page=&limit= filters
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const moduleFilter = searchParams.get('module') ?? undefined;
+    const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10) || 1)
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '20', 10) || 20))
 
     const where = moduleFilter ? { module: moduleFilter } : undefined;
 
-    const documents = await db.document.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-    });
+    const [documents, total] = await Promise.all([
+      db.document.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      db.document.count({ where }),
+    ]);
 
-    return NextResponse.json({ data: documents });
+    return NextResponse.json({ data: documents, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
   } catch (error) {
     console.error('[GET /api/admin/documents]', error);
     return NextResponse.json(
@@ -27,8 +36,13 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/documents — create a document
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+    }
+
     const body = await request.json();
-    const { name, url, type, module, description, visibility, createdBy } = body;
+    const { name, url, type, module, description, visibility } = body;
 
     if (!name || !url || !module) {
       return NextResponse.json(
@@ -62,7 +76,7 @@ export async function POST(request: NextRequest) {
         module,
         description: description || null,
         visibility: visibility || 'all',
-        createdBy: createdBy || null,
+        createdBy: session.user.id,
       },
     });
 
@@ -71,6 +85,7 @@ export async function POST(request: NextRequest) {
       data: {
         action: 'CREATE_DOCUMENT',
         category: 'document',
+        userId: session.user.id,
         details: `Created document "${name}" for module "${module}" (type: ${type || 'lien'})`,
         ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
       },

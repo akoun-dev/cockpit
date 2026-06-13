@@ -30,6 +30,11 @@ import {
 } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useAppStore, type ModuleKey, type AppViewKey } from '@/lib/store';
 import { useSidebar } from '@/components/ui/sidebar';
 import { getAccessibleModules, hasAdminAccess } from '@/lib/permissions';
@@ -105,25 +110,16 @@ export function AppSidebar() {
   const departmentName = sessionUser?.department?.name || '';
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-sidebar-border">
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border overflow-x-hidden">
       {/* Header with ANSUT branding */}
-      <SidebarHeader className="px-4 py-5">
-        <div className="flex items-center gap-3">
-          <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg shadow-sm">
-            <img src="/favicon.svg" alt="ANSUT" className="size-9" />
-          </div>
-          <div
-            className={`flex flex-col overflow-hidden transition-all duration-200 ${
-              state === 'collapsed' ? 'w-0 opacity-0' : 'w-auto opacity-100'
-            }`}
-          >
-            <span className="text-lg font-bold text-fun-blue whitespace-nowrap">
-              ANSUT
-            </span>
-            <span className="text-xs text-muted-foreground whitespace-nowrap">
-              Cockpit DG
-            </span>
-          </div>
+      <SidebarHeader className="flex flex-col items-center gap-2 px-4 py-5">
+        <div className="flex shrink-0 items-center justify-center overflow-hidden rounded-lg">
+          <img src="/favicon.svg" alt="ANSUT" className="size-10" />
+        </div>
+        <div className="inline-flex items-center rounded-full border border-sidebar-border bg-sidebar-accent/50 px-2.5 py-0.5">
+          <span className="text-[10px] font-semibold text-muted-foreground tracking-tight">
+            ANSUT Cockpit DG
+          </span>
         </div>
       </SidebarHeader>
 
@@ -200,7 +196,7 @@ export function AppSidebar() {
             <Button
               variant="ghost"
               size="icon"
-              className="size-8 shrink-0 hover:bg-fun-blue/10 hover:text-fun-blue"
+              className="size-11 shrink-0 hover:bg-fun-blue/10 hover:text-fun-blue"
               onClick={handleRefresh}
             >
               <RefreshCw className="size-4" />
@@ -241,16 +237,22 @@ export function AppSidebar() {
                 {roleLabel}{departmentName ? ` — ${departmentName}` : ''}
               </span>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-7 shrink-0 hover:bg-destructive/10 hover:text-destructive"
-              onClick={handleLogout}
-              tooltip="Déconnexion"
-            >
-              <LogOut className="size-3.5" />
-              <span className="sr-only">Déconnexion</span>
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-11 shrink-0 hover:bg-destructive/10 hover:text-destructive"
+                  onClick={handleLogout}
+                >
+                  <LogOut className="size-3.5" />
+                  <span className="sr-only">Déconnexion</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                Déconnexion
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </SidebarFooter>

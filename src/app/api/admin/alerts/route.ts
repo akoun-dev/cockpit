@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
-// GET /api/admin/alerts — list with ?type=&severity=&status= filters
+// GET /api/admin/alerts — list with ?type=&severity=&status=&page=&limit= filters
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') ?? undefined
     const severity = searchParams.get('severity') ?? undefined
     const status = searchParams.get('status') ?? undefined
+    const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10) || 1)
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '20', 10) || 20))
 
     const where: Record<string, unknown> = {}
 
@@ -30,13 +34,15 @@ export async function GET(request: NextRequest) {
       db.alert.findMany({
         where,
         orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
       }),
       db.alert.count({ where }),
     ])
 
     return NextResponse.json({
       data: alerts,
-      pagination: { total },
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
     })
   } catch (error) {
     console.error('[GET /api/admin/alerts]', error)
@@ -50,6 +56,11 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/alerts — create alert
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { type, severity, title, message, source } = body
 
@@ -67,6 +78,16 @@ export async function POST(request: NextRequest) {
         title,
         message,
         source: source ?? null,
+      },
+    })
+
+    await db.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: 'CREATE_ALERT',
+        category: 'alert',
+        details: `Création alerte "${alert.title}" (${alert.severity})`,
+        ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
       },
     })
 

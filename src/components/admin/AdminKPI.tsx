@@ -561,7 +561,7 @@ export function AdminKPI() {
           <div className="hidden md:block">
             <Card>
               <CardContent className="p-0">
-                <div className="max-h-[500px] overflow-y-auto">
+                <div className="max-h-[500px] overflow-y-auto overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -895,7 +895,7 @@ export function AdminKPI() {
                 <AlertTriangle className="size-3.5" />
                 Seuils de performance
               </p>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="ind-target" className="text-green-700 dark:text-green-400">Cible</Label>
                   <Input

@@ -11,3 +11,4 @@ export { OperationalModule } from './OperationalModule';
 export { RHModule } from './RHModule';
 export { RisqueModule } from './RisqueModule';
 export { PTAModule } from './PTAModule';
+export { ProfileDialog } from './ProfileDialog';

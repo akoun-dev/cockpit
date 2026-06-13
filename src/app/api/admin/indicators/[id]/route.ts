@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 // GET /api/admin/indicators/:id — single indicator
 export async function GET(
@@ -32,6 +34,10 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
     const { id } = await params
     const body = await request.json()
 
@@ -102,6 +108,7 @@ export async function PUT(
       data: {
         action: 'UPDATE_INDICATOR',
         category: 'indicator',
+        userId: session.user.id,
         details: `Modifié l'indicateur "${updated.name}" (${updated.code})`,
         ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
       },
@@ -120,6 +127,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
     const { id } = await params
     const existing = await db.indicator.findUnique({ where: { id } })
     if (!existing) {
@@ -133,6 +144,7 @@ export async function DELETE(
       data: {
         action: 'DELETE_INDICATOR',
         category: 'indicator',
+        userId: session.user.id,
         details: `Supprimé l'indicateur "${existing.name}" (${existing.code}) du domaine "${existing.domain}"`,
         ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
       },

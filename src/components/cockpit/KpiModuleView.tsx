@@ -596,7 +596,7 @@ function SubDomainContent({
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 export function KpiModuleView({ domain }: KpiModuleViewProps) {
-  const { filters, highlightIndicatorId, highlightSubDomain } = useAppStore();
+  const { filters, highlightIndicatorId, highlightSubDomain, setHighlightSubDomain } = useAppStore();
   const [indicators, setIndicators] = useState<Indicator[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -668,7 +668,10 @@ export function KpiModuleView({ domain }: KpiModuleViewProps) {
     if (filters.periodEnd) params.set('periodEnd', filters.periodEnd);
 
     fetch(`/api/indicators/domain?${params}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('Échec du chargement');
+        return res.json();
+      })
       .then((data) => {
         if (!cancelled) {
           setIndicators(data?.indicators ?? []);
@@ -705,7 +708,7 @@ export function KpiModuleView({ domain }: KpiModuleViewProps) {
             Détail des Indicateurs
           </h3>
           <span className="text-xs text-muted-foreground shrink-0">
-            ({priorityCount} Lot 1 / {indicators.length} total) &middot; Glisser pour réordonner
+            Glisser pour réordonner
           </span>
         </div>
       </div>

@@ -94,7 +94,7 @@ const DEFAULT_SETTINGS: SettingsState = {
   logoUrl: '/logo-ansut-square.png',
   version: '1.0.0',
   defaultLanguage: 'fr',
-  timezone: 'Africa/Kinshasa',
+  timezone: 'Africa/Abidjan',
   dateFormat: 'DD/MM/YYYY',
   theme: 'system',
   referenceDate: new Date().toISOString().split('T')[0],
@@ -149,6 +149,10 @@ export function AdminSettings() {
     'defaultExportFormat',
     'includeLogo',
     'includeGenerationDate',
+    'sessionExpiration',
+    'reportFrequency',
+    'recipientEmail',
+    'emailAlerts',
   ];
 
   // Fetch persisted settings from API
@@ -737,7 +741,7 @@ export function AdminSettings() {
                 <SelectContent>
                   <SelectItem value="pdf">PDF</SelectItem>
                   <SelectItem value="excel">Excel</SelectItem>
-                  <SelectItem value="powerpoint">PowerPoint</SelectItem>
+                  <SelectItem value="pptx">PowerPoint</SelectItem>
                 </SelectContent>
               </Select>
             </div>

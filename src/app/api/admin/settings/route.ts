@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 // GET /api/admin/settings — returns all settings as a flat object (key-value pairs, parse JSON values)
 export async function GET() {
@@ -26,6 +28,11 @@ export async function GET() {
 // PUT /api/admin/settings — accepts { key, value } and upserts the setting
 export async function PUT(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { key, value } = body;
 
@@ -42,6 +49,16 @@ export async function PUT(request: NextRequest) {
       where: { key },
       update: { value: strValue },
       create: { key, value: strValue },
+    });
+
+    await db.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: 'UPDATE_SETTING',
+        category: 'settings',
+        details: `Mise à jour paramètre "${key}"`,
+        ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
+      },
     });
 
     return NextResponse.json({ key: setting.key, value: setting.value });

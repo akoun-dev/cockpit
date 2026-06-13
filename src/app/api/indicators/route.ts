@@ -1,8 +1,12 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/require-auth';
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await requireAuth()
+    if (session instanceof Response) return session
+
     const { searchParams } = new URL(request.url);
     const domain = searchParams.get('domain');
     const year = parseInt(searchParams.get('year') || '2025');

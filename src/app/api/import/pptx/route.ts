@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import JSZip from 'jszip';
+import { requireAdmin } from '@/lib/require-auth';
 
 // ─── XML helpers ──────────────────────────────────────────────────────────────
 
@@ -58,6 +59,9 @@ function parseValue(val: string): number | null {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await requireAdmin()
+    if (session instanceof Response) return session
+
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const yearStr = formData.get('year') as string | null;
@@ -153,6 +157,16 @@ export async function POST(request: NextRequest) {
       return true;
     });
 
+    await db.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: 'IMPORT_PPTX_PREVIEW',
+        category: 'import',
+        details: `Prévisualisation import PPTX: ${unique.length} indicateurs trouvés dans ${slideFiles.length} slides`,
+        ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
+      },
+    });
+
     return NextResponse.json({
       fileName: file.name,
       slidesScanned: slideFiles.length,
@@ -173,6 +187,9 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const session = await requireAdmin()
+    if (session instanceof Response) return session
+
     const body = await request.json();
     const { indicators, year, quarter, month } = body as {
       indicators: { code: string; value: number }[];
@@ -233,6 +250,17 @@ export async function PUT(request: NextRequest) {
         created++;
       }
     }
+
+    // Audit log
+    await db.auditLog.create({
+      data: {
+        action: 'IMPORT_PPTX',
+        category: 'import',
+        userId: session.user.id,
+        details: `Import PPTX appliqué : ${updated} mis à jour, ${created} créés (total: ${indicators.length})`,
+        ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
+      },
+    });
 
     return NextResponse.json({
       success: true,

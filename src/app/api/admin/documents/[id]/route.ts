@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 // GET /api/admin/documents/[id] — get a single document
 export async function GET(
@@ -33,6 +35,10 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
     const { id } = await params;
     const body = await request.json();
     const { name, url, type, module, description, visibility } = body;
@@ -79,6 +85,7 @@ export async function PUT(
       data: {
         action: 'UPDATE_DOCUMENT',
         category: 'document',
+        userId: session.user.id,
         details: `Updated document "${document.name}" (id: ${id})`,
         ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
       },
@@ -96,10 +103,14 @@ export async function PUT(
 
 // DELETE /api/admin/documents/[id] — delete a document
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
     const { id } = await params;
     const existing = await db.document.findUnique({ where: { id } });
     if (!existing) {
@@ -116,7 +127,9 @@ export async function DELETE(
       data: {
         action: 'DELETE_DOCUMENT',
         category: 'document',
+        userId: session.user.id,
         details: `Deleted document "${existing.name}" (id: ${id})`,
+        ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
       },
     });
 

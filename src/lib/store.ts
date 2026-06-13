@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { setUserId } from '@/lib/user-id';
 
 export type ModuleKey = 'accueil' | 'governance' | 'finance' | 'operational' | 'rh' | 'risque' | 'pta';
 
@@ -46,11 +47,15 @@ interface AppState {
   cardOrder: Record<string, string[]>;
   setCardOrder: (key: string, order: string[]) => void;
   resetCardOrder: (key: string) => void;
-  // Search highlight — indicator ID + sub-domain to visually highlight for 2 seconds
+  // Search highlight
   highlightIndicatorId: string | null;
   setHighlightIndicatorId: (id: string | null) => void;
   highlightSubDomain: string | null;
   setHighlightSubDomain: (sub: string | null) => void;
+  // Server-side preferences sync
+  preferencesLoaded: boolean;
+  loadPreferences: () => Promise<void>;
+  saveCardOrder: (cardOrder: Record<string, string[]>) => Promise<void>;
 }
 
 const initialState: FilterState = {
@@ -64,7 +69,7 @@ const initialState: FilterState = {
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       activeModule: 'accueil',
       setActiveModule: (module) => set({ activeView: module, activeModule: module, highlightSubDomain: null, highlightIndicatorId: null }),
       filters: initialState,
@@ -93,13 +98,16 @@ export const useAppStore = create<AppState>()(
       // Drag & Drop card order
       cardOrder: {},
       setCardOrder: (key, order) =>
-        set((state) => ({
-          cardOrder: { ...state.cardOrder, [key]: order },
-        })),
+        set((state) => {
+          const newCardOrder = { ...state.cardOrder, [key]: order };
+          get().saveCardOrder(newCardOrder);
+          return { cardOrder: newCardOrder };
+        }),
       resetCardOrder: (key) =>
         set((state) => {
           const newOrder = { ...state.cardOrder };
           delete newOrder[key];
+          get().saveCardOrder(newOrder);
           return { cardOrder: newOrder };
         }),
       // Search highlight
@@ -107,6 +115,33 @@ export const useAppStore = create<AppState>()(
       setHighlightIndicatorId: (id) => set({ highlightIndicatorId: id }),
       highlightSubDomain: null,
       setHighlightSubDomain: (sub) => set({ highlightSubDomain: sub }),
+      // Server-side preferences sync
+      preferencesLoaded: false,
+      loadPreferences: async () => {
+        try {
+          const res = await fetch('/api/user/preferences');
+          if (res.ok) {
+            const data = await res.json() as Record<string, unknown>;
+            if (data.cardOrder && typeof data.cardOrder === 'object') {
+              set({ cardOrder: data.cardOrder as Record<string, string[]> });
+            }
+            // Set the user ID from session
+            if (typeof data._userId === 'string') {
+              setUserId(data._userId);
+            }
+          }
+        } catch { /* use local state */ }
+        set({ preferencesLoaded: true });
+      },
+      saveCardOrder: async (cardOrder: Record<string, string[]>) => {
+        try {
+          await fetch('/api/user/preferences', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cardOrder }),
+          });
+        } catch { /* silent */ }
+      },
     }),
     {
       name: 'ansut-cockpit-dnd',

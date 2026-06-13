@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 // PUT /api/admin/permissions — update permissions for a role
 // Body: { roleId, permissions: [{ module, access }] }
 export async function PUT(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
     const body = await request.json()
     const { roleId, permissions } = body
 
@@ -63,6 +69,7 @@ export async function PUT(request: NextRequest) {
       data: {
         action: 'UPDATE_PERMISSION',
         category: 'permission',
+        userId: session.user.id,
         details: `Updated permissions for role "${role.label}" (${role.name}): ${moduleList}`,
         ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
       },

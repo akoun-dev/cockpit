@@ -1,11 +1,13 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
+import { useEffect } from 'react';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { SidebarProvider, SidebarInset, SidebarRail } from '@/components/ui/sidebar';
 import { AppSidebar, Header, DashboardAccueil, FinanceModule, GovernanceModule, OperationalModule, RHModule, RisqueModule, PTAModule } from '@/components/cockpit';
 import { AdminLayout, AdminDashboard, AdminUsers, AdminRoles, AdminDataSources, AdminLogs, AdminSettings, AdminKPI, AdminSync, AdminDocuments, AdminAlerts, AdminNotifications, AdminSecurity } from '@/components/admin';
-import { useAppStore, type AdminViewKey } from '@/lib/store';
+import { useAppStore } from '@/lib/store';
+import { setUserId } from '@/lib/user-id';
 import { AnimatePresence, motion } from 'framer-motion';
 
 const MODULE_COMPONENTS: Record<string, React.ComponentType> = {
@@ -34,16 +36,20 @@ const ADMIN_SUB_VIEWS: Record<string, React.ComponentType> = {
 };
 
 function CockpitApp() {
-  const { activeView, activeModule, adminSubView } = useAppStore();
+  const { activeView, activeModule, adminSubView, loadPreferences } = useAppStore();
+
+  useEffect(() => {
+    loadPreferences();
+  }, [loadPreferences]);
 
   const isAdmin = activeView === 'admin';
 
   return (
-    <SidebarProvider defaultOpen>
+    <SidebarProvider defaultOpen className="overflow-x-hidden">
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="overflow-y-auto h-dvh">
         <Header />
-        <main className="flex-1 overflow-hidden">
+        <main className="flex-1">
           <AnimatePresence mode="wait">
             {isAdmin ? (
               <motion.div
@@ -52,9 +58,9 @@ function CockpitApp() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
-                className="flex h-full min-w-0"
+                className="flex min-h-0 min-w-0"
               >
-                <AdminLayout activeView={adminSubView} onViewChange={() => {}}>
+                <AdminLayout activeView={adminSubView}>
                   {(() => {
                     const SubComponent = ADMIN_SUB_VIEWS[adminSubView] || AdminDashboard;
                     return <SubComponent />;
@@ -68,7 +74,7 @@ function CockpitApp() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.2, ease: 'easeOut' }}
-                className="h-full overflow-auto p-4 lg:p-6"
+                className="p-4 lg:p-6"
               >
                 {(() => {
                   const Component = MODULE_COMPONENTS[activeModule];
@@ -81,7 +87,7 @@ function CockpitApp() {
         <footer className="mt-auto border-t border-border bg-card px-6 py-3">
           <div className="flex flex-col items-center justify-between gap-1 text-xs text-muted-foreground sm:flex-row">
             <div className="flex items-center gap-2">
-              <img src="/logo-ansut-square.png" alt="" className="size-4 rounded opacity-60" />
+              <img src="/logo-ansut-square.png" alt="ANSUT" className="size-4 rounded opacity-60" />
               <span>© {new Date().getFullYear()} ANSUT — Agence Nationale des Services Universels des Télécommunications</span>
             </div>
             <span>Cockpit DG v1.0 — Données mises à jour en temps réel</span>
@@ -101,11 +107,21 @@ export default function CockpitPage() {
     return <LoginForm />;
   }
 
-  // Show loading while session is being fetched (handled by AuthProvider, but just in case)
+  // Show loading while session is being fetched
   if (status === 'loading' || !session) {
-    return null;
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="flex items-center gap-3">
+          <div className="size-6 animate-spin rounded-full border-2 border-fun-blue border-t-transparent" />
+          <span className="text-sm text-muted-foreground">Chargement…</span>
+        </div>
+      </div>
+    );
   }
 
   // Show cockpit when authenticated
+  if (session?.user?.id) {
+    setUserId(session.user.id);
+  }
   return <CockpitApp />;
 }

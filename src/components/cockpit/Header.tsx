@@ -52,7 +52,7 @@ import {
 } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { useAppStore, type AppViewKey, type ModuleKey } from '@/lib/store';
+import { useAppStore, type AppViewKey, type ModuleKey, type FilterState } from '@/lib/store';
 import { StorytellingOverlay } from '@/components/cockpit/StorytellingOverlay';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
@@ -65,6 +65,7 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { useToast } from '@/hooks/use-toast';
+import { ProfileDialog } from '@/components/cockpit/ProfileDialog';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -136,7 +137,7 @@ function ThemeToggle() {
 
 // ─── Storytelling Button ────────────────────────────────────────────────────
 
-function StorytellingButton() {
+function StorytellingButton({ className }: { className?: string }) {
   const [open, setOpen] = useState(false);
   const [key, setKey] = useState(0);
 
@@ -145,11 +146,11 @@ function StorytellingButton() {
       <Button
         variant="ghost"
         size="sm"
-        className="h-8 gap-1.5 border border-tango/40 bg-tango/15 text-tango text-xs font-semibold backdrop-blur-sm hover:bg-tango/25 hover:text-tango cursor-pointer"
+        className={cn("h-8 gap-1.5 border border-tango/40 bg-tango/15 text-tango text-xs font-semibold backdrop-blur-sm hover:bg-tango/25 hover:text-tango cursor-pointer", className)}
         onClick={() => { setKey((k) => k + 1); setOpen(true); }}
       >
         <Play className="size-3" fill="currentColor" />
-        <span className="hidden lg:inline">STORYTELLING</span>
+        <span>STORYTELLING</span>
       </Button>
       <StorytellingOverlay key={key} open={open} onClose={() => setOpen(false)} />
     </>
@@ -184,6 +185,167 @@ interface ExportResponseData {
   generatedAt: string;
 }
 
+// ─── Export helpers (reused by dropdown and mobile/tablet sheets) ─────────
+
+interface ExportButtonProps {
+  icon: React.ReactNode;
+  label: string;
+  filters: FilterState;
+  activeView: string;
+  format: 'excel' | 'pdf' | 'pptx';
+  onDone?: () => void;
+  className?: string;
+}
+
+function ExportButton({ icon, label, filters, activeView, format, onDone, className }: ExportButtonProps) {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+
+  const handleExport = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      const module = activeView === 'accueil' ? 'governance' : activeView;
+      params.set('module', module);
+      if (filters.year) params.set('year', String(filters.year));
+      if (filters.quarter) params.set('quarter', String(filters.quarter));
+      if (filters.month) params.set('month', String(filters.month));
+      if (filters.periodStart) params.set('periodStart', String(filters.periodStart));
+      if (filters.periodEnd) params.set('periodEnd', String(filters.periodEnd));
+
+      if (format === 'pptx') {
+        const res = await fetch(`/api/export/pptx?${params.toString()}`);
+        if (!res.ok) throw new Error('Export failed');
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `cockpit_${module}_${new Date().toISOString().slice(0, 10)}.pptx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        params.set('format', format);
+        const res = await fetch(`/api/export?${params.toString()}`);
+        if (!res.ok) throw new Error('Export failed');
+        const data: ExportResponseData = await res.json();
+        if (format === 'excel') downloadAsCsv(data);
+        else downloadAsHtml(data);
+      }
+
+      toast({ title: `Export ${label} réussi` });
+      onDone?.();
+    } catch {
+      toast({
+        title: "Erreur d'export",
+        description: `Impossible de générer le ${label}.`,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className={cn("gap-1.5 text-[10px] h-8", className)}
+      onClick={handleExport}
+      disabled={loading}
+    >
+      {loading ? <Loader2 className="size-3.5 animate-spin" /> : icon}
+      {label}
+    </Button>
+  );
+}
+
+function downloadAsCsv(data: ExportResponseData) {
+  const moduleLabel = MODULE_LABELS[data.module as AppViewKey] ?? data.module;
+  const header = [
+    'Code', 'Indicateur', 'Sous-domaine', 'Unité', 'Cible',
+    'Valeur', 'Période', 'Département', 'Priorité',
+  ];
+  const rows = data.indicators.map((ind) => [
+    ind.code,
+    `"${ind.name}"`,
+    ind.subDomain ?? '',
+    ind.unit,
+    ind.targetValue?.toString() ?? '',
+    ind.latestValue?.toString() ?? '',
+    ind.latestPeriod ?? '',
+    ind.department ?? '',
+    ind.isPriority ? 'Oui' : 'Non',
+  ]);
+  const bom = '\uFEFF';
+  const csv = bom + [header.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `export_${data.module}_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function downloadAsHtml(data: ExportResponseData) {
+  const moduleLabel = MODULE_LABELS[data.module as AppViewKey] ?? data.module;
+  const includeLogo = data.settings?.includeLogo !== false;
+  const includeDate = data.settings?.includeGenerationDate !== false;
+
+  const rows = data.indicators
+    .map(
+      (ind) => `
+    <tr>
+      <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-weight:500;font-size:12px;">${ind.code}${ind.isPriority ? ' ★' : ''}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;">${ind.name}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;">${ind.subDomain ?? '—'}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;text-align:right;">${ind.latestValue ?? '—'}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;text-align:right;">${ind.targetValue ?? '—'}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;">${ind.unit}</td>
+    </tr>`,
+    )
+    .join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><title>Export ${moduleLabel}</title></head>
+<body style="font-family:system-ui,sans-serif;margin:40px;color:#1a1a2e;">
+  <div style="max-width:1000px;margin:0 auto;">
+    ${includeLogo ? '<h1 style="font-size:22px;margin-bottom:4px;">ANSUT Cockpit DG</h1>' : ''}
+    <h2 style="font-size:18px;color:#1c55a3;margin-bottom:2px;">${moduleLabel}</h2>
+    ${includeDate ? `<p style="font-size:12px;color:#6b7280;margin-bottom:20px;">Généré le ${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })} — ${data.totalIndicators} indicateurs</p>` : '<p style="margin-bottom:20px;"></p>'}
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="background:#f3f4f6;">
+          <th style="padding:8px 10px;text-align:left;font-size:12px;border-bottom:2px solid #1c55a3;">Code</th>
+          <th style="padding:8px 10px;text-align:left;font-size:12px;border-bottom:2px solid #1c55a3;">Indicateur</th>
+          <th style="padding:8px 10px;text-align:left;font-size:12px;border-bottom:2px solid #1c55a3;">Sous-domaine</th>
+          <th style="padding:8px 10px;text-align:right;font-size:12px;border-bottom:2px solid #1c55a3;">Valeur</th>
+          <th style="padding:8px 10px;text-align:right;font-size:12px;border-bottom:2px solid #1c55a3;">Cible</th>
+          <th style="padding:8px 10px;text-align:left;font-size:12px;border-bottom:2px solid #1c55a3;">Unité</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>
+</body></html>`;
+
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `export_${data.module}_${new Date().toISOString().slice(0, 10)}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function ExportDropdown({ className }: { className?: string }) {
   const { activeView, filters } = useAppStore();
   const { toast } = useToast();
@@ -212,99 +374,6 @@ function ExportDropdown({ className }: { className?: string }) {
     if (filters.periodStart) params.set('periodStart', filters.periodStart);
     if (filters.periodEnd) params.set('periodEnd', filters.periodEnd);
     return `/api/export?${params.toString()}`;
-  };
-
-  const downloadAsCsv = (data: ExportResponseData) => {
-    const moduleLabel = MODULE_LABELS[data.module as AppViewKey] ?? data.module;
-    const header = [
-      'Code',
-      'Indicateur',
-      'Sous-domaine',
-      'Unité',
-      'Cible',
-      'Valeur',
-      'Période',
-      'Département',
-      'Priorité',
-    ];
-    const rows = data.indicators.map((ind) => [
-      ind.code,
-      `"${ind.name}"`,
-      ind.subDomain ?? '',
-      ind.unit,
-      ind.targetValue?.toString() ?? '',
-      ind.latestValue?.toString() ?? '',
-      ind.latestPeriod ?? '',
-      ind.department ?? '',
-      ind.isPriority ? 'Oui' : 'Non',
-    ]);
-
-    // BOM for Excel UTF-8
-    const bom = '\uFEFF';
-    const csv = bom + [header.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `export_${data.module}_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const downloadAsHtml = (data: ExportResponseData) => {
-    const moduleLabel = MODULE_LABELS[data.module as AppViewKey] ?? data.module;
-    const includeLogo = data.settings?.includeLogo !== false;
-    const includeDate = data.settings?.includeGenerationDate !== false;
-
-    const rows = data.indicators
-      .map(
-        (ind) => `
-        <tr>
-          <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-weight:500;font-size:12px;">${ind.code}${ind.isPriority ? ' ★' : ''}</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;">${ind.name}</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;">${ind.subDomain ?? '—'}</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;text-align:right;">${ind.latestValue ?? '—'}</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;text-align:right;">${ind.targetValue ?? '—'}</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;">${ind.unit}</td>
-        </tr>`,
-      )
-      .join('');
-
-    const html = `<!DOCTYPE html>
-<html lang="fr">
-<head><meta charset="UTF-8"><title>Export ${moduleLabel}</title></head>
-<body style="font-family:system-ui,sans-serif;margin:40px;color:#1a1a2e;">
-  <div style="max-width:1000px;margin:0 auto;">
-    ${includeLogo ? '<h1 style="font-size:22px;margin-bottom:4px;">ANSUT Cockpit DG</h1>' : ''}
-    <h2 style="font-size:18px;color:#1c55a3;margin-bottom:2px;">${moduleLabel}</h2>
-    ${includeDate ? `<p style="font-size:12px;color:#6b7280;margin-bottom:20px;">Généré le ${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })} — ${data.totalIndicators} indicateurs</p>` : '<p style="margin-bottom:20px;"></p>'}
-    <table style="width:100%;border-collapse:collapse;">
-      <thead>
-        <tr style="background:#f3f4f6;">
-          <th style="padding:8px 10px;text-align:left;font-size:12px;border-bottom:2px solid #1c55a3;">Code</th>
-          <th style="padding:8px 10px;text-align:left;font-size:12px;border-bottom:2px solid #1c55a3;">Indicateur</th>
-          <th style="padding:8px 10px;text-align:left;font-size:12px;border-bottom:2px solid #1c55a3;">Sous-domaine</th>
-          <th style="padding:8px 10px;text-align:right;font-size:12px;border-bottom:2px solid #1c55a3;">Valeur</th>
-          <th style="padding:8px 10px;text-align:right;font-size:12px;border-bottom:2px solid #1c55a3;">Cible</th>
-          <th style="padding:8px 10px;text-align:left;font-size:12px;border-bottom:2px solid #1c55a3;">Unité</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
-  </div>
-</body></html>`;
-
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `export_${data.module}_${new Date().toISOString().slice(0, 10)}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   };
 
   const handleExportPptx = async () => {
@@ -514,7 +583,7 @@ function GlobalSearchDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const debounceRef = React.useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const doSearch = useCallback(async (q: string) => {
     if (q.length < 2) {
@@ -642,6 +711,7 @@ function GlobalSearchDialog({ open, onOpenChange }: { open: boolean; onOpenChang
 
 function UserMenu() {
   const { data: session } = useSession();
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const user = session?.user as unknown as {
     permissions: Record<string, string>;
@@ -666,93 +736,75 @@ function UserMenu() {
   };
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-2 py-1 backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-          aria-label="Menu utilisateur"
-        >
-          <Avatar className="size-7">
-            <AvatarFallback
-              className="text-[10px] font-bold text-white"
-              style={{ backgroundColor: user?.role?.color || '#1c55a3' }}
-            >
-              {userInitials}
-            </AvatarFallback>
-          </Avatar>
-          <span className="hidden text-xs font-medium text-white sm:inline max-w-[120px] truncate">
-            {session?.user?.name || 'Utilisateur'}
-          </span>
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
-        {/* User info header */}
-        <div className="flex items-center gap-3 p-3">
-          <Avatar className="size-10">
-            <AvatarFallback
-              className="text-sm font-bold text-white"
-              style={{ backgroundColor: user?.role?.color || '#1c55a3' }}
-            >
-              {userInitials}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col min-w-0 flex-1">
-            <p className="text-sm font-semibold truncate">{session?.user?.name}</p>
-            <p className="text-xs text-muted-foreground truncate">{session?.user?.email}</p>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-2 py-1 backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+            aria-label="Menu utilisateur"
+          >
+            <Avatar className="size-7">
+              <AvatarFallback
+                className="text-[10px] font-bold text-white"
+                style={{ backgroundColor: user?.role?.color || '#1c55a3' }}
+              >
+                {userInitials}
+              </AvatarFallback>
+            </Avatar>
+            <span className="hidden text-xs font-medium text-white sm:inline max-w-[120px] truncate">
+              {session?.user?.name || 'Utilisateur'}
+            </span>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-64">
+          {/* User info header */}
+          <div className="flex items-center gap-3 p-3">
+            <Avatar className="size-10">
+              <AvatarFallback
+                className="text-sm font-bold text-white"
+                style={{ backgroundColor: user?.role?.color || '#1c55a3' }}
+              >
+                {userInitials}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col min-w-0 flex-1">
+              <p className="text-sm font-semibold truncate">{session?.user?.name}</p>
+              <p className="text-xs text-muted-foreground truncate">{session?.user?.email}</p>
+            </div>
           </div>
-        </div>
 
-        <DropdownMenuSeparator />
+          <DropdownMenuSeparator />
 
-        {/* Role and department info */}
-        <div className="px-3 py-2">
-          <div className="flex items-center gap-2 text-xs">
-            <Shield className="size-3.5 shrink-0" style={{ color: user?.role?.color || '#1c55a3' }} />
-            <span className="font-medium">{roleLabel}</span>
+          {/* Role and department info */}
+          <div className="px-3 py-2">
+            <div className="flex items-center gap-2 text-xs">
+              <Shield className="size-3.5 shrink-0" style={{ color: user?.role?.color || '#1c55a3' }} />
+              <span className="font-medium">{roleLabel}</span>
+            </div>
+            {departmentName && (
+              <p className="mt-1 text-xs text-muted-foreground pl-5.5">{departmentName}</p>
+            )}
           </div>
-          {departmentName && (
-            <p className="mt-1 text-xs text-muted-foreground pl-5.5">{departmentName}</p>
-          )}
-        </div>
 
-        <DropdownMenuSeparator />
+          <DropdownMenuSeparator />
 
-        {/* Accessible modules summary */}
-        <div className="px-3 py-2">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1.5">
-            Modules accessibles
-          </p>
-          <div className="flex flex-wrap gap-1">
-            {user?.permissions
-              ? Object.entries(user.permissions)
-                  .filter(([, access]) => access && access !== 'none')
-                  .map(([mod, access]) => (
-                    <Badge
-                      key={mod}
-                      variant="outline"
-                      className="text-[10px] px-1.5 py-0 h-5 font-normal"
-                    >
-                      {mod}
-                      {access === 'admin' && ' ⚡'}
-                      {access === 'write' && ' ✏️'}
-                    </Badge>
-                  ))
-              : <span className="text-xs text-muted-foreground">Aucun module</span>
-            }
-          </div>
-        </div>
+          <DropdownMenuItem onClick={() => setProfileOpen(true)} className="cursor-pointer">
+            <User className="size-4 mr-2" />
+            Mon Profil
+          </DropdownMenuItem>
 
-        <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={handleLogout}
+            className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/30 cursor-pointer"
+          >
+            <LogOut className="size-4 mr-2" />
+            Se déconnecter
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-        <DropdownMenuItem
-          onClick={handleLogout}
-          className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/30 cursor-pointer"
-        >
-          <LogOut className="size-4 mr-2" />
-          Se déconnecter
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+      <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
+    </>
   );
 }
 
@@ -761,7 +813,8 @@ function UserMenu() {
 export function Header() {
   const { activeView, filters, setFilters } = useAppStore();
   const isAdmin = activeView === 'admin';
-  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [tabletFilterOpen, setTabletFilterOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
   // Keyboard shortcut: Ctrl+K / Cmd+K to open search
@@ -946,7 +999,7 @@ export function Header() {
 
           {/* ── Mobile filter sheet button ── */}
           <div className="md:hidden">
-            <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
+            <Sheet open={mobileFilterOpen} onOpenChange={setMobileFilterOpen}>
               <SheetTrigger asChild>
                 <Button
                   variant="ghost"
@@ -969,7 +1022,7 @@ export function Header() {
                     <div>
                       <SheetTitle className="text-base">Filtres</SheetTitle>
                       <SheetDescription className="text-xs mt-0.5">
-                        Affinez la période et le département
+                        Affinez vos recherches
                       </SheetDescription>
                     </div>
                     {activeFilterCount > 0 && (
@@ -984,18 +1037,18 @@ export function Header() {
                 </SheetHeader>
 
                 <div className="px-4 py-4 space-y-5">
-                  {/* Year */}
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-medium flex items-center gap-1.5">
-                        <CalendarIcon className="size-3" />
-                        Année
+                  {/* Year / Quarter / Month — horizontal row */}
+                  <div className="flex flex-row gap-2">
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <Label className="text-[10px] font-medium flex items-center gap-1 truncate">
+                        <CalendarIcon className="size-3 shrink-0" />
+                        <span>Année</span>
                       </Label>
                       <Select
                         value={String(filters.year)}
                         onValueChange={(v) => setFilters({ year: Number(v) })}
                       >
-                        <SelectTrigger size="sm" className="h-9 text-sm">
+                        <SelectTrigger size="sm" className="h-9 text-xs w-full">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1006,39 +1059,37 @@ export function Header() {
                       </Select>
                     </div>
 
-                    {/* Quarter */}
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-medium">Trimestre</Label>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <Label className="text-[10px] font-medium truncate">Trimestre</Label>
                       <Select
                         value={filters.quarter ? String(filters.quarter) : 'all'}
                         onValueChange={(v) =>
                           setFilters({ quarter: v === 'all' ? null : Number(v) })
                         }
                       >
-                        <SelectTrigger size="sm" className="h-9 text-sm">
+                        <SelectTrigger size="sm" className="h-9 text-xs w-full">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Tous</SelectItem>
                           {QUARTERS.map((q) => (
                             <SelectItem key={q.value} value={q.value}>
-                              {q.full}
+                              {q.label}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
 
-                    {/* Month */}
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-medium">Mois</Label>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <Label className="text-[10px] font-medium truncate">Mois</Label>
                       <Select
                         value={filters.month ? String(filters.month) : 'all'}
                         onValueChange={(v) =>
                           setFilters({ month: v === 'all' ? null : Number(v) })
                         }
                       >
-                        <SelectTrigger size="sm" className="h-9 text-sm">
+                        <SelectTrigger size="sm" className="h-9 text-xs w-full">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1053,29 +1104,27 @@ export function Header() {
                     </div>
                   </div>
 
-                  {/* Period + Department */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-medium flex items-center gap-1.5">
-                        <CalendarIcon className="size-3" />
-                        Période
-                      </Label>
-                      <div className="flex flex-col gap-1.5">
-                        <input
-                          type="date"
-                          value={filters.periodStart || ''}
-                          onChange={(e) => setFilters({ periodStart: e.target.value || null })}
-                          placeholder="Début"
-                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                        />
-                        <input
-                          type="date"
-                          value={filters.periodEnd || ''}
-                          onChange={(e) => setFilters({ periodEnd: e.target.value || null })}
-                          placeholder="Fin"
-                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                        />
-                      </div>
+                  {/* Period */}
+                  <div>
+                    <Label className="text-xs font-medium flex items-center gap-1.5 mb-2">
+                      <CalendarIcon className="size-3" />
+                      Période
+                    </Label>
+                    <div className="flex flex-row gap-2">
+                      <input
+                        type="date"
+                        value={filters.periodStart || ''}
+                        onChange={(e) => setFilters({ periodStart: e.target.value || null })}
+                        placeholder="Début"
+                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      />
+                      <input
+                        type="date"
+                        value={filters.periodEnd || ''}
+                        onChange={(e) => setFilters({ periodEnd: e.target.value || null })}
+                        placeholder="Fin"
+                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      />
                     </div>
                   </div>
 
@@ -1084,33 +1133,38 @@ export function Header() {
                     <Label className="text-xs font-medium text-muted-foreground mb-2.5 block">
                       Exporter les données
                     </Label>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 gap-2 text-xs"
-                        onClick={() => {
-                          console.log('Export Excel');
-                          setFilterSheetOpen(false);
-                        }}
-                      >
-                        <FileSpreadsheet className="size-4 text-green-600" />
-                        Excel
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 gap-2 text-xs"
-                        onClick={() => {
-                          console.log('Export PDF');
-                          setFilterSheetOpen(false);
-                        }}
-                      >
-                        <FileText className="size-4 text-red-600" />
-                        PDF
-                      </Button>
+                    <div className="flex flex-row gap-2">
+                      <ExportButton
+                        icon={<FileSpreadsheet className="size-4 text-green-600" />}
+                        label="Excel"
+                        filters={filters}
+                        activeView={activeView}
+                        format="excel"
+                        onDone={() => setMobileFilterOpen(false)}
+                        className="flex-1"
+                      />
+                      <ExportButton
+                        icon={<FileText className="size-4 text-red-600" />}
+                        label="PDF"
+                        filters={filters}
+                        activeView={activeView}
+                        format="pdf"
+                        onDone={() => setMobileFilterOpen(false)}
+                        className="flex-1"
+                      />
+                      <ExportButton
+                        icon={<Presentation className="size-4 text-orange-600" />}
+                        label="PPTX"
+                        filters={filters}
+                        activeView={activeView}
+                        format="pptx"
+                        onDone={() => setMobileFilterOpen(false)}
+                        className="flex-1"
+                      />
                     </div>
                   </div>
+
+                  <StorytellingButton className="w-full" />
                 </div>
               </SheetContent>
             </Sheet>
@@ -1118,7 +1172,7 @@ export function Header() {
 
           {/* Filter button for md-lg screens to access Day/Dept/Export */}
           <div className="hidden md:flex xl:hidden">
-            <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
+            <Sheet open={tabletFilterOpen} onOpenChange={setTabletFilterOpen}>
               <SheetTrigger asChild>
                 <Button
                   variant="ghost"
@@ -1151,7 +1205,7 @@ export function Header() {
                         <CalendarIcon className="size-3" />
                         Période
                       </Label>
-                      <div className="flex flex-col gap-1.5">
+                      <div className="flex flex-row gap-2">
                         <input
                           type="date"
                           value={filters.periodStart || ''}
@@ -1173,33 +1227,38 @@ export function Header() {
                     <Label className="text-xs font-medium text-muted-foreground mb-2.5 block">
                       Exporter
                     </Label>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 gap-2 text-xs"
-                        onClick={() => {
-                          console.log('Export Excel');
-                          setFilterSheetOpen(false);
-                        }}
-                      >
-                        <FileSpreadsheet className="size-4 text-green-600" />
-                        Excel
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 gap-2 text-xs"
-                        onClick={() => {
-                          console.log('Export PDF');
-                          setFilterSheetOpen(false);
-                        }}
-                      >
-                        <FileText className="size-4 text-red-600" />
-                        PDF
-                      </Button>
+                    <div className="flex flex-row gap-2">
+                      <ExportButton
+                        icon={<FileSpreadsheet className="size-4 text-green-600" />}
+                        label="Excel"
+                        filters={filters}
+                        activeView={activeView}
+                        format="excel"
+                        onDone={() => setTabletFilterOpen(false)}
+                        className="flex-1"
+                      />
+                      <ExportButton
+                        icon={<FileText className="size-4 text-red-600" />}
+                        label="PDF"
+                        filters={filters}
+                        activeView={activeView}
+                        format="pdf"
+                        onDone={() => setTabletFilterOpen(false)}
+                        className="flex-1"
+                      />
+                      <ExportButton
+                        icon={<Presentation className="size-4 text-orange-600" />}
+                        label="PPTX"
+                        filters={filters}
+                        activeView={activeView}
+                        format="pptx"
+                        onDone={() => setTabletFilterOpen(false)}
+                        className="flex-1"
+                      />
                     </div>
                   </div>
+
+                  <StorytellingButton className="w-full" />
                 </div>
               </SheetContent>
             </Sheet>

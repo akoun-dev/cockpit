@@ -226,11 +226,11 @@ export function AdminLogs() {
             timestamp: (log as Record<string, unknown>).createdAt ?? log.timestamp,
             userId: log.userId,
             userName:
-              (log as Record<string, unknown>).user?.name ??
+              (log.user as Record<string, unknown>)?.name as string ??
               log.userName ??
               'Inconnu',
             userAvatar:
-              (log as Record<string, unknown>).user?.avatar ?? log.userAvatar,
+              (log.user as Record<string, unknown>)?.avatar as string ?? log.userAvatar,
             action: log.action,
             category: log.category,
             details: log.details,

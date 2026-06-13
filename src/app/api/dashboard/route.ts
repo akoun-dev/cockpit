@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/require-auth';
 
 // Units where lower values are better
 const LOWER_IS_BETTER_UNITS = ['jours', 'nb', 'h', 'ratio'];
@@ -49,6 +50,9 @@ function computeTrend(value: number | null | undefined, targetValue: number | nu
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await requireAuth()
+    if (session instanceof Response) return session
+
     const { searchParams } = new URL(request.url);
     const year = parseInt(searchParams.get('year') || '2025');
     const quarterParam = searchParams.get('quarter');

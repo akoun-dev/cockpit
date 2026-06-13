@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+
+async function checkAdmin() {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  }
+  return session
+}
 
 // GET /api/admin/alerts/:id
 export async function GET(
@@ -7,6 +17,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const session = await checkAdmin()
+    if (session instanceof Response) return session
+
     const { id } = await params
     const alert = await db.alert.findUnique({ where: { id } })
     if (!alert) {
@@ -31,9 +44,12 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const session = await checkAdmin()
+    if (session instanceof Response) return session
+
     const { id } = await params
     const body = await request.json()
-    const { isRead, isResolved, resolvedBy } = body
+    const { isRead, isResolved } = body
 
     const existing = await db.alert.findUnique({ where: { id } })
     if (!existing) {
@@ -49,7 +65,7 @@ export async function PUT(
       updateData.isResolved = isResolved
       if (isResolved) {
         updateData.resolvedAt = new Date()
-        updateData.resolvedBy = resolvedBy ?? 'admin'
+        updateData.resolvedBy = session.user.id
       } else {
         updateData.resolvedAt = null
         updateData.resolvedBy = null
@@ -59,6 +75,17 @@ export async function PUT(
     const alert = await db.alert.update({
       where: { id },
       data: updateData,
+    })
+
+    // Audit log
+    await db.auditLog.create({
+      data: {
+        action: isResolved ? 'RESOLVE_ALERT' : isRead ? 'READ_ALERT' : 'UPDATE_ALERT',
+        category: 'alert',
+        userId: session.user.id,
+        details: `Mise à jour de l'alerte "${existing.message?.substring(0, 50) || id}" (${isResolved ? 'résolue' : isRead ? 'lue' : 'modifiée'})`,
+        ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
+      },
     })
 
     return NextResponse.json({ data: alert })
@@ -73,10 +100,13 @@ export async function PUT(
 
 // DELETE /api/admin/alerts/:id
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const session = await checkAdmin()
+    if (session instanceof Response) return session
+
     const { id } = await params
     const existing = await db.alert.findUnique({ where: { id } })
     if (!existing) {
@@ -87,6 +117,18 @@ export async function DELETE(
     }
 
     await db.alert.delete({ where: { id } })
+
+    // Audit log
+    await db.auditLog.create({
+      data: {
+        action: 'DELETE_ALERT',
+        category: 'alert',
+        userId: session.user.id,
+        details: `Suppression de l'alerte "${existing.message?.substring(0, 50) || id}"`,
+        ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
+      },
+    })
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('[DELETE /api/admin/alerts/:id]', error)

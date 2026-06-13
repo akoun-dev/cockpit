@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
-// GET /api/admin/indicators — list all indicators with optional filters
+// GET /api/admin/indicators — list all indicators with optional filters & pagination
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const domain = searchParams.get('domain') ?? undefined
     const search = searchParams.get('search') ?? undefined
     const status = searchParams.get('status') ?? undefined
+    const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10) || 1)
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '20', 10) || 20))
 
     const where: Record<string, unknown> = {}
 
@@ -29,17 +33,22 @@ export async function GET(request: NextRequest) {
       where.isActive = false
     }
 
-    const indicators = await db.indicator.findMany({
-      where,
-      include: {
-        department: {
-          select: { id: true, name: true, code: true },
+    const [indicators, total] = await Promise.all([
+      db.indicator.findMany({
+        where,
+        include: {
+          department: {
+            select: { id: true, name: true, code: true },
+          },
         },
-      },
-      orderBy: [{ domain: 'asc' }, { order: 'asc' }, { name: 'asc' }],
-    })
+        orderBy: [{ domain: 'asc' }, { order: 'asc' }, { name: 'asc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      db.indicator.count({ where }),
+    ])
 
-    return NextResponse.json({ data: indicators })
+    return NextResponse.json({ data: indicators, pagination: { page, limit, total, pages: Math.ceil(total / limit) } })
   } catch (error) {
     console.error('[GET /api/admin/indicators]', error)
     return NextResponse.json(
@@ -52,6 +61,10 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/indicators — create indicator
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
     const body = await request.json()
     const {
       name,
@@ -122,6 +135,7 @@ export async function POST(request: NextRequest) {
       data: {
         action: 'CREATE_INDICATOR',
         category: 'indicator',
+        userId: session.user.id,
         details: `Créé l'indicateur "${name}" (${code}) dans le domaine "${domain}"`,
         ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
       },

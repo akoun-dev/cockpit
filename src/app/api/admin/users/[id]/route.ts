@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { hash } from 'bcryptjs'
+import { randomBytes } from 'crypto'
 
 type RouteParams = { params: Promise<{ id: string }> }
 
@@ -34,13 +38,40 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 // PUT /api/admin/users/[id] — update user fields
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
     const { id } = await params
     const body = await request.json()
-    const { name, email, isActive, roleId, departmentId } = body
+    const { name, email, isActive, roleId, departmentId, resetPassword } = body
 
     const existing = await db.user.findUnique({ where: { id } })
     if (!existing) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    // Handle password reset with crypto-generated password
+    if (resetPassword) {
+      const temporaryPassword = randomBytes(4).toString('hex') // 8 chars hex
+      const hashedPassword = await hash(temporaryPassword, 12)
+      await db.user.update({
+        where: { id },
+        data: {
+          password: hashedPassword,
+          mustChangePassword: true,
+        },
+      })
+      await db.auditLog.create({
+        data: {
+          action: 'RESET_PASSWORD',
+          category: 'user',
+          userId: session.user.id,
+          details: `Mot de passe réinitialisé pour "${existing.name}"`,
+          ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
+        },
+      })
+      return NextResponse.json({ temporaryPassword })
     }
 
     const updated = await db.user.update({
@@ -65,8 +96,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       data: {
         action: 'UPDATE_USER',
         category: 'user',
-        userId: id,
-        details: `Updated user "${existing.name}" — ${changes.join(', ') || 'no field changes'}`,
+        userId: session.user.id,
+        details: `Updated user "${existing.name}" (target: ${id}) — ${changes.join(', ') || 'no field changes'}`,
         ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
       },
     })
@@ -95,6 +126,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/admin/users/[id] — delete user (unless isSystem role)
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
     const { id } = await params
 
     const user = await db.user.findUnique({
@@ -120,6 +155,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       data: {
         action: 'DELETE_USER',
         category: 'user',
+        userId: session.user.id,
         details: `Deleted user "${user.name}" (${user.email})`,
         ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
       },

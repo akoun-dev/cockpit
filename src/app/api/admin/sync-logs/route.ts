@@ -1,29 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
-// GET /api/admin/sync-logs — list sync logs with optional ?status=&sourceId= filters
+// GET /api/admin/sync-logs — list sync logs with optional ?status=&sourceId=&page=&limit= filters
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') ?? undefined;
     const sourceId = searchParams.get('sourceId') ?? undefined;
+    const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '20', 10) || 20));
 
     const where: Record<string, unknown> = {};
     if (status && status !== 'all') where.status = status;
     if (sourceId) where.dataSourceId = sourceId;
 
-    const logs = await db.syncLog.findMany({
-      where: Object.keys(where).length > 0 ? where : undefined,
-      include: {
-        dataSource: {
-          select: { id: true, name: true, module: true, type: true, status: true },
+    const [logs, total] = await Promise.all([
+      db.syncLog.findMany({
+        where: Object.keys(where).length > 0 ? where : undefined,
+        include: {
+          dataSource: {
+            select: { id: true, name: true, module: true, type: true, status: true },
+          },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-    });
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      db.syncLog.count({ where: Object.keys(where).length > 0 ? where : undefined }),
+    ]);
 
-    return NextResponse.json({ data: logs });
+    return NextResponse.json({ data: logs, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
   } catch (error) {
     console.error('[GET /api/admin/sync-logs]', error);
     return NextResponse.json(
@@ -36,6 +44,10 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/sync-logs — trigger a sync (create a sync log entry)
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
     const body = await request.json();
     const { dataSourceId } = body;
 
@@ -96,6 +108,7 @@ export async function POST(request: NextRequest) {
       data: {
         action: 'TRIGGER_SYNC',
         category: 'data',
+        userId: session.user.id,
         details: `Triggered sync for data source "${source.name}" (${source.module}) — status: ${status}`,
         ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
       },

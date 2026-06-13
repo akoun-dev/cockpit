@@ -1,20 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 // GET /api/admin/roles — list all roles with user count and permissions
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const roles = await db.role.findMany({
-      include: {
-        permissions: true,
-        _count: {
-          select: { users: true },
-        },
-      },
-      orderBy: { level: 'desc' },
-    })
+    const { searchParams } = new URL(request.url)
+    const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10) || 1)
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '20', 10) || 20))
 
-    return NextResponse.json({ data: roles })
+    const [roles, total] = await Promise.all([
+      db.role.findMany({
+        include: {
+          permissions: true,
+          _count: {
+            select: { users: true },
+          },
+        },
+        orderBy: { level: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      db.role.count(),
+    ])
+
+    return NextResponse.json({ data: roles, pagination: { page, limit, total, pages: Math.ceil(total / limit) } })
   } catch (error) {
     console.error('[GET /api/admin/roles]', error)
     return NextResponse.json(
@@ -27,6 +38,10 @@ export async function GET() {
 // POST /api/admin/roles — create a new role
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
     const body = await request.json()
     const { name, label, description, level, color } = body
 
@@ -53,6 +68,7 @@ export async function POST(request: NextRequest) {
       data: {
         action: 'CREATE_ROLE',
         category: 'role',
+        userId: session.user.id,
         details: `Created role "${role.label}" (${role.name})`,
         ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
       },

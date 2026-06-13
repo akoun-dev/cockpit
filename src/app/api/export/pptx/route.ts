@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import PptxGenJS from 'pptxgenjs';
 
 // ANSUT branding
@@ -85,6 +87,11 @@ function statusLabel(s: string) {
 // GET /api/export/pptx
 export async function GET(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const modName = searchParams.get('module') ?? 'governance';
     const year = searchParams.get('year');
@@ -300,7 +307,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    const sdTableRows: (string | { text: string; options: PptxGenJS.TextPropsOptions })[][] = [
+    const sdTableRows: PptxGenJS.TableCell[][] = [
       [
         { text: 'Sous-domaine', options: hdrOpts },
         { text: 'Total', options: hdrOpts },
@@ -362,7 +369,7 @@ export async function GET(request: NextRequest) {
       });
 
       // Table
-      const tableRows: (string | { text: string; options: PptxGenJS.TextPropsOptions })[][] = [
+      const tableRows: PptxGenJS.TableCell[][] = [
         [
           { text: 'Code', options: hdrOpts },
           { text: 'Indicateur', options: hdrOpts },
@@ -393,7 +400,7 @@ export async function GET(request: NextRequest) {
           ? (ind.unit === '%' ? (ecart <= 0 ? GREEN : RED) : (ecart >= 0 ? GREEN : RED))
           : GRAY;
 
-        const row: (string | { text: string; options: PptxGenJS.TextPropsOptions })[] = [
+        const row: PptxGenJS.TableCell[] = [
           {
             text: ind.code + (ind.isPriority ? ' ★' : ''),
             options: { ...cellOpts, bold: true, fontSize: 8, color: ind.isPriority ? TANGO : DARK },
@@ -417,10 +424,11 @@ export async function GET(request: NextRequest) {
         pages.push(dataRows.slice(i, i + maxRows));
       }
 
+      let contSlide: PptxGenJS.Slide | undefined;
       for (let pi = 0; pi < pages.length; pi++) {
         if (pi > 0) {
           // Add continuation slide
-          const contSlide = pptx.addSlide();
+          contSlide = pptx.addSlide();
           contSlide.addShape(pptx.ShapeType.rect, {
             x: 0, y: 0, w: '100%', h: 0.55, fill: { color: FUN_BLUE },
           });
@@ -460,7 +468,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Bottom bar (only on last slide of sub-domain)
-      const targetSlide = pages.length > 1 ? pptx.slides[pptx.slides.length - 1] : slide;
+      const targetSlide = pages.length > 1 ? contSlide! : slide;
       targetSlide.addShape(pptx.ShapeType.rect, {
         x: 0, y: 7.14, w: '100%', h: 0.06, fill: { color: TANGO },
       });
@@ -469,11 +477,22 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Audit log
+    await db.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: 'EXPORT_PPTX',
+        category: 'export',
+        details: `Export PPTX ${indicators.length} indicateurs du module "${modName}"`,
+        ipAddress: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? undefined,
+      },
+    });
+
     // Generate buffer
     const buf = await pptx.write({ outputType: 'nodebuffer' }) as Buffer;
 
     // Send as downloadable file
-    return new NextResponse(buf, {
+    return new NextResponse(new Uint8Array(buf), {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
