@@ -12,3 +12,4 @@
 | 6 | **Cadre de Risque** | [06-risque.md](06-risque.md) |
 | 7 | **PTA** | [07-pta.md](07-pta.md) |
 | 8 | **Administration** | [08-administration.md](08-administration.md) |
+| — | **Audit des modules** | [audit-modules.md](audit-modules.md) |
