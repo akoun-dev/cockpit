@@ -150,14 +150,14 @@ export function AppSidebar() {
                     isActive={activeView === item.key}
                     tooltip={item.label}
                     onClick={() => handleNavClick(item.key)}
-                    className={
-                      activeView === item.key
-                        ? 'sidebar-active-indicator bg-tango/10 text-tango hover:bg-tango/15 hover:text-tango font-medium'
-                        : ''
-                    }
+                    className={cn(
+                      'h-10 text-[15px]',
+                      activeView === item.key &&
+                        'sidebar-active-indicator bg-tango/10 text-tango hover:bg-tango/15 hover:text-tango font-medium'
+                    )}
                   >
-                    <item.icon className="size-5" />
-                    <span>{item.label}</span>
+                    <item.icon className="size-[22px]" />
+                    <span className="text-[15px]">{item.label}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -178,14 +178,14 @@ export function AppSidebar() {
                       isActive={activeView === 'admin'}
                       tooltip="Administration"
                       onClick={() => handleAdminClick()}
-                      className={
-                        activeView === 'admin'
-                          ? 'sidebar-active-indicator bg-fun-blue/10 text-fun-blue hover:bg-fun-blue/15 hover:text-fun-blue font-medium'
-                          : ''
-                      }
+                      className={cn(
+                        'h-10 text-[15px]',
+                        activeView === 'admin' &&
+                          'sidebar-active-indicator bg-fun-blue/10 text-fun-blue hover:bg-fun-blue/15 hover:text-fun-blue font-medium'
+                      )}
                     >
-                      <Shield className="size-5" />
-                      <span>Administration</span>
+                      <Shield className="size-[22px]" />
+                      <span className="text-[15px]">Administration</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </SidebarMenu>
