@@ -5,7 +5,6 @@ import { setUserId } from '@/lib/user-id';
 export type ModuleKey = 'accueil' | 'governance' | 'finance' | 'operational' | 'rh' | 'risque' | 'pta';
 
 export type AdminViewKey =
-  | 'admin_dashboard'
   | 'admin_users'
   | 'admin_roles'
   | 'admin_indicators'
@@ -89,11 +88,11 @@ export const useAppStore = create<AppState>()(
           updates.activeModule = view as ModuleKey;
         }
         if (view === 'admin') {
-          updates.adminSubView = 'admin_dashboard';
+          updates.adminSubView = 'admin_users';
         }
         return updates;
       }),
-      adminSubView: 'admin_dashboard',
+      adminSubView: 'admin_users',
       setAdminSubView: (view) => set({ adminSubView: view }),
       // Drag & Drop card order
       cardOrder: {},

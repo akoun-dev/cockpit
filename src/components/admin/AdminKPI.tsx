@@ -857,7 +857,7 @@ export function AdminKPI() {
               </div>
             </div>
 
-            {/* Row 2: Domain + SubDomain */
+            {/* Row 2: Domain + SubDomain */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Domaine *</Label>

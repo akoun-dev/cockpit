@@ -1,12 +1,12 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { SidebarProvider, SidebarInset, SidebarRail } from '@/components/ui/sidebar';
 import { AppSidebar, Header, DashboardAccueil, FinanceModule, GovernanceModule, OperationalModule, RHModule, RisqueModule, PTAModule } from '@/components/cockpit';
 import { AdminLayout, AdminUsers, AdminRoles, AdminDataSources, AdminLogs, AdminSettings, AdminKPI, AdminSync, AdminDocuments, AdminAlerts, AdminNotifications, AdminSecurity } from '@/components/admin';
-import { useAppStore } from '@/lib/store';
+import { useAppStore, type ModuleKey, type AdminViewKey } from '@/lib/store';
 import { setUserId } from '@/lib/user-id';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -35,7 +35,53 @@ const ADMIN_SUB_VIEWS: Record<string, React.ComponentType> = {
 };
 
 function CockpitApp() {
-  const { activeView, activeModule, adminSubView, loadPreferences } = useAppStore();
+  const { activeView, activeModule, adminSubView, setActiveView, setAdminSubView, loadPreferences } = useAppStore();
+
+  // --- Hash-based browser back/forward navigation ---
+  const syncingRef = useRef(false);
+
+  // Read hash on mount
+  useEffect(() => {
+    const hash = window.location.hash.replace(/^#/, '');
+    if (!hash) return;
+    if (hash === 'admin') {
+      setActiveView('admin');
+    } else if (hash.startsWith('admin_')) {
+      setActiveView('admin');
+      setAdminSubView(hash as AdminViewKey);
+    } else if (MODULE_COMPONENTS[hash]) {
+      setActiveView(hash as ModuleKey);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Listen for hash changes (browser back/forward)
+  useEffect(() => {
+    const onHashChange = () => {
+      if (syncingRef.current) return;
+      const hash = window.location.hash.replace(/^#/, '');
+      if (hash === 'admin') {
+        setActiveView('admin');
+      } else if (hash.startsWith('admin_')) {
+        setActiveView('admin');
+        setAdminSubView(hash as AdminViewKey);
+      } else if (MODULE_COMPONENTS[hash]) {
+        setActiveView(hash as ModuleKey);
+      }
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync state → hash (with pushState to avoid hashchange loop)
+  useEffect(() => {
+    if (syncingRef.current) return;
+    const hash = activeView === 'admin' ? `#${adminSubView}` : `#${activeView}`;
+    if (window.location.hash !== hash) {
+      syncingRef.current = true;
+      window.history.pushState(null, '', hash);
+      syncingRef.current = false;
+    }
+  }, [activeView, adminSubView, activeModule]);
 
   useEffect(() => {
     loadPreferences();
