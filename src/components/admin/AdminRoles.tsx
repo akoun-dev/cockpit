@@ -537,7 +537,7 @@ export function AdminRoles() {
               ))}
             </div>
           ) : (
-            <div className="space-y-2 min-h-0 overflow-y-auto pr-1">
+            <div className="space-y-2 min-h-0 overflow-y-auto pr-1 max-h-[65vh]">
               {roles.map((role) => (
                 <Card
                   key={role.id}
