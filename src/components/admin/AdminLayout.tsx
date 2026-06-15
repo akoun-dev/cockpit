@@ -71,7 +71,7 @@ export function AdminLayout({ activeView, children }: AdminLayoutProps) {
   return (
     <div className="flex flex-1 flex-col min-h-0">
       {/* Mobile horizontal scroll nav */}
-      <div className="relative shrink-0 bg-background">
+      <div className="sticky top-10 sm:top-12 z-20 shrink-0 bg-background">
         <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-6 bg-gradient-to-r from-muted/30 to-transparent" />
         <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-6 bg-gradient-to-l from-muted/30 to-transparent" />
         <div className="flex snap-x snap-mandatory gap-1 overflow-x-auto border-b border-border px-2 py-2 scroll-smooth scrollbar-none">
