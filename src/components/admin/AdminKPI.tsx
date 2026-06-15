@@ -152,6 +152,8 @@ interface IndicatorFormData {
   frequency: string;
   sourceSystem: string;
   departmentId: string;
+  isPriority: boolean;
+  order: string;
 }
 
 const EMPTY_FORM: IndicatorFormData = {
@@ -168,6 +170,8 @@ const EMPTY_FORM: IndicatorFormData = {
   frequency: 'mensuel',
   sourceSystem: 'manuel',
   departmentId: '__none__',
+  isPriority: false,
+  order: '0',
 };
 
 // --- Component ---
@@ -190,6 +194,7 @@ export function AdminKPI() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingIndicator, setEditingIndicator] = useState<IndicatorEntry | null>(null);
   const [form, setForm] = useState<IndicatorFormData>(EMPTY_FORM);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Delete dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -257,11 +262,23 @@ export function AdminKPI() {
     return { total, actifs, inactifs, prioritaires, byDomain };
   }, [indicators]);
 
+  function updateField<K extends keyof IndicatorFormData>(field: K, value: IndicatorFormData[K]) {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    if (formErrors[field]) {
+      setFormErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+  }
+
   // --- Handlers ---
 
   function handleCreate() {
     setEditingIndicator(null);
     setForm({ ...EMPTY_FORM });
+    setFormErrors({});
     setDialogOpen(true);
   }
 
@@ -281,12 +298,24 @@ export function AdminKPI() {
       frequency: indicator.frequency,
       sourceSystem: indicator.sourceSystem,
       departmentId: indicator.departmentId || '__none__',
+      isPriority: indicator.isPriority,
+      order: String(indicator.order ?? 0),
     });
+    setFormErrors({});
     setDialogOpen(true);
   }
 
   async function handleSave() {
-    if (!form.name.trim() || !form.code.trim() || !form.domain) return;
+    const errors: Record<string, string> = {};
+    if (!form.name.trim()) errors.name = 'Le nom est requis';
+    if (!form.code.trim()) errors.code = 'Le code est requis';
+    if (!form.domain) errors.domain = 'Le domaine est requis';
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+    setFormErrors({});
     setSaving(true);
 
     try {
@@ -311,6 +340,9 @@ export function AdminKPI() {
       if (form.criticalValue) body.criticalValue = parseFloat(form.criticalValue);
       if (form.formula.trim()) body.formula = form.formula.trim();
       if (form.departmentId && form.departmentId !== '__none__') body.departmentId = form.departmentId;
+      body.isPriority = form.isPriority;
+      const orderVal = parseInt(form.order, 10);
+      if (!isNaN(orderVal)) body.order = orderVal;
 
       const res = await fetch(url, {
         method,
@@ -803,8 +835,12 @@ export function AdminKPI() {
                   id="ind-name"
                   placeholder="Ex: Taux de réalisation budgétaire"
                   value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  onChange={(e) => updateField('name', e.target.value)}
+                  className={formErrors.name ? 'border-red-500' : ''}
                 />
+                {formErrors.name && (
+                  <p className="text-xs text-red-500">{formErrors.name}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="ind-code">Code *</Label>
@@ -812,17 +848,20 @@ export function AdminKPI() {
                   id="ind-code"
                   placeholder="Ex: TX_REAL_BUDG"
                   value={form.code}
-                  onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
-                  className="font-mono"
+                  onChange={(e) => updateField('code', e.target.value.toUpperCase())}
+                  className={cn('font-mono', formErrors.code && 'border-red-500')}
                 />
+                {formErrors.code && (
+                  <p className="text-xs text-red-500">{formErrors.code}</p>
+                )}
               </div>
             </div>
 
-            {/* Row 2: Domain + SubDomain */}
+            {/* Row 2: Domain + SubDomain */
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Domaine *</Label>
-                <Select value={form.domain} onValueChange={(val) => setForm({ ...form, domain: val })}>
+                <Select value={form.domain} onValueChange={(val) => { setForm({ ...form, domain: val }); if (formErrors.domain) setFormErrors((prev) => { const n = { ...prev }; delete n.domain; return n; }); }}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -837,6 +876,9 @@ export function AdminKPI() {
                     ))}
                   </SelectContent>
                 </Select>
+                {formErrors.domain && (
+                  <p className="text-xs text-red-500">{formErrors.domain}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="ind-subdomain">Sous-domaine</Label>
@@ -844,7 +886,7 @@ export function AdminKPI() {
                   id="ind-subdomain"
                   placeholder="Ex: Budget, RH, IT..."
                   value={form.subDomain}
-                  onChange={(e) => setForm({ ...form, subDomain: e.target.value })}
+                  onChange={(e) => updateField('subDomain', e.target.value)}
                 />
               </div>
             </div>
@@ -882,7 +924,36 @@ export function AdminKPI() {
               </div>
             </div>
 
-            {/* Row 4: Thresholds */}
+            {/* Row: Lot 1 + Order */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Lot 1 (Priorité DG)</Label>
+                <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 px-4 py-2.5">
+                  <Switch
+                    checked={form.isPriority}
+                    onCheckedChange={(val) => setForm({ ...form, isPriority: val })}
+                    id="ind-priority"
+                  />
+                  <Label htmlFor="ind-priority" className="text-sm font-normal cursor-pointer">
+                    {form.isPriority ? 'Oui, indicateur prioritaire' : 'Non, indicateur standard'}
+                  </Label>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ind-order">Ordre d'affichage</Label>
+                <Input
+                  id="ind-order"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="0"
+                  value={form.order}
+                  onChange={(e) => setForm({ ...form, order: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {/* Row 5: Thresholds */}
             <div className="rounded-lg border border-border bg-muted/20 dark:bg-muted/40 p-4 space-y-4">
               <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 <AlertTriangle className="size-3.5" />

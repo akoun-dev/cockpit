@@ -14,7 +14,8 @@ export async function GET(
     if (!source) {
       return NextResponse.json({ error: 'Data source not found' }, { status: 404 })
     }
-    return NextResponse.json({ data: source })
+    const { password: _, ...sanitized } = source
+    return NextResponse.json({ data: sanitized })
   } catch (error) {
     console.error('[GET /api/admin/data-sources/:id]', error)
     return NextResponse.json({ error: 'Failed to fetch data source' }, { status: 500 })

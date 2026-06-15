@@ -88,8 +88,8 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
   fichier: FileText,
   erp: Server,
   erp_dynamics: Plug,
-  archivo_excel: FileSpreadsheet,
-  archivo_csv: FileDown,
+  fichier_excel: FileSpreadsheet,
+  fichier_csv: FileDown,
   sharepoint: FolderSync,
   sftp: Server,
   sage: Database,
@@ -207,7 +207,6 @@ export function AdminDataSources() {
   const [sources, setSources] = useState<DataSourceEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const { handleError, handleSuccess, handleNetworkError } = useErrorHandler({ setError });
   const [saving, setSaving] = useState(false);
 
@@ -344,9 +343,7 @@ export function AdminDataSources() {
       });
       if (res.ok) {
         setDialogOpen(false);
-        setSuccessMsg(editingSource ? 'Source mise à jour' : 'Source créée');
-          handleSuccess(editingSource ? 'Source mise à jour' : 'Source créée', `"${form.name.trim()}" a été ${editingSource ? 'mis à jour' : 'ajouté'} avec succès.`);
-        setTimeout(() => setSuccessMsg(null), 3000);
+        handleSuccess(editingSource ? 'Source mise à jour' : 'Source créée', `"${form.name.trim()}" a été ${editingSource ? 'mis à jour' : 'ajouté'} avec succès.`);
         await fetchSources();
       } else {
         const data = await res.json().catch(() => ({}));
@@ -374,9 +371,7 @@ export function AdminDataSources() {
       if (res.ok) {
         setDeleteDialogOpen(false);
         setDeletingSource(null);
-        setSuccessMsg('Source supprimée');
         handleSuccess('Source supprimée', `"${deletingSource.name}" a été supprimé avec succès.`);
-        setTimeout(() => setSuccessMsg(null), 3000);
         await fetchSources();
       }
     } catch {
@@ -459,15 +454,10 @@ export function AdminDataSources() {
         </Button>
       </div>
 
-      {/* Messages */}
+      {/* Error banner */}
       {error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
           {error}
-        </div>
-      )}
-      {successMsg && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-400">
-          {successMsg}
         </div>
       )}
 

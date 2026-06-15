@@ -23,7 +23,9 @@ export async function GET(request: NextRequest) {
       db.dataSource.count({ where }),
     ])
 
-    return NextResponse.json({ data: sources, pagination: { page, limit, total, pages: Math.ceil(total / limit) } })
+    const sanitized = sources.map(({ password: _, ...rest }) => rest)
+
+    return NextResponse.json({ data: sanitized, pagination: { page, limit, total, pages: Math.ceil(total / limit) } })
   } catch (error) {
     console.error('[GET /api/admin/data-sources]', error)
     return NextResponse.json(
