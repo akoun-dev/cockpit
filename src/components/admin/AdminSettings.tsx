@@ -261,7 +261,7 @@ export function AdminSettings() {
   }
 
   return (
-    <div className="space-y-6 overflow-x-hidden">
+    <div className="space-y-6">
       {/* Page header */}
       <div>
         <div className="flex items-center gap-3">

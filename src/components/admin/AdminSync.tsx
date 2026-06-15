@@ -537,7 +537,7 @@ export function AdminSync() {
                           </div>
                           <div>
                             <p className="text-muted-foreground">Erreur</p>
-                            <p className="truncate font-medium text-red-600 dark:text-red-400">
+                            <p className="break-words font-medium text-red-600 dark:text-red-400">
                               {log.errorMessage || '—'}
                             </p>
                           </div>

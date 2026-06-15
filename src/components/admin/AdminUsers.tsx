@@ -722,7 +722,7 @@ export function AdminUsers() {
                     </div>
 
                     {/* Status badges + Active toggle + Last login */}
-                    <div className="flex items-center justify-between pl-[52px]">
+                    <div className="flex items-center justify-between gap-2 flex-wrap pl-[52px]">
                       <div className="flex items-center gap-2">
                         <Switch
                           checked={user.isActive}
