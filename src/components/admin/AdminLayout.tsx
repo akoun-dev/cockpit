@@ -82,13 +82,13 @@ export function AdminLayout({ activeView, children }: AdminLayoutProps) {
                 key={key}
                 onClick={() => setAdminSubView(key)}
                 className={cn(
-                  'flex snap-start shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors',
+                  'flex snap-start shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                   isActive
                     ? 'bg-fun-blue text-white shadow-sm'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 )}
               >
-                <Icon className="size-3.5 shrink-0" />
+                <Icon className="size-4 shrink-0" />
                 <span className="whitespace-nowrap hidden sm:inline">{label}</span>
               </button>
             );
