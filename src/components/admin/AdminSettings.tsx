@@ -277,48 +277,6 @@ export function AdminSettings() {
         </div>
       </div>
 
-      {/* ====== ANSUT Organizational Info ====== */}
-      <Card className="overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-fun-blue/5 to-tango/5 border-b p-4 sm:p-6">
-          <div className="flex items-center gap-2.5">
-            <div className="shrink-0 rounded-md bg-fun-blue/10 p-1.5">
-              <Building2 className="size-4 text-fun-blue" />
-            </div>
-            <div className="min-w-0">
-              <CardTitle className="text-base">Organisation ANSUT</CardTitle>
-              <CardDescription className="mt-0.5 truncate text-xs">
-                Agence Nationale du Service Universel des Télécommunications/TIC
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { sigle: 'DG', libelle: 'Directeur Général' },
-              { sigle: 'PMO', libelle: 'Project Management Officer' },
-              { sigle: 'DSIS', libelle: 'Direction des Solutions et Intégration de Services' },
-              { sigle: 'DDIR', libelle: 'Direction du Développement des Infrastructures et du RNHD' },
-              { sigle: 'DJMG', libelle: 'Direction Juridique et des Moyens Généraux' },
-              { sigle: 'RDRHF', libelle: 'Responsable du Département Ressources Humaines et Formation' },
-              { sigle: 'DFC', libelle: 'Direction des Finances et Comptabilité' },
-            ].map((role) => (
-              <div
-                key={role.sigle}
-                className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-3 transition-colors hover:bg-muted/40"
-              >
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-fun-blue/10 font-bold text-xs text-fun-blue">
-                  {role.sigle}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold leading-tight">{role.libelle}</p>
-                  <p className="text-xs text-muted-foreground">{role.sigle}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* ====== 1. Configuration Générale ====== */}
