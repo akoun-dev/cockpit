@@ -32,6 +32,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     title: '',
     items: [
+      { key: 'admin_settings', label: 'Paramètres général', icon: Settings },
       { key: 'admin_users', label: 'Utilisateurs', icon: Users },
       { key: 'admin_roles', label: 'Rôles & Permissions', icon: Shield },
       { key: 'admin_indicators', label: 'Indicateurs KPI', icon: BarChart3 },
@@ -46,7 +47,6 @@ const NAV_GROUPS: NavGroup[] = [
       { key: 'admin_alerts', label: 'Alertes', icon: Bell },
       { key: 'admin_logs', label: 'Journal d\'audit', icon: ScrollText },
       { key: 'admin_notifications', label: 'Notifications', icon: Mail },
-      { key: 'admin_settings', label: 'Paramètres', icon: Settings },
       { key: 'admin_security', label: 'Sécurité', icon: Lock },
     ],
   },
