@@ -89,7 +89,7 @@ export function AdminLayout({ activeView, children }: AdminLayoutProps) {
                 )}
               >
                 <Icon className="size-4 shrink-0" />
-                <span className="whitespace-nowrap hidden sm:inline">{label}</span>
+                <span className="whitespace-nowrap text-sm">{label}</span>
               </button>
             );
           })}
