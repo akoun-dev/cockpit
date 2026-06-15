@@ -845,8 +845,8 @@ export function AdminDataSources() {
                 </p>
 
                 {/* Host + Port */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-2 space-y-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="sm:col-span-2 space-y-2">
                     <Label htmlFor="ds-host">Hôte / URL</Label>
                     <Input
                       id="ds-host"

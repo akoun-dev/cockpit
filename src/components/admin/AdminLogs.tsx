@@ -483,7 +483,7 @@ export function AdminLogs() {
           ) : (
             <>
               {/* Desktop table view */}
-              <div className="hidden max-h-[600px] overflow-y-auto md:block custom-scrollbar">
+              <div className="hidden max-h-[600px] overflow-y-auto overflow-x-auto md:block custom-scrollbar">
                 <Table>
                   <TableHeader>
                     <TableRow>

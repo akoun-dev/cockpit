@@ -412,7 +412,7 @@ export function AdminAlerts() {
           ) : (
             <>
               {/* Desktop Table */}
-              <div className="hidden md:block max-h-[520px] overflow-y-auto">
+              <div className="hidden md:block max-h-[520px] overflow-y-auto overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
