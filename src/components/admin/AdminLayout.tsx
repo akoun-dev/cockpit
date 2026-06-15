@@ -2,7 +2,6 @@
 
 import React from 'react';
 import {
-  LayoutDashboard,
   Users,
   Shield,
   BarChart3,
@@ -33,7 +32,6 @@ const NAV_GROUPS: NavGroup[] = [
   {
     title: '',
     items: [
-      { key: 'admin_dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
       { key: 'admin_users', label: 'Utilisateurs', icon: Users },
       { key: 'admin_roles', label: 'Rôles & Permissions', icon: Shield },
       { key: 'admin_indicators', label: 'Indicateurs KPI', icon: BarChart3 },

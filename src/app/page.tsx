@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { SidebarProvider, SidebarInset, SidebarRail } from '@/components/ui/sidebar';
 import { AppSidebar, Header, DashboardAccueil, FinanceModule, GovernanceModule, OperationalModule, RHModule, RisqueModule, PTAModule } from '@/components/cockpit';
-import { AdminLayout, AdminDashboard, AdminUsers, AdminRoles, AdminDataSources, AdminLogs, AdminSettings, AdminKPI, AdminSync, AdminDocuments, AdminAlerts, AdminNotifications, AdminSecurity } from '@/components/admin';
+import { AdminLayout, AdminUsers, AdminRoles, AdminDataSources, AdminLogs, AdminSettings, AdminKPI, AdminSync, AdminDocuments, AdminAlerts, AdminNotifications, AdminSecurity } from '@/components/admin';
 import { useAppStore } from '@/lib/store';
 import { setUserId } from '@/lib/user-id';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -21,7 +21,6 @@ const MODULE_COMPONENTS: Record<string, React.ComponentType> = {
 };
 
 const ADMIN_SUB_VIEWS: Record<string, React.ComponentType> = {
-  admin_dashboard: AdminDashboard,
   admin_users: AdminUsers,
   admin_roles: AdminRoles,
   admin_datasources: AdminDataSources,
@@ -72,7 +71,7 @@ function CockpitApp() {
               >
                 <AdminLayout activeView={adminSubView}>
                   {(() => {
-                    const SubComponent = ADMIN_SUB_VIEWS[adminSubView] || AdminDashboard;
+                    const SubComponent = ADMIN_SUB_VIEWS[adminSubView] || AdminUsers;
                     return <SubComponent />;
                   })()}
                 </AdminLayout>
