@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React from 'react';
 import {
   Users,
   Shield,
@@ -62,15 +62,9 @@ interface AdminLayoutProps {
 
 export function AdminLayout({ activeView, children }: AdminLayoutProps) {
   const { adminSubView, setAdminSubView } = useAppStore();
-  const mainRef = useRef<HTMLElement>(null);
 
   // Use store's adminSubView if provided, otherwise use prop
   const currentView = activeView || adminSubView;
-
-  const handleNavClick = (key: AdminViewKey) => {
-    setAdminSubView(key);
-    mainRef.current?.scrollTo(0, 0);
-  };
 
   return (
     <div className="flex flex-1 flex-col min-h-0">
@@ -84,7 +78,7 @@ export function AdminLayout({ activeView, children }: AdminLayoutProps) {
             return (
               <button
                 key={key}
-                onClick={() => handleNavClick(key)}
+                onClick={() => setAdminSubView(key)}
                 className={cn(
                   'flex snap-start shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors',
                   isActive
@@ -101,7 +95,7 @@ export function AdminLayout({ activeView, children }: AdminLayoutProps) {
       </div>
 
       {/* Single content area */}
-      <main ref={mainRef} className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
+      <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
         <div className="p-3 sm:p-4 lg:p-6">
           {children}
         </div>

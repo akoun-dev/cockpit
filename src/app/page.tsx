@@ -43,7 +43,7 @@ function CockpitApp() {
 
   // Scroll to top when module view changes
   useEffect(() => {
-    const container = document.querySelector('[data-sidebar="inset"]') as HTMLElement | null;
+    const container = document.querySelector('[data-slot="sidebar-inset"]') as HTMLElement | null;
     if (container) {
       container.scrollTop = 0;
     } else {
