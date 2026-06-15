@@ -118,7 +118,6 @@ export async function buildAuthOptions(): Promise<NextAuthOptions> {
               id: user.id,
               email: user.email,
               name: user.name,
-              image: user.avatar,
               fonction: user.fonction,
               matricule: user.matricule,
               role: user.role
